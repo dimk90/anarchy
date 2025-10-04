@@ -1,0 +1,24 @@
+# Custom keymap based on US ANSI layout with additional Ctrl combinations
+# Load with: loadkeys custom.map
+
+# The base US keymap
+include "/usr/share/kbd/keymaps/i386/qwerty/us.map.gz"
+
+# Define custom function key codes
+# F100-F103 typically unused
+
+# Ctrl+Left Arrow (keycode 105 is Left arrow)
+control keycode 105 = F100
+string F100 = "\033[1;5D"
+
+# Ctrl+Right Arrow (keycode 106 is Right arrow)
+control keycode 106 = F101
+string F101 = "\033[1;5C"
+
+# Ctrl+Backspace (keycode 14 is Backspace)
+control keycode 14 = F102
+string F102 = "\027"
+
+# Ctrl+Delete (keycode 111 is Delete)
+control keycode 111 = F103
+string F103 = "\033d"
