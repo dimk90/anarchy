@@ -1,0 +1,18 @@
+title: Anarchy
+
+show_downloads: false
+
+exclude:
+  - node_modules
+  - script
+
+sass:
+  style: :compressed
+
+theme: jekyll-theme-primer
+
+github:
+  private: false
+  source:
+    branch: "main"
+    path: "/"
