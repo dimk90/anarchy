@@ -200,7 +200,7 @@ request_package() {
     #
     local package="$1"
 
-    pacman -Qs "${package}" &> /dev/null && return 0
+    pacman -Qi "${package}" &> /dev/null && return 0
 
     as_root pacman -Sy "${package}"
     return $?
