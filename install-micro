@@ -1,0 +1,97 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+# common routines and constants
+COMMON_ROUTINES="https://dimk90.github.io/anarchy/common.sh"
+
+if curl -fsSL "$COMMON_ROUTINES" -o /tmp/common.sh; then
+    source /tmp/common.sh
+    rm /tmp/common.sh
+else
+    echo "[ERROR] Failed to import $COMMON_ROUTINES"
+    exit 1
+fi
+
+
+## Globals
+
+
+CONFIG_FILES=(
+    ~/.config/micro/settings.json
+    ~/.config/micro/bindings.json
+)
+
+CONFIG_URL=(
+    "https://dimk90.github.io/anarchy/micro/settings.json"
+    "https://dimk90.github.io/anarchy/micro/bindings.json"
+)
+
+
+## Routines
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? "no gum - no fun ${BLUE}:(${CLR}"
+
+    ## Install micro
+
+    request_package "micro"
+    assert $? "can't install micro"
+
+    ## Configs
+
+    info "Configs...\n"
+
+    # Ask user for configs to install
+    choices=$(gum choose --no-limit --selected="*" \
+                         --header "Select configs to install:" \
+                         "${CONFIG_FILES[@]}")
+
+    # Get indices for selected configs
+    config_indices=( $(choices_to_indices "$choices" "${CONFIG_FILES[@]}") )
+
+    # Create micro config directory if it doesn't exist
+    mkdir -p ~/.config/micro
+    assert $? "can't create ~/.config/micro"
+
+    # Create a temporary directory and ensure it's deleted on exit
+    tmpdir="$(mktemp -d)"
+    assert $? "can't create temporary directory"
+
+    # Setup cleanup for temporary directory
+    trap 'rm -rf "$tmpdir"' EXIT
+
+    # Download and install selected configs
+    for idx in "${config_indices[@]}"; do
+        # Download config to temporary file
+        curl -fsSL "${CONFIG_URL[$idx]}" -o "${tmpdir}/config.tmp"
+        assert $? "can't download ${CONFIG_URL[$idx]}"
+
+        # Backup existing config file if it exists
+        backup_file=$(backup_file "${CONFIG_FILES[$idx]}")
+        assert $? "can't backup ${CONFIG_FILES[$idx]}"
+        [ -n "$backup_file" ] && log_result "Backed up: ${CLR}${backup_file}\n"
+
+        # Move the downloaded config to the target location
+        mv "${tmpdir}/config.tmp" "${CONFIG_FILES[$idx]}"
+        assert $? "can't move ${tmpdir}/config.tmp to ${CONFIG_FILES[$idx]}"
+        log_result "Installed: ${CLR}${CONFIG_FILES[$idx]}\n"
+    done
+
+    echo
+    return 0
+}
+
+
+# Run main and return its exit code
+main "$@"
+exit $?
