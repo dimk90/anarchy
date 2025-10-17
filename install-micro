@@ -6,16 +6,13 @@ set -o nounset
 
 ## Imports
 
-# common routines and constants
-COMMON_ROUTINES="https://dimk90.github.io/anarchy/common.sh"
 
-if curl -fsSL "$COMMON_ROUTINES" -o /tmp/common.sh; then
-    source /tmp/common.sh
-    rm /tmp/common.sh
-else
-    echo "[ERROR] Failed to import $COMMON_ROUTINES"
-    exit 1
-fi
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common.sh")
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
 
 
 ## Globals
