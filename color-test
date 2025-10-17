@@ -57,17 +57,6 @@ print_color "${BG_CYAN}" "BG_CYAN" "Cyan background"
 print_color "${BG_WHITE}" "BG_WHITE" "White background"
 echo
 
-echo "--- Bright Background Colors ---"
-print_color "${BG_LIGHT_BLACK}" "BG_LIGHT_BLACK" "Light black background"
-print_color "${BG_LIGHT_RED}" "BG_LIGHT_RED" "Light red background"
-print_color "${BG_LIGHT_GREEN}" "BG_LIGHT_GREEN" "Light green background"
-print_color "${BG_LIGHT_YELLOW}" "BG_LIGHT_YELLOW" "Light yellow background"
-print_color "${BG_LIGHT_BLUE}" "BG_LIGHT_BLUE" "Light blue background"
-print_color "${BG_LIGHT_MAGENTA}" "BG_LIGHT_MAGENTA" "Light magenta background"
-print_color "${BG_LIGHT_CYAN}" "BG_LIGHT_CYAN" "Light cyan background"
-print_color "${BG_LIGHT_WHITE}" "BG_LIGHT_WHITE" "Light white background"
-echo
-
 echo "--- Combined Styles ---"
 printf "${BOLD}${RED}Bold Red${CLR}\n"
 printf "${UNDERLINE}${BLUE}Underlined Blue${CLR}\n"
