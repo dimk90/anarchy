@@ -1,0 +1,93 @@
+#!/bin/bash
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common.sh")
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Tests
+
+
+# Test function
+print_color() {
+    printf "${1}%-20s${CLR} %s\n" "$2" "$3"
+}
+
+echo "=========================================="
+echo "  ANSI Color and Style Test"
+echo "=========================================="
+echo
+
+echo "--- Text Styles ---"
+print_color "${BOLD}" "BOLD" "Bold text"
+print_color "${DIM}" "DIM" "Dimmed text"
+print_color "${ITALIC}" "ITALIC" "Italic text"
+print_color "${UNDERLINE}" "UNDERLINE" "Underlined text"
+print_color "${BLINK}" "BLINK" "Blinking text"
+print_color "${REVERSE}" "REVERSE" "Reversed colors"
+print_color "${HIDDEN}" "HIDDEN" "Hidden text (you shouldn't see this)"
+echo
+
+echo "--- Standard Foreground Colors ---"
+print_color "${BLACK}" "BLACK" "Black text"
+print_color "${RED}" "RED" "Red text"
+print_color "${GREEN}" "GREEN" "Green text"
+print_color "${YELLOW}" "YELLOW" "Yellow text"
+print_color "${BLUE}" "BLUE" "Blue text"
+print_color "${MAGENTA}" "MAGENTA" "Magenta text"
+print_color "${CYAN}" "CYAN" "Cyan text"
+print_color "${WHITE}" "WHITE" "White text"
+echo
+
+echo "--- Bright Foreground Colors ---"
+print_color "${LIGHT_BLACK}" "LIGHT_BLACK" "Light black (grey)"
+print_color "${LIGHT_RED}" "LIGHT_RED" "Light red"
+print_color "${LIGHT_GREEN}" "LIGHT_GREEN" "Light green"
+print_color "${LIGHT_YELLOW}" "LIGHT_YELLOW" "Light yellow"
+print_color "${LIGHT_BLUE}" "LIGHT_BLUE" "Light blue"
+print_color "${LIGHT_MAGENTA}" "LIGHT_MAGENTA" "Light magenta"
+print_color "${LIGHT_CYAN}" "LIGHT_CYAN" "Light cyan"
+print_color "${LIGHT_WHITE}" "LIGHT_WHITE" "Light white"
+echo
+
+echo "--- Standard Background Colors ---"
+print_color "${BG_BLACK}" "BG_BLACK" "Black background"
+print_color "${BG_RED}" "BG_RED" "Red background"
+print_color "${BG_GREEN}" "BG_GREEN" "Green background"
+print_color "${BG_YELLOW}" "BG_YELLOW" "Yellow background"
+print_color "${BG_BLUE}" "BG_BLUE" "Blue background"
+print_color "${BG_MAGENTA}" "BG_MAGENTA" "Magenta background"
+print_color "${BG_CYAN}" "BG_CYAN" "Cyan background"
+print_color "${BG_WHITE}" "BG_WHITE" "White background"
+echo
+
+echo "--- Bright Background Colors ---"
+print_color "${BG_LIGHT_BLACK}" "BG_LIGHT_BLACK" "Light black background"
+print_color "${BG_LIGHT_RED}" "BG_LIGHT_RED" "Light red background"
+print_color "${BG_LIGHT_GREEN}" "BG_LIGHT_GREEN" "Light green background"
+print_color "${BG_LIGHT_YELLOW}" "BG_LIGHT_YELLOW" "Light yellow background"
+print_color "${BG_LIGHT_BLUE}" "BG_LIGHT_BLUE" "Light blue background"
+print_color "${BG_LIGHT_MAGENTA}" "BG_LIGHT_MAGENTA" "Light magenta background"
+print_color "${BG_LIGHT_CYAN}" "BG_LIGHT_CYAN" "Light cyan background"
+print_color "${BG_LIGHT_WHITE}" "BG_LIGHT_WHITE" "Light white background"
+echo
+
+echo "--- Combined Styles ---"
+printf "${BOLD}${RED}Bold Red${CLR}\n"
+printf "${UNDERLINE}${BLUE}Underlined Blue${CLR}\n"
+printf "${BOLD}${ITALIC}${GREEN}Bold Italic Green${CLR}\n"
+printf "${REVERSE}${YELLOW}Reversed Yellow${CLR}\n"
+printf "${BG_BLUE}${YELLOW}Yellow on Blue${CLR}\n"
+printf "${BOLD}${BG_MAGENTA}${WHITE}Bold White on Magenta${CLR}\n"
+echo
+
+echo "=========================================="
+echo "  Test Complete"
+echo "=========================================="
