@@ -3,11 +3,13 @@
     "CtrlUnderscore": "lua:comment.comment",
 
     "Ctrl-Backspace": "DeleteWordLeft",
+	"Ctrl-w": "DeleteWordLeft",
+
     "Ctrl-Delete": "DeleteWordRight",
+	"\u001Bd": "DeleteWordRight",
 
 	"\u001B[1;5D": "WordLeft",
 	"\u001B[1;5C": "WordRight",
-	"Ctrl-w": "DeleteWordLeft",
-	"\u001Bd": "DeleteWordRight",
-	"\u001B[3~": "DeleteLine"
+
+	"\u001B[3;2~": "DeleteLine"
 }
