@@ -179,7 +179,10 @@ ask_yn() {
     #   if ask_yn; then as_root pacman -Sy gum; fi
     #
     printf "(y/n): "
-    read -r reply
+
+    # read input from /dev/tty to work correctly when stdin is redirected
+    # e.g., curl -fsSL ...install.sh | bash
+    read -r reply </dev/tty
 
     if [[ $reply =~ ^[Yy]$ ]]; then
         return 0
