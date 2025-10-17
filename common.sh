@@ -179,8 +179,7 @@ ask_yn() {
     #   if ask_yn; then as_root pacman -Sy gum; fi
     #
     printf "(y/n): "
-    read -r -p "" -n 1 reply
-    echo
+    read -r reply
 
     if [[ $reply =~ ^[Yy]$ ]]; then
         return 0
