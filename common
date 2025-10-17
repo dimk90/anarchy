@@ -118,17 +118,28 @@ as_root() {
     # Example:
     #   as_root pacman -Sy gum
     #
-    info "$*\n"
-
     if [ "$EUID" -eq 0 ]; then
         "$@"
     else
         sudo "$@"
     fi
+}
 
+as_root_verbose() {
+    #
+    # Execute command as root (add sudo if necessary).
+    # Prints the command being executed.
+    # Returns the exit code of the command.
+    #
+    # Example:
+    #   as_root_verbose pacman -Sy gum
+    #
+    info "$*\n"
+
+    as_root "$@"
     local exit_code=$?
-    echo
 
+    echo
     return "$exit_code"
 }
 
@@ -186,7 +197,7 @@ request_package() {
 
     pacman -Qi "${package}" &> /dev/null && return 0
 
-    as_root pacman -Sy "${package}" </dev/tty
+    as_root_verbose pacman -Sy "${package}" </dev/tty
     return $?
 }
 
@@ -204,7 +215,7 @@ request_gum() {
     info "The UI ${CLR}${BOLD}${MAGENTA}gum${CLR}${DIM} not found. Let's get some? "
 
     if ask_yn; then
-        as_root pacman -Sy gum </dev/tty
+        as_root_verbose pacman -Sy gum </dev/tty
         return $?
     else
         return 1
