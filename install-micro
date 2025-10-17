@@ -9,7 +9,7 @@ set -o nounset
 
 set -o errexit # exit on non-zero exit code
 
-COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common.sh")
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
 source <(echo "$COMMON")
 
 set +o errexit # disable exit on non-zero exit code
