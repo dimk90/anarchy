@@ -46,17 +46,6 @@ print_color "${CYAN}" "CYAN" "Cyan text"
 print_color "${WHITE}" "WHITE" "White text"
 echo
 
-echo "--- Bright Foreground Colors ---"
-print_color "${LIGHT_BLACK}" "LIGHT_BLACK" "Light black (grey)"
-print_color "${LIGHT_RED}" "LIGHT_RED" "Light red"
-print_color "${LIGHT_GREEN}" "LIGHT_GREEN" "Light green"
-print_color "${LIGHT_YELLOW}" "LIGHT_YELLOW" "Light yellow"
-print_color "${LIGHT_BLUE}" "LIGHT_BLUE" "Light blue"
-print_color "${LIGHT_MAGENTA}" "LIGHT_MAGENTA" "Light magenta"
-print_color "${LIGHT_CYAN}" "LIGHT_CYAN" "Light cyan"
-print_color "${LIGHT_WHITE}" "LIGHT_WHITE" "Light white"
-echo
-
 echo "--- Standard Background Colors ---"
 print_color "${BG_BLACK}" "BG_BLACK" "Black background"
 print_color "${BG_RED}" "BG_RED" "Red background"
