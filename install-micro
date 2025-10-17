@@ -40,7 +40,7 @@ main() {
     ## Get gum
 
     request_gum
-    assert $? "no gum - no fun ${BLUE}:(${CLR}"
+    assert $? "no gum - no fun :("
 
     ## Install micro
 

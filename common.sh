@@ -204,7 +204,7 @@ request_package() {
 
     pacman -Qi "${package}" &> /dev/null && return 0
 
-    as_root pacman -Sy "${package}"
+    as_root pacman -Sy "${package}" </dev/tty
     return $?
 }
 
@@ -222,7 +222,7 @@ request_gum() {
     info "The UI ${CLR}${BOLD}${MAGENTA}gum${CLR}${DIM} not found. Let's get some? "
 
     if ask_yn; then
-        as_root pacman -Sy gum
+        as_root pacman -Sy gum </dev/tty
         return $?
     else
         return 1
