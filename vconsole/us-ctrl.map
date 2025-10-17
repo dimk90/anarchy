@@ -22,3 +22,7 @@ string F102 = "\027"
 # Ctrl+Delete (keycode 111 is Delete)
 control keycode 111 = F103
 string F103 = "\033d"
+
+# Shift+Delete (keycode 111 is Delete)
+shift keycode 111 = F104
+string F104 = "\033[3;2~"
