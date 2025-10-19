@@ -317,3 +317,43 @@ backup_file() {
         return 1
     fi
 }
+
+
+remove_line() {
+    #
+    # Remove lines matching a given pattern from a file.
+    # Parameters:
+    #   $1 - file to modify
+    #   $2 - pattern to match (sed regex)
+    #   $3 - (optional) prefix command (e.g., "sudo")
+    #
+    # Example:
+    #   remove_line "/etc/vconsole.conf" "^FONT="
+    #   assert $? "failed to remove line from /etc/vconsole.conf"
+    #
+    #   remove_line "/etc/vconsole.conf" "^FONT=" "sudo"
+    #   assert $? "failed to remove line from /etc/vconsole.conf (with sudo)"
+    #
+    local file="$1"
+    local pattern="$2"
+    local prefix="$3"
+
+    # Check if both parameters are provided
+    if [[ -z $file || -z $pattern ]]; then
+        assert 1 "both <file> and <pattern> parameters are required"
+    fi
+
+    # Check if file exists
+    if [[ ! -f $file ]]; then
+        return 0 # not file -> no line -> done
+    fi
+
+    # Remove lines matching the pattern using sed
+    # -i flag edits the file in-place
+    # The pattern is escaped to handle special characters safely
+    if ! $prefix sed -i "\|${pattern}|d" "$file"; then
+        return 1
+    fi
+
+    return 0
+}
