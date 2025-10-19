@@ -125,6 +125,7 @@ as_root() {
     fi
 }
 
+
 as_root_verbose() {
     #
     # Execute command as root (add sudo if necessary).
@@ -238,6 +239,20 @@ request_gum() {
     else
         return 1
     fi
+}
+
+
+is_command_available() {
+    #
+    # Check if a command is available in the system.
+    #
+    # Example:
+    #   if is_command_available "git"; then ...
+    #
+    local command_name="$1"
+
+    command -v "$command_name" &> /dev/null
+    return $?
 }
 
 
