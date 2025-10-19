@@ -289,6 +289,28 @@ choices_to_indices() {
 }
 
 
+array_contains() {
+    #
+    # Check if an array contains item(s) matching a given pattern.
+    # The matching is case-sensitive and supports shell globbing.
+    #
+    # Example:
+    #   if array_contains "^Keymap*" "${array[@]}"; then ...
+    #
+    local pattern="$1"
+    shift
+    local items=("$@")
+
+    for item in "${items[@]}"; do
+        if [[ $item =~ $pattern ]]; then
+            return 0 # pattern found
+        fi
+    done
+
+    return 1
+}
+
+
 backup_file() {
     #
     # Create a backup of the given file by appending .bakN
