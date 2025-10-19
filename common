@@ -144,6 +144,24 @@ as_root_verbose() {
 }
 
 
+check_sudo() {
+    #
+    # Check if sudo is needed (i.e., if not running as root).
+    # Returns "sudo" if needed, empty string otherwise.
+    #
+    # Example:
+    #   SUDO_PREFIX=$(check_sudo)
+    #   $SUDO_PREFIX pacman -Sy gum
+    #
+    if [ "$EUID" -eq 0 ]; then
+        # root already -> no need sudo
+        echo ""
+    else
+        echo "sudo"
+    fi
+}
+
+
 assert() {
     #
     # Assert that the given exit code is zero (the first argument);
