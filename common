@@ -394,3 +394,43 @@ remove_line() {
 
     return 0
 }
+
+
+replace_line() {
+    #
+    # Replace lines matching a given pattern in a file with a new line.
+    # Parameters:
+    #   $1 - file to modify
+    #   $2 - pattern to match (sed regex)
+    #   $3 - new line to insert
+    #   $4 - (optional) prefix command (e.g., "sudo")
+    #
+    # Example:
+    #   replace_line "/etc/vconsole.conf" "^FONT=" "FONT=ter-124b"
+    #   assert $? "failed to replace line in /etc/vconsole.conf"
+    #
+    #   replace_line "/etc/vconsole.conf" "^FONT=" "FONT=ter-124b" "sudo"
+    #   assert $? "failed to replace line in /etc/vconsole.conf (with sudo)"
+    #
+    local file="$1"
+    local pattern="$2"
+    local new_line="$3"
+    local prefix="$4"
+
+    # Check if all parameters are provided
+    if [[ -z $file || -z $pattern || -z $new_line ]]; then
+        assert 1 "parameters <file>, <pattern>, and <new_line> are required"
+    fi
+
+    # Check if file exists
+    if [[ ! -f $file ]]; then
+        return 1 # file not found
+    fi
+
+    # Replace lines matching the pattern using sed
+    if ! $prefix sed -i "\|${pattern}|c\\${new_line}" "$file"; then
+        return 1
+    fi
+
+    return 0
+}
