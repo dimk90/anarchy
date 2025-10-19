@@ -1,0 +1,116 @@
+#!/bin/bash
+
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Routines
+
+
+install_font() {
+    #
+    # Install and set Terminus font for console
+    #
+    info "Installing font...\n"
+
+    ## Install font
+
+    request_package "terminus-font"
+    assert $? "can't install font"
+
+
+    ## Change current font
+
+    if setfont ter-124b &> /dev/null; then
+        log_result "Change current font\n"
+    fi
+
+    ## Update /etc/vconsole.conf
+
+    # remove existing font setting, $(check_sudo) will add sudo if not root
+    remove_line "/etc/vconsole.conf" "^FONT=" "$(check_sudo)"
+    assert $? "can't modify /etc/vconsole.conf"
+    # add new font setting
+    echo "FONT=ter-124b" | as_root tee -a /etc/vconsole.conf > /dev/null
+    assert $? "can't modify /etc/vconsole.conf"
+    log_result "Update font in /etc/vconsole.conf\n"
+
+    ## Update initramfs to include new font
+
+    if is_command_available "mkinitcpio"; then
+        as_root_verbose mkinitcpio -P
+        assert $? "can't update initramfs"
+    fi
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? "no gum - no fun :("
+
+    ## Ask user for items to install
+
+    info "Confirm Items\n"
+    local choices
+    choices=$(gum choose --no-limit --selected="*" \
+                         --header "Select items to install:" \
+                         'Keymap - US/ANSI keyboard with extra bindings: CTRL+,SHIFT+' \
+                         'Locale - Set console locale to en_US.UTF-8' \
+                         'Font - Terminus font + size configuration for console')
+    mapfile -t choices <<<"$choices" # convert to array
+
+    # Empty choice means nothing to do -> exit
+    if [ ${#choices[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    ## Install selected items
+
+    # backup /etc/vconsole.conf if it exists
+    if [ -f "/etc/vconsole.conf" ]; then
+        info "Backup\n"
+        backup_name=$(backup_file "/etc/vconsole.conf" "$(check_sudo)") # sudo will be added if not root
+        assert $? "can't backup /etc/vconsole.conf"
+        log_result "${backup_name}\n"
+    fi
+
+    # Process choices
+    for choice in "${choices[@]}"; do
+        case "${choice,,}" in
+            keymap*)
+                # stub
+                ;;
+            font*)
+                install_font
+                ;;
+            locale*)
+                # stub
+                ;;
+
+            *)  assert 1 "invalid choice: ${choice}"
+                ;;
+        esac
+    done
+
+    return 0
+}
+
+
+# Run main and return its exit code
+main "$@"
+exit $?
