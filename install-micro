@@ -61,11 +61,11 @@ main() {
     assert $? "can't create ~/.config/micro"
 
     # Create a temporary directory and ensure it's deleted on exit
+    local tmpdir
     tmpdir="$(mktemp -d)"
     assert $? "can't create temporary directory"
-
     # Setup cleanup for temporary directory
-    trap 'rm -rf "$tmpdir"' EXIT
+    trap "rm -rf $tmpdir" EXIT
 
     # Download and install selected configs
     for idx in "${config_indices[@]}"; do

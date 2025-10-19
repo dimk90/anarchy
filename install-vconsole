@@ -45,7 +45,7 @@ install_font() {
     # add new font setting
     echo "FONT=ter-124b" | as_root tee -a /etc/vconsole.conf > /dev/null
     assert $? "can't modify /etc/vconsole.conf"
-    log_result "Update font in /etc/vconsole.conf\n"
+    log_result "Update font in ${CLR}/etc/vconsole.conf\n"
 
     ## Update initramfs to include new font
 
@@ -53,6 +53,50 @@ install_font() {
         as_root_verbose mkinitcpio -P
         assert $? "can't update initramfs"
     fi
+}
+
+
+install_keymap() {
+    #
+    # Install and set custom keymap for console
+    #
+    info "Installing keymap...\n"
+
+    ## Install keymap
+
+    request_package "kbd"
+    assert $? "can't install kbd"
+
+    ## Download keymap file
+
+    # get unique temp file name
+    local tmpfile
+    tmpfile=$(mktemp)
+    assert $? "can't create temporary file"
+    # register cleanup trap
+    trap "rm -f $tmpfile" EXIT
+
+    # download keymap file
+    curl -fsSL "https://dimk90.github.io/anarchy/vconsole/us-extra.map" -o "$tmpfile"
+    assert $? "can't download keymap file"
+    log_result "Downloaded keymap file\n"
+
+    # Move the downloaded config to the target location
+    as_root mv "$tmpfile" "/usr/share/kbd/keymaps/us-extra.map"
+    assert $? "can't move keymap file to /usr/share/kbd/keymaps/"
+    log_result "Installed ${YELLOW}us-extra${CLR}${DIM} to ${CLR}/usr/share/kbd/keymaps\n"
+
+    ## Load keymap
+
+    if loadkeys us-extra &> /dev/null; then
+        log_result "Switch keymap: ${CLR}us-extra\n"
+    fi
+
+    ## Update /etc/vconsole.conf
+
+    as_root localectl set-keymap us-extra
+    assert $? "can't set keymap with localectl"
+    log_result "Update keymap in ${CLR}/etc/vconsole.conf\n"
 }
 
 
@@ -79,29 +123,32 @@ main() {
         return 0
     fi
 
-    ## Install selected items
+    ## Create backup of /etc/vconsole.conf if needed
 
-    # backup /etc/vconsole.conf if it exists
-    if [ -f "/etc/vconsole.conf" ]; then
-        info "Backup\n"
-        backup_name=$(backup_file "/etc/vconsole.conf" "$(check_sudo)") # sudo will be added if not root
-        assert $? "can't backup /etc/vconsole.conf"
-        log_result "${backup_name}\n"
+    if array_contains "Font*" "${choices[@]}" ||
+       array_contains "Keymap*" "${choices[@]}"; then
+
+        # backup /etc/vconsole.conf if it exists
+        if [ -f "/etc/vconsole.conf" ]; then
+            info "Backup\n"
+            backup_name=$(backup_file "/etc/vconsole.conf" "$(check_sudo)") # sudo will be added if not root
+            assert $? "can't backup /etc/vconsole.conf"
+            log_result "${backup_name}\n"
+        fi
     fi
 
-    # Process choices
+    ## Install selected items
+
     for choice in "${choices[@]}"; do
         case "${choice,,}" in
             keymap*)
-                # stub
+                install_keymap
                 ;;
             font*)
                 install_font
                 ;;
             locale*)
-                # stub
                 ;;
-
             *)  assert 1 "invalid choice: ${choice}"
                 ;;
         esac
