@@ -64,6 +64,7 @@ printf "${BOLD}${ITALIC}${GREEN}Bold Italic Green${CLR}\n"
 printf "${REVERSE}${YELLOW}Reversed Yellow${CLR}\n"
 printf "${BG_BLUE}${YELLOW}Yellow on Blue${CLR}\n"
 printf "${BOLD}${BG_MAGENTA}${WHITE}Bold White on Magenta${CLR}\n"
+printf "${BOLD}${DIM}${BLUE}Bold dim blue${CLR}\n"
 echo
 
 echo "=========================================="
