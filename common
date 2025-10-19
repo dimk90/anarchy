@@ -279,14 +279,22 @@ backup_file() {
     # Create a backup of the given file by appending .bakN
     # where N is the next available number.
     #
+    # Parameters:
+    #   $1 - filename to backup
+    #   $2 - (optional) prefix command (e.g., "sudo")
+    #
     # Example:
     #    backup_name=$(backup_file "$file")
     #    assert $? "backup failed for $file"
     #
+    #    backup_name=$(backup_file "$file" "sudo")
+    #    assert $? "backup failed for $file (with sudo)"
+    #
     local filename="$1"
+    local prefix="$2"
 
+    # Тo target file -> nothing to back up
     if [[ ! -f $filename ]]; then
-        # no target file - nothing to back up
         echo ""  # return empty string
         return 0 # no error
     fi
@@ -301,7 +309,7 @@ backup_file() {
     done
 
     # Create the backup
-    if cp "$filename" "$backup_name" 2>/dev/null; then
+    if $prefix cp "${filename}" "${backup_name}" 2>/dev/null; then
         echo "${backup_name}" # return backup filename
         return 0
     else
