@@ -155,7 +155,10 @@ main() {
                          'Locale - Set console locale to en_US.UTF-8' \
                          'Keymap - US/ANSI keyboard with extra bindings: CTRL+,SHIFT+' \
                          'Font - Terminus font + size configuration for console')
-    mapfile -t choices <<<"$choices" # convert to array
+    [ $? -ne 0 ] && return 0 # user cancelled
+
+    # Convert choices string to array
+    mapfile -t choices <<<"$choices"
 
     # Empty choice means nothing to do -> exit
     if [ ${#choices[@]} -eq 0 ]; then
