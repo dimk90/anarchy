@@ -9,7 +9,7 @@ There is no centralized install script, each script is independent and can be us
 
 ### vconsole
 
-Install and configure keymap, font, and locale for virtual console (TTY):
+Install and configure keymap, font, and locale for virtual console:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/install-vconsole | bash
 ```

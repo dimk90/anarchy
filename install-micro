@@ -76,7 +76,7 @@ main() {
         # Backup existing config file if it exists
         backup_file=$(backup_file "${CONFIG_FILES[$idx]}")
         assert $? "can't backup ${CONFIG_FILES[$idx]}"
-        [ -n "$backup_file" ] && log_result "Backed up: ${CLR}${backup_file}\n"
+        [ -n "$backup_file" ] && log_result "Backup: ${CLR}${backup_file}\n"
 
         # Move the downloaded config to the target location
         mv "${tmpdir}/config.tmp" "${CONFIG_FILES[$idx]}"
