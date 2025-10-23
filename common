@@ -4,6 +4,17 @@
 ## Colors
 
 
+# Gum Style & Color (ANSI)
+readonly GUM_CYAN=44
+readonly GUM_BLUE=39
+readonly GUM_YELLOW=226
+readonly GUM_RED=160
+readonly GUM_GREEN=77
+readonly GUM_PINK=212
+readonly GUM_WHITE=231
+
+
+# ANSI Colors with escape sequence
 readonly ESC='\033['
 
 # Reset Style and Color
