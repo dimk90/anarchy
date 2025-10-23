@@ -163,6 +163,34 @@ check_sudo() {
 }
 
 
+have_privilege() {
+    #
+    # Check whether the script has root privileges or a cached sudo credential.
+    # Returns 0 if running as root or if `sudo` can be used without requiring a password,
+    # returns 1 otherwise (sudo is required).
+    #
+    # Example:
+    #   if have_privilege; then
+    #       as_root pacman -Sy gum
+    #   else
+    #       info "Need password to perform privileged actions"
+    #   fi
+    #
+    if [ "$EUID" -eq 0 ]; then
+        # root privilege
+        return 0
+    fi
+
+    # need sudo
+    if sudo -n true &> /dev/null; then
+        # the privilege is still valid since last request
+        return 0
+    fi
+
+    return 1 # need password
+}
+
+
 assert() {
     #
     # Assert that the given exit code is zero (the first argument);
