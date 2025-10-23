@@ -232,6 +232,20 @@ ask_yn() {
 }
 
 
+is_package_installed() {
+    #
+    # Check if a package installed.
+    #
+    # Parameters:
+    #   $1 - package name
+    #
+    local package="$1"
+
+    pacman -Qi "${package}" &> /dev/null && return 0
+    return 1
+}
+
+
 request_package() {
     #
     # Request user to install a package if it's not already installed.
@@ -242,10 +256,8 @@ request_package() {
     #
     local package="$1"
 
-    pacman -Qi "${package}" &> /dev/null && return 0
-
-    as_root_verbose pacman -Sy "${package}" </dev/tty
-    return $?
+    is_package_installed "$package" && return 0
+    as_root_verbose pacman -Sy "$package" </dev/tty
 }
 
 
