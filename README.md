@@ -31,3 +31,11 @@ Test color output in terminal:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/color-test | bash
 ```
+
+
+### color-gum
+
+Test color selected for `gum`:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/color-gum | bash
+```
