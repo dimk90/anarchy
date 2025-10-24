@@ -540,3 +540,62 @@ replace_line() {
 
     return 0
 }
+
+
+## Actions (UI/Interactive)
+
+
+action_install_package() {
+    #
+    # Install a package using pacman with interactive UI and privilege handling.
+    #
+    # Parameters:
+    #   $1 - package - The name of the package to install.
+    #   $2 - prefix  - A prefix string used when rendering UI titles.
+    #
+    # Example:
+    #   action_install_package "nano"
+    #
+    local package="$1"
+    local prefix="$2"
+
+    action_title=$(printf "%s%b %b" "$prefix"  \
+        "$(gum style --faint 'Installing')"    \
+        "$(gum style --bold --foreground "$GUM_ACCENT" "$package")" \
+    )
+
+    # check if package already installed
+    gum spin --align="right" \
+             --title "${action_title}$(gum style --faint ' - checking')" \
+             -- sleep $UI_INTERACTION_DELAY
+
+    if is_package_installed "$package"; then
+        printf "%b\n" "${action_title}$(gum style --faint ' - exists')"
+        return 0
+    fi
+
+    # request privilege
+    gum spin --align="right" \
+             --title "${action_title}$(gum style --faint ' - privilege')" \
+             -- sleep $UI_INTERACTION_DELAY
+
+    if ! have_privilege; then
+        password=$(gum input --password --char-limit=30 \
+                             --no-show-help             \
+                             --placeholder "enter your password" \
+                             --prompt "${action_title} $(gum style --foreground "$GUM_WHITE" '>') ")
+        assert $? "privilege request failed"
+
+        # shellcheck disable=SC2024
+        echo "$password" | sudo -Si true &> "$LOG_FILE"
+        assert $? "privilege request failed"
+    fi
+
+    # pacman & spinner
+    gum spin --align="right"  \
+             --title "${action_title}$(gum style --faint ' - installing')" \
+             -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &> ${LOG_FILE}"
+    assert $? "can't install package"
+
+    printf "%b\n" "${action_title}$(gum style --faint ' - done')"
+}
