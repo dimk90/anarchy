@@ -17,11 +17,8 @@ readonly GUM_GREEN=77
 readonly GUM_PINK=212
 readonly GUM_WHITE=231
 
-
 # ANSI Colors with escape sequence
 
-# shellcheck disable=SC2034
-{
 readonly ESC='\033['
 # Reset Style and Color
 readonly CLEAR="${ESC}0m"
@@ -52,6 +49,48 @@ readonly BG_BLUE="${ESC}104m"
 readonly BG_MAGENTA="${ESC}105m"
 readonly BG_CYAN="${ESC}106m"
 readonly BG_WHITE="${ESC}107m"
+}
+
+
+## Logger
+
+
+# Path to current log file. If unset or set to "/dev/null", start_logger()
+# will create a temporary log file and assign it to LOG_FILE.
+LOG_FILE=/dev/null
+
+
+start_logger() {
+    #
+    # Initialize LOG_FILE for logging.
+    # If LOG_FILE points to /dev/null, creates a temporary file
+    # (using mktemp) and assigns it to LOG_FILE.
+    #
+    # Example:
+    #   start_logger
+    #   echo " -> start log: $(get_logger)"
+    #
+    if [ "$LOG_FILE" = "/dev/null" ]; then
+        LOG_FILE="$(mktemp).log"
+        assert $? "can't create temp file"
+    fi
+}
+
+
+get_logger() {
+    #
+    # Prints the path of the current LOG_FILE to stdout.
+    #
+    echo "$LOG_FILE"
+}
+
+
+reset_logger() {
+    #
+    # Sets LOG_FILE back to /dev/null so logging is effectively disabled
+    # until start_logger is called again.
+    #
+    LOG_FILE=/dev/null
 }
 
 
@@ -196,7 +235,8 @@ have_privilege() {
     fi
 
     # need sudo
-    if sudo -n true &> /dev/null; then
+    # shellcheck disable=SC2024
+    if sudo -n true &> "$LOG_FILE"; then
         # the privilege is still valid since last request
         return 0
     fi
@@ -255,7 +295,7 @@ is_package_installed() {
     #
     local package="$1"
 
-    pacman -Qi "${package}" &> /dev/null && return 0
+    pacman -Qi "${package}" &> "$LOG_FILE" && return 0
     return 1
 }
 
@@ -304,7 +344,7 @@ is_command_available() {
     #
     local command_name="$1"
 
-    command -v "$command_name" &> /dev/null
+    command -v "$command_name" &> "$LOG_FILE"
 }
 
 
@@ -398,7 +438,7 @@ backup_file() {
     done
 
     # Create the backup
-    if $prefix cp "${filename}" "${backup_name}" 2>/dev/null; then
+    if $prefix cp "${filename}" "${backup_name}" &> "$LOG_FILE"; then
         echo "${backup_name}" # return backup filename
         return 0
     else
