@@ -7,7 +7,7 @@
 # shellcheck disable=SC2034
 {
 
-# Gum Style & Color (ANSI)
+# Gum Style (ANSI Colors)
 
 readonly GUM_CYAN=44
 readonly GUM_BLUE=39
@@ -16,6 +16,20 @@ readonly GUM_RED=160
 readonly GUM_GREEN=77
 readonly GUM_PINK=212
 readonly GUM_WHITE=231
+
+export GUM_ACCENT=$GUM_GREEN
+
+export GUM_SPIN_SPINNER_FOREGROUND=$GUM_WHITE
+export GUM_INPUT_CURSOR_FOREGROUND=$GUM_ACCENT
+
+if [ "$TERM" = "linux" ]; then
+    export GUM_SPIN_SPINNER="line"
+else
+    export GUM_SPIN_SPINNER="minidot"
+fi
+
+# The minimum delay for displaying a some status before changing it
+UI_INTERACTION_DELAY=1 # sec
 
 # ANSI Colors with escape sequence
 
