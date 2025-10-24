@@ -4,7 +4,11 @@
 ## Colors
 
 
+# shellcheck disable=SC2034
+{
+
 # Gum Style & Color (ANSI)
+
 readonly GUM_CYAN=44
 readonly GUM_BLUE=39
 readonly GUM_YELLOW=226
@@ -15,11 +19,13 @@ readonly GUM_WHITE=231
 
 
 # ANSI Colors with escape sequence
-readonly ESC='\033['
 
+# shellcheck disable=SC2034
+{
+readonly ESC='\033['
 # Reset Style and Color
 readonly CLEAR="${ESC}0m"
-readonly CLR="${ESC}0m"
+readonly CLR="${CLEAR}"
 # Styles
 readonly BOLD="${ESC}1m"
 readonly DIM="${ESC}2m"
@@ -46,6 +52,7 @@ readonly BG_BLUE="${ESC}104m"
 readonly BG_MAGENTA="${ESC}105m"
 readonly BG_CYAN="${ESC}106m"
 readonly BG_WHITE="${ESC}107m"
+}
 
 
 ## Routines
