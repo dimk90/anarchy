@@ -682,21 +682,39 @@ action_require_package() {
 }
 
 
-action_show_delayed() {
+action_run() {
     #
-    # Show action and wait (with spinner) a little to give user
-    # some time to notice the action then replace spinner with provided status.
+    # Run action with spinner. Print status is provided after command finished.
+    # Return command exit code.
+    #
+    # Parameters:
+    #   $1 - title - the action title to show.
+    #   $2 - command - a command to run. The 'sleep' will be used if not provided.
+    #   $3 - status - text to show after when the command finished (optional).
     #
     local title="$1"
-    local status="$2"
+    local command="$2"
+    local status="$3"
 
     is_command_available "gum"
     assert $? "gum is required"
 
-    styled_title="$(printf_action "${title} -")"
+    # use sleep if command is not provided
+    if [ -z "$command" ]; then
+        command="sleep $UI_INTERACTION_DELAY"
+    fi
 
-    gum spin --align="right" --title "$styled_title" -- sleep "$UI_INTERACTION_DELAY"
+    # run command and show spinner
+    gum spin --align="right" --title "$(printf_action "${title} -")" \
+        -- bash -c "$command"
 
+    # return exit code and skip status if non-zero
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        return $exit_code
+    fi
+
+    # show status if provided and command finished without an error
     if [ -z "$status" ]; then
         printf_action "%b\n" "$title"
     else
