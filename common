@@ -98,7 +98,7 @@ start_logger() {
     #
     if [ "$LOG_FILE" = "/dev/null" ]; then
         LOG_FILE="$(mktemp).log"
-        assert $? "can't create temp file"
+        assert $? "can't create log file in /tmp"
     fi
 }
 
@@ -663,7 +663,7 @@ action_require_package() {
     if ! have_privilege; then
         password=$(gum input --password --char-limit=30 \
                              --no-show-help             \
-                             --placeholder "enter your password" \
+                             --placeholder "enter your password for sudo" \
                              --prompt "${action_title} $(gum style --foreground "$GUM_WHITE" '>') ")
         assert $? "password request failed"
 
@@ -720,4 +720,26 @@ action_run() {
     else
         printf_action "%b - %b\n" "$title" "$status"
     fi
+}
+
+
+action_request_permission() {
+    #
+    # Request root privilege via sudo and gum UI.
+    #
+    have_privilege && return 0
+
+    # request user password for sudo
+    request_title=$(printf_action "Request permission")
+    password=$(gum input --password --char-limit=30 \
+                         --no-show-help             \
+                         --placeholder "enter your password for sudo" \
+                         --prompt "${request_title} $(gum style --foreground "$GUM_WHITE" '>') ")
+    assert $? "password request failed"
+
+    # shellcheck disable=SC2024
+    echo "$password" | sudo -Si true &> "$LOG_FILE"
+    assert $? "privilege request failed"
+
+    printf_action "Request permission - done\n"
 }
