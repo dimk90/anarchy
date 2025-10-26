@@ -637,6 +637,9 @@ action_require_package() {
     local package="$1"
     local prefix="$2"
 
+    is_command_available "gum"
+    assert $? "gum is required"
+
     action_title=$(printf "%s%b %b" "$prefix"  \
         "$(gum style --faint 'Package')"    \
         "$(gum style --bold --foreground "$GUM_ACCENT" "$package")" \
@@ -676,4 +679,27 @@ action_require_package() {
     assert $? "can't install package"
 
     printf "%b\n" "${action_title}$(gum style --faint ' - done')"
+}
+
+
+action_show_delayed() {
+    #
+    # Show action and wait (with spinner) a little to give user
+    # some time to notice the action then replace spinner with provided status.
+    #
+    local title="$1"
+    local status="$2"
+
+    is_command_available "gum"
+    assert $? "gum is required"
+
+    styled_title="$(printf_action "${title} -")"
+
+    gum spin --align="right" --title "$styled_title" -- sleep "$UI_INTERACTION_DELAY"
+
+    if [ -z "$status" ]; then
+        printf_action "%b\n" "$title"
+    else
+        printf_action "%b - %b\n" "$title" "$status"
+    fi
 }
