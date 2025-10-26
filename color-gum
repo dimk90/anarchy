@@ -19,13 +19,13 @@ set +o errexit # disable exit on non-zero exit code
 gum style --border normal --margin "1 0" --padding "1 0" \
           --width 30 --align="center" \
           --border-foreground 236 \
-          --foreground $GUM_PINK ":: Gum Colors ::"
+          --foreground $GUM_MAGENTA ":: Gum Colors ::"
 
 gum style --foreground $GUM_BLUE " -> Some colored text <-"
 gum style --foreground $GUM_CYAN " -> Some colored text <-"
 gum style --foreground $GUM_GREEN " -> Some colored text <-"
 gum style --foreground $GUM_YELLOW " -> Some colored text <-"
 gum style --foreground $GUM_RED " -> Some colored text <-"
-gum style --foreground $GUM_PINK " -> Some colored text <-"
+gum style --foreground $GUM_MAGENTA " -> Some colored text <-"
 gum style --foreground $GUM_WHITE " -> Some colored text <-"
 echo

@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# shellcheck disable=SC2034
+readonly VERSION='1.0'
+
 
 ## Colors
 
@@ -7,29 +10,15 @@
 # shellcheck disable=SC2034
 {
 
-# Gum Style (ANSI Colors)
+# Selected Gum Colors (ANSI)
 
 readonly GUM_CYAN=44
 readonly GUM_BLUE=39
 readonly GUM_YELLOW=226
 readonly GUM_RED=160
 readonly GUM_GREEN=77
-readonly GUM_PINK=212
+readonly GUM_MAGENTA=212
 readonly GUM_WHITE=231
-
-export GUM_ACCENT=$GUM_GREEN
-
-export GUM_SPIN_SPINNER_FOREGROUND=$GUM_WHITE
-export GUM_INPUT_CURSOR_FOREGROUND=$GUM_ACCENT
-
-if [ "$TERM" = "linux" ]; then
-    export GUM_SPIN_SPINNER="line"
-else
-    export GUM_SPIN_SPINNER="minidot"
-fi
-
-# The minimum delay for displaying a some status before changing it
-UI_INTERACTION_DELAY=1 # sec
 
 # ANSI Colors with escape sequence
 
@@ -64,6 +53,29 @@ readonly BG_MAGENTA="${ESC}105m"
 readonly BG_CYAN="${ESC}106m"
 readonly BG_WHITE="${ESC}107m"
 }
+
+
+## Style
+
+
+# accent color
+export ACCENT=$GREEN
+export GUM_ACCENT=$GUM_GREEN
+
+# gum subcommands style
+export GUM_SPIN_SPINNER_FOREGROUND=$GUM_WHITE
+export GUM_INPUT_CURSOR_FOREGROUND=$GUM_ACCENT
+
+# spinner
+if [ "$TERM" = "linux" ]; then
+    # vconsole font is limited
+    export GUM_SPIN_SPINNER="line"
+else
+    export GUM_SPIN_SPINNER="minidot"
+fi
+
+# The minimum delay for displaying a some status before changing it
+UI_INTERACTION_DELAY=1 # sec
 
 
 ## Logger
@@ -108,78 +120,212 @@ reset_logger() {
 }
 
 
-## Routines
+## Common
 
 
-start_message() {
+is_command_available() {
     #
-    # Print standard message prefix.
-    #
-    printf "%b::%b " "${BOLD}${WHITE}" "${CLR}"
-}
-
-
-start_error() {
-    #
-    # Print standard error message prefix.
-    #
-    start_message
-    printf "%b[ERROR]%b " "${BOLD}${RED}" "${CLR}"
-}
-
-
-start_result()
-{
-    printf "   %b->%b " "${BOLD}${GREEN}" "${CLR}"
-}
-
-
-info() {
-    #
-    # Print an info message with standard prefix.
+    # Check if a command is available in the system.
     #
     # Example:
-    #   message "Installing configs..."
+    #   if is_command_available "git"; then ...
     #
-    start_message
-    printf "${DIM}%b${CLR}" "$1"
+    local command_name="$1"
+
+    command -v "$command_name" &> "$LOG_FILE"
 }
 
 
-error() {
+assert() {
     #
-    # Print an error message with standard prefix.
+    # Assert that the given exit code is zero (the first argument);
+    # if not, print the given message and exit with code 1.
     #
     # Example:
-    #   error "Failed to install configs"
+    #   as_root pacman -Sy gum
+    #   assert $? "failed to install gum"
     #
-    start_error
-    printf "${DIM}%b${CLR}" "$1"
+    local exit_code="$1"
+    local message="$2"
+
+    if [ "$exit_code" -ne 0 ]; then
+        printf_error "%b\n" "${message}"
+        exit 1
+    fi
 }
 
 
-warning() {
+## Print
+
+
+# The output structure:
+#
+# :: <section_title>
+#    -> <action_title> [- <status>]
+#    -> <action_title> [- <status>]
+#    -> <action_title> [- <status>]
+# :: <section_title>
+#    -> <action_title> [- <status>]
+# [WARNING] <message>
+# :: <section_title>
+#    -> <action_title> [- <status>]
+#    -> <action_title> [- <status>]
+# [ERROR] <message>
+
+
+bullet_section() {
     #
-    # Print a warning message with standard prefix.
+    # Output section bullet with applied style.
+    #
+    if is_command_available "gum"; then
+        gum style --bold --foreground "$GUM_WHITE" '::'
+    else
+        printf "%b::%b"       \
+            "${BOLD}${WHITE}" \
+            "${CLR}"
+    fi
+}
+
+
+bullet_action() {
+    #
+    # Output action bullet with applied style.
+    #
+    if is_command_available "gum"; then
+        gum style --bold --foreground "$GUM_ACCENT" '   ->'
+    else
+        printf "   %b->%b"     \
+            "${BOLD}${ACCENT}" \
+            "${CLR}"
+    fi
+}
+
+
+bullet_warning() {
+    #
+    # Output warning bullet with applied style.
+    #
+    if is_command_available "gum"; then
+        printf "%b%b%b"                                              \
+            "$(gum style --faint '[')"                               \
+            "$(gum style --bold --foreground $GUM_YELLOW 'WARNING')" \
+            "$(gum style --faint ']')"
+    else
+        printf "%b%b%b"                     \
+            "${DIM}[${CLR}"                 \
+            "${BOLD}${YELLOW}WARNING${CLR}" \
+            "${DIM}]${CLR}"
+    fi
+}
+
+
+bullet_error() {
+    #
+    # Output error bullet with applied style.
+    #
+    if is_command_available "gum"; then
+        printf "%b%b%b"                                         \
+            "$(gum style --faint '[')"                          \
+            "$(gum style --bold --foreground $GUM_RED 'ERROR')" \
+            "$(gum style --faint ']')"
+    else
+        printf "%b%b%b"                \
+            "${DIM}[${CLR}"            \
+            "${BOLD}${RED}ERROR${CLR}" \
+            "${DIM}]${CLR}"
+    fi
+}
+
+
+prefix_printf() {
+    local prefix="$1"
+    local title="$2"
+
+    if is_command_available "gum"; then
+        title="$(gum style --faint "$title")"
+    else
+        title="${DIM}${title}${CLR}"
+    fi
+
+    printf "%b ${title}" "$prefix" "${@:3}"
+}
+
+
+printf_section() {
+    #
+    # Print a section title with section prefix and style.
     #
     # Example:
-    #   warning "Config file already exists, skipping"
+    #   printf_section "Config file already exists, skipping"
+    #   printf_section "Config file %s skipping" "${CONFIG_FILE}"
     #
-    start_warning
-    printf "${DIM}%b${CLR}" "$1"
+    local title="$1"
+    prefix_printf "$(bullet_section)" "${title}" "${@:2}"
 }
 
 
-log_result() {
+printf_action() {
     #
-    # Print a result message with result prefix.
+    # Print a action title with action prefix and style.
     #
     # Example:
-    #   log_result "Config installed"
+    #   printf_action "Install package gum - %b" "${INSTALL_STATUS}"
     #
-    start_result
-    printf "${DIM}%b${CLR}" "$1"
+    local title="$1"
+    prefix_printf "$(bullet_action)" "${title}" "${@:2}"
 }
+
+
+printf_warning() {
+    #
+    # Print a warning message with the warning prefix.
+    #
+    # Example:
+    #   printf_warning "Config file already exists"
+    #
+    local title="$1"
+    prefix_printf "$(bullet_warning)" "${title}" "${@:2}"
+}
+
+
+printf_error() {
+    #
+    # Print a error message with the error prefix.
+    #
+    # Example:
+    #   printf_error "Can't install package"
+    #
+    local title="$1"
+    prefix_printf "$(bullet_error)" "${title}" "${@:2}"
+}
+
+
+## Input
+
+
+ask_yn() {
+    #
+    # Ask a yes/no question, return 0 for yes, 1 for no
+    #
+    # Example:
+    #   printf "Install gum? "
+    #   if ask_yn; then as_root pacman -Sy gum; fi
+    #
+    printf "(y/n): "
+
+    # read input from /dev/tty to work correctly when stdin is redirected
+    # e.g., curl -fsSL ...install.sh | bash
+    read -r reply </dev/tty
+
+    if [[ $reply =~ ^[Yy]$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+
+## Root & Privilege
 
 
 as_root() {
@@ -195,20 +341,6 @@ as_root() {
     else
         sudo "$@"
     fi
-}
-
-
-as_root_verbose() {
-    #
-    # Execute command as root (add sudo if necessary).
-    # Prints the command being executed.
-    # Returns the exit code of the command.
-    #
-    # Example:
-    #   as_root_verbose pacman -Sy gum
-    #
-    info "$*\n"
-    as_root "$@"
 }
 
 
@@ -259,45 +391,7 @@ have_privilege() {
 }
 
 
-assert() {
-    #
-    # Assert that the given exit code is zero (the first argument);
-    # if not, print the given message and exit with code 1.
-    #
-    # Example:
-    #   as_root pacman -Sy gum
-    #   assert $? "failed to install gum"
-    #
-    local exit_code="$1"
-    local message="$2"
-
-    if [ "$exit_code" -ne 0 ]; then
-        error "${message}\n"
-        exit 1
-    fi
-}
-
-
-ask_yn() {
-    #
-    # Ask a yes/no question, return 0 for yes, 1 for no
-    #
-    # Example:
-    #   printf "Install gum? "
-    #   if ask_yn; then as_root pacman -Sy gum; fi
-    #
-    printf "(y/n): "
-
-    # read input from /dev/tty to work correctly when stdin is redirected
-    # e.g., curl -fsSL ...install.sh | bash
-    read -r reply </dev/tty
-
-    if [[ $reply =~ ^[Yy]$ ]]; then
-        return 0
-    else
-        return 1
-    fi
-}
+## Package Management
 
 
 is_package_installed() {
@@ -314,21 +408,6 @@ is_package_installed() {
 }
 
 
-request_package() {
-    #
-    # Request user to install a package if it's not already installed.
-    #
-    # Example:
-    #   request_package "git"
-    #   assert $? "failed to install git"
-    #
-    local package="$1"
-
-    is_package_installed "$package" && return 0
-    as_root_verbose pacman -Sy "$package" </dev/tty
-}
-
-
 request_gum() {
     #
     # Request user to install gum if it's not already installed.
@@ -339,27 +418,21 @@ request_gum() {
     #
     is_command_available "gum" && return 0
 
-    info "The UI ${CLR}${BOLD}${MAGENTA}gum${CLR}${DIM} not found. Let's get some? "
+    printf_section "The UI%b gum%b not found. Let's get some? " \
+        "${CLR}${BOLD}${MAGENTA}" \
+        "${CLR}${DIM}"
 
     if ask_yn; then
-        as_root_verbose pacman -Sy gum </dev/tty
+        printf_action "pacman -Sy gum\n"
+        as_root pacman -Sy gum </dev/tty
+        echo
     else
         return 1
     fi
 }
 
 
-is_command_available() {
-    #
-    # Check if a command is available in the system.
-    #
-    # Example:
-    #   if is_command_available "git"; then ...
-    #
-    local command_name="$1"
-
-    command -v "$command_name" &> "$LOG_FILE"
-}
+## Array
 
 
 choices_to_indices() {
@@ -417,6 +490,9 @@ array_contains() {
 }
 
 
+## Files
+
+
 backup_file() {
     #
     # Create a backup of the given file by appending .bakN
@@ -465,6 +541,7 @@ backup_file() {
 remove_line() {
     #
     # Remove lines matching a given pattern from a file.
+    #
     # Parameters:
     #   $1 - file to modify
     #   $2 - pattern to match (sed regex)
@@ -505,6 +582,7 @@ remove_line() {
 replace_line() {
     #
     # Replace lines matching a given pattern in a file with a new line.
+    #
     # Parameters:
     #   $1 - file to modify
     #   $2 - pattern to match (sed regex)
@@ -542,10 +620,10 @@ replace_line() {
 }
 
 
-## Actions (UI/Interactive)
+## TUI - gum-based
 
 
-action_install_package() {
+action_require_package() {
     #
     # Install a package using pacman with interactive UI and privilege handling.
     #
@@ -554,13 +632,13 @@ action_install_package() {
     #   $2 - prefix  - A prefix string used when rendering UI titles.
     #
     # Example:
-    #   action_install_package "nano"
+    #   action_require_package "nano"
     #
     local package="$1"
     local prefix="$2"
 
     action_title=$(printf "%s%b %b" "$prefix"  \
-        "$(gum style --faint 'Installing')"    \
+        "$(gum style --faint 'Package')"    \
         "$(gum style --bold --foreground "$GUM_ACCENT" "$package")" \
     )
 
@@ -584,7 +662,7 @@ action_install_package() {
                              --no-show-help             \
                              --placeholder "enter your password" \
                              --prompt "${action_title} $(gum style --foreground "$GUM_WHITE" '>') ")
-        assert $? "privilege request failed"
+        assert $? "password request failed"
 
         # shellcheck disable=SC2024
         echo "$password" | sudo -Si true &> "$LOG_FILE"
