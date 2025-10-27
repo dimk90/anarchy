@@ -11,6 +11,7 @@ set -o nounset
 set -o errexit # exit on non-zero exit code
 
 COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
 source <(echo "$COMMON")
 
 set +o errexit # disable exit on non-zero exit code
@@ -23,36 +24,39 @@ install_font() {
     #
     # Install and set Terminus font for console
     #
-    info "Installing font...\n"
+    printf_section "Installing font\n"
 
-    ## Install font
+    ## Install terminus
 
-    request_package "terminus-font"
-    assert $? "can't install font"
+    action_require_package "terminus-font"
 
     ## Update /etc/vconsole.conf
 
     # remove existing font setting, $(check_sudo) will add sudo if not root
+    action_request_permission
     remove_line "/etc/vconsole.conf" "^FONT=" "$(check_sudo)"
     assert $? "can't modify /etc/vconsole.conf"
 
     # add new font setting
-    echo "FONT=ter-124b" | as_root tee -a /etc/vconsole.conf > /dev/null
+    action_request_permission
+    echo "FONT=ter-124b" | as_root tee -a /etc/vconsole.conf &> "$LOG_FILE"
     assert $? "can't modify /etc/vconsole.conf"
-    log_result "Update font in ${CLR}/etc/vconsole.conf\n"
+    action_run 'Update font in /etc/vconsole.conf' "" 'done'
 
     ## Update initramfs to include new font
 
     if is_command_available "mkinitcpio"; then
-        info "Update initramfs to include new font...\n"
-        as_root mkinitcpio -P
-        assert $? "can't update initramfs"
+        action_request_permission
+        action_run 'Update initramfs to include new font' \
+            "$(check_sudo) mkinitcpio -P &> $LOG_FILE"  \
+            'done'
+        assert $? "mkinitcpio failed"
     fi
 
     ## Change current font
 
-    if setfont ter-124b &> /dev/null; then
-        info "Change current font\n"
+    if setfont ter-124b &> "$LOG_FILE"; then
+        action_run 'Change current font' "" 'done'
     fi
 }
 
@@ -61,81 +65,99 @@ install_keymap() {
     #
     # Install and set custom keymap for console
     #
-    info "Installing keymap...\n"
+    printf_section "Installing keymap\n"
 
-    ## Install keymap
+    ## Install kbd
 
-    request_package "kbd"
-    assert $? "can't install kbd"
+    action_require_package "kbd"
 
     ## Download keymap file
 
     # get unique temp file name
     local tmpfile
-    tmpfile=$(mktemp)
+    tmpfile="$(mktemp)"
     assert $? "can't create temporary file"
+
     # register cleanup trap
+    # shellcheck disable=SC2064
     trap "rm -f $tmpfile" EXIT
 
     # download keymap file
-    curl -fsSL "https://dimk90.github.io/anarchy/vconsole/us-extra.map" -o "$tmpfile"
+    curl -fsSL 'https://dimk90.github.io/anarchy/vconsole/us-extra.map' -o "$tmpfile"
     assert $? "can't download keymap file"
-    log_result "Downloaded keymap file\n"
+    action_run 'Download keymap file' "" 'done'
 
     # Move the downloaded config to the target location
-    as_root mv "$tmpfile" "/usr/share/kbd/keymaps/us-extra.map"
+
+    action_request_permission
+    as_root mv "$tmpfile" '/usr/share/kbd/keymaps/us-extra.map'
     assert $? "can't move keymap file to /usr/share/kbd/keymaps/"
-    log_result "Installed ${CLR}${YELLOW}us-extra${CLR}${DIM} to ${CLR}/usr/share/kbd/keymaps\n"
+    action_run "$(printf "%b %b %b"      \
+        "$(gum style --faint 'Install')" \
+        "$(gum style --foreground $GUM_YELLOW 'us-extra')" \
+        "$(gum style --faint 'to /usr/share/kbd/keymaps')${DIM}" \
+    )" "" 'done'
+
 
     ## Load keymap
 
-    if loadkeys us-extra &> /dev/null; then
-        log_result "Switch keymap: ${CLR}us-extra\n"
+    if loadkeys us-extra &> "$LOG_FILE"; then
+        action_run 'Switch keymap: us-extra' "" 'done'
     fi
 
     ## Update /etc/vconsole.conf
 
-    as_root localectl set-keymap us-extra
+    action_request_permission
+    as_root localectl set-keymap us-extra &> "$LOG_FILE"
     assert $? "can't set keymap with localectl"
-    log_result "Update keymap in ${CLR}/etc/vconsole.conf\n"
+    action_run 'Update keymap in /etc/vconsole.conf' "" 'done'
 }
 
 
 install_locale() {
 
-    info "Configuring locale...\n"
+    printf_section "Configuring locale\n"
 
     ## Uncomment en_US.UTF-8 in /etc/locale.gen
 
     # Backup /etc/locale.gen if it exists
-    backup_file=$(backup_file "/etc/locale.gen" "$(check_sudo)") # sudo will be added if not root
+    [ -f '/etc/locale.gen' ] && action_request_permission
+    backup_file=$(backup_file '/etc/locale.gen' "$(check_sudo)") # sudo will be added if not root
     assert $? "can't backup /etc/locale.gen"
-    [ -n "$backup_file" ] && log_result "Backup: ${CLR}${backup_file}\n"
+    [ -n "$backup_file" ] && action_run 'Backup' "" "${CLR}${backup_file}"
 
     # Enable en_US.UTF-8 in /etc/locale.gen
-    replace_line "/etc/locale.gen" "^#en_US.UTF-8 UTF-8" "en_US.UTF-8 UTF-8" "$(check_sudo)"
+    action_request_permission
+    replace_line '/etc/locale.gen' "^#en_US.UTF-8 UTF-8" 'en_US.UTF-8 UTF-8' "$(check_sudo)"
     assert $? "can't modify /etc/locale.gen"
-    log_result "Enabled ${CLR}${YELLOW}en_US.UTF-8${CLR}${DIM} in ${CLR}/etc/locale.gen\n"
+    action_run "$(printf "%b %b %b"   \
+        "$(gum style --faint 'Enable')" \
+        "$(gum style --foreground $GUM_YELLOW 'en_US.UTF-8')" \
+        "$(gum style --faint 'in /etc/locale.gen')${DIM}" \
+    )" "" 'done'
 
     ## Generate locale
 
-    as_root locale-gen > /dev/null
+    # as_root locale-gen &> "$LOG_FILE"
+    action_request_permission
+    action_run 'Regenerate locale' "$(check_sudo) locale-gen &> $LOG_FILE" 'done'
     assert $? "can't generate locale"
-    log_result "Regenerated locale\n"
 
     ## Set locale in /etc/locale.conf
 
     # Backup /etc/locale.conf if it exists
-    backup_file=$(backup_file "/etc/locale.conf" "$(check_sudo)") # sudo will be added if not root
+    [ -f '/etc/locale.conf' ] && action_request_permission
+    backup_file=$(backup_file '/etc/locale.conf' "$(check_sudo)") # sudo will be added if not root
     assert $? "can't backup /etc/locale.conf"
-    [ -n "$backup_file" ] && log_result "Backup: ${CLR}${backup_file}\n"
+    [ -n "$backup_file" ] && action_run 'Backup' "" "${CLR}${backup_file}"
 
     # update /etc/locale.conf
-    remove_line "/etc/locale.conf" "^LANG=" "$(check_sudo)"
+    action_request_permission
+    remove_line '/etc/locale.conf' "^LANG=" "$(check_sudo)"
     assert $? "can't modify /etc/locale.conf"
-    echo "LANG=en_US.UTF-8 " | as_root tee -a /etc/locale.conf > /dev/null
+    echo 'LANG=en_US.UTF-8 ' | as_root tee -a /etc/locale.conf &> "$LOG_FILE"
     assert $? "can't modify /etc/locale.conf"
-    log_result "Set locale in ${CLR}/etc/locale.conf\n"
+    action_run 'Update locale config' "" "${CLR}/etc/locale.conf"
 }
 
 
@@ -146,19 +168,26 @@ main() {
     request_gum
     assert $? "no gum - no fun :("
 
+    ## Logging
+
+    printf_section "Logging\n"
+    start_logger
+    printf_action "log started: ${CLR}${LOG_FILE}\n"
+
     ## Ask user for items to install
 
-    info "Confirm Items\n"
+    printf_section "Confirm Items\n"
+
     local choices
     choices=$(gum choose --no-limit --selected="*" \
                          --header "Select items to install:" \
                          'Locale - Set console locale to en_US.UTF-8' \
                          'Keymap - US/ANSI keyboard with extra bindings: CTRL+,SHIFT+' \
                          'Font - Terminus font + size configuration for console')
-    [ $? -ne 0 ] && return 0 # user cancelled
-
-    # Convert choices string to array
-    mapfile -t choices <<<"$choices"
+    # shellcheck disable=SC2181
+    [ $? -ne 0 ] && return 0 # cancelled by user
+    mapfile -t choices <<< "$choices" # Convert choices string to array
+    printf_action "Selected items: ${CLR}${#choices[@]}\n"
 
     # Empty choice means nothing to do -> exit
     if [ ${#choices[@]} -eq 0 ]; then
@@ -170,10 +199,10 @@ main() {
     if array_contains "Font*" "${choices[@]}" ||
        array_contains "Keymap*" "${choices[@]}"; then
 
-        [ -f "/etc/vconsole.conf" ] && info "Backup\n"
-        backup_file=$(backup_file "/etc/vconsole.conf" "$(check_sudo)") # sudo will be added if not root
+        [ -f '/etc/vconsole.conf' ] && printf_section "Backup\n" && action_request_permission
+        backup_file=$(backup_file '/etc/vconsole.conf' "$(check_sudo)") # sudo will be added if not root
         assert $? "can't backup /etc/vconsole.conf"
-        [ -n "$backup_file" ] && log_result "${CLR}${backup_file}\n"
+        [ -n "$backup_file" ] && action_run "$backup_file"
     fi
 
     ## Install selected items

@@ -626,6 +626,7 @@ replace_line() {
 action_require_package() {
     #
     # Install a package using pacman with interactive UI and privilege handling.
+    # Exit with 1 on failure.
     #
     # Parameters:
     #   $1 - package - The name of the package to install.
@@ -635,12 +636,12 @@ action_require_package() {
     #   action_require_package "nano"
     #
     local package="$1"
-    local title_prefix="${2-}"
+    local title_prefix="${2-$(bullet_action) }"
 
     is_command_available "gum"
     assert $? "gum is required"
 
-    action_title=$(printf "%s%b %b" "$title_prefix"  \
+    action_title=$(printf "%b%b %b" "$title_prefix"  \
         "$(gum style --faint 'Package')"    \
         "$(gum style --bold --foreground "$GUM_ACCENT" "$package")" \
     )
@@ -684,8 +685,8 @@ action_require_package() {
 
 action_run() {
     #
-    # Run action with spinner. Print status is provided after command finished.
-    # Return command exit code.
+    # Run a command with spinner. Print status is provided after the command finished.
+    # Return the command exit code.
     #
     # Parameters:
     #   $1 - title - the action title to show.
@@ -693,11 +694,16 @@ action_run() {
     #   $3 - status - text to show after when the command finished (optional).
     #
     local title="$1"
-    local command="${2-"sleep $UI_INTERACTION_DELAY"}"
+    local command="${2-}"
     local status="${3-}"
 
     is_command_available "gum"
     assert $? "gum is required"
+
+    # if command is missing set it to the minimal UI sleep
+    if [ -z "$command" ]; then
+        command="sleep $UI_INTERACTION_DELAY"
+    fi
 
     # run command and show spinner
     gum spin --align="right" --title "$(printf_action "${title} -")" \
@@ -721,6 +727,7 @@ action_run() {
 action_request_permission() {
     #
     # Request root privilege via sudo and gum UI.
+    # Exit with 1 on failure.
     #
     have_privilege && return 0
 
@@ -734,7 +741,7 @@ action_request_permission() {
 
     # shellcheck disable=SC2024
     echo "$password" | sudo -Si true &> "$LOG_FILE"
-    assert $? "privilege request failed"
+    assert $? "permission request failed"
 
-    printf_action "Request permission - done\n"
+    printf_action "Request permission - granted\n"
 }
