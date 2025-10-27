@@ -146,7 +146,7 @@ assert() {
     #   assert $? "failed to install gum"
     #
     local exit_code="$1"
-    local message="$2"
+    local message="${2-¯\_(ツ)_/¯}"
 
     if [ "$exit_code" -ne 0 ]; then
         printf_error "%b\n" "${message}"
@@ -510,7 +510,7 @@ backup_file() {
     #    assert $? "backup failed for $file (with sudo)"
     #
     local filename="$1"
-    local prefix="$2"
+    local prefix="${2-}"
 
     # Тo target file -> nothing to back up
     if [[ ! -f $filename ]]; then
@@ -556,7 +556,7 @@ remove_line() {
     #
     local file="$1"
     local pattern="$2"
-    local prefix="$3"
+    local prefix="${3-}"
 
     # Check if both parameters are provided
     if [[ -z $file || -z $pattern ]]; then
@@ -599,7 +599,7 @@ replace_line() {
     local file="$1"
     local pattern="$2"
     local new_line="$3"
-    local prefix="$4"
+    local prefix="${4-}"
 
     # Check if all parameters are provided
     if [[ -z $file || -z $pattern || -z $new_line ]]; then
@@ -629,18 +629,18 @@ action_require_package() {
     #
     # Parameters:
     #   $1 - package - The name of the package to install.
-    #   $2 - prefix  - A prefix string used when rendering UI titles.
+    #   $2 - title_prefix - A prefix string used when rendering UI titles (optional).
     #
     # Example:
     #   action_require_package "nano"
     #
     local package="$1"
-    local prefix="$2"
+    local title_prefix="${2-}"
 
     is_command_available "gum"
     assert $? "gum is required"
 
-    action_title=$(printf "%s%b %b" "$prefix"  \
+    action_title=$(printf "%s%b %b" "$title_prefix"  \
         "$(gum style --faint 'Package')"    \
         "$(gum style --bold --foreground "$GUM_ACCENT" "$package")" \
     )
@@ -693,16 +693,11 @@ action_run() {
     #   $3 - status - text to show after when the command finished (optional).
     #
     local title="$1"
-    local command="$2"
-    local status="$3"
+    local command="${2-"sleep $UI_INTERACTION_DELAY"}"
+    local status="${3-}"
 
     is_command_available "gum"
     assert $? "gum is required"
-
-    # use sleep if command is not provided
-    if [ -z "$command" ]; then
-        command="sleep $UI_INTERACTION_DELAY"
-    fi
 
     # run command and show spinner
     gum spin --align="right" --title "$(printf_action "${title} -")" \
