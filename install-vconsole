@@ -39,7 +39,7 @@ install_font() {
 
     # add new font setting
     action_request_permission
-    echo "FONT=ter-124b" | as_root tee -a /etc/vconsole.conf &> "$LOG_FILE"
+    echo "FONT=ter-124b" | as_root tee -a /etc/vconsole.conf &>> "$LOG_FILE"
     assert $? "can't modify /etc/vconsole.conf"
     action_run 'Update font in /etc/vconsole.conf' "" 'done'
 
@@ -48,14 +48,14 @@ install_font() {
     if is_command_available "mkinitcpio"; then
         action_request_permission
         action_run 'Update initramfs to include new font' \
-            "$(check_sudo) mkinitcpio -P &> $LOG_FILE"  \
+            "$(check_sudo) mkinitcpio -P &>> $LOG_FILE"  \
             'done'
         assert $? "mkinitcpio failed"
     fi
 
     ## Change current font
 
-    if setfont ter-124b &> "$LOG_FILE"; then
+    if setfont ter-124b &>> "$LOG_FILE"; then
         action_run 'Change current font' "" 'done'
     fi
 }
@@ -101,7 +101,7 @@ install_keymap() {
 
     ## Load keymap
 
-    if loadkeys us-extra &> "$LOG_FILE"; then
+    if loadkeys us-extra &>> "$LOG_FILE"; then
         action_run 'Switch keymap: us-extra' "" 'done'
     fi
 
@@ -138,9 +138,8 @@ install_locale() {
 
     ## Generate locale
 
-    # as_root locale-gen &> "$LOG_FILE"
     action_request_permission
-    action_run 'Regenerate locale' "$(check_sudo) locale-gen &> $LOG_FILE" 'done'
+    action_run 'Regenerate locale' "$(check_sudo) locale-gen &>> $LOG_FILE" 'done'
     assert $? "can't generate locale"
 
     ## Set locale in /etc/locale.conf
@@ -155,7 +154,7 @@ install_locale() {
     action_request_permission
     remove_line '/etc/locale.conf' "^LANG=" "$(check_sudo)"
     assert $? "can't modify /etc/locale.conf"
-    echo 'LANG=en_US.UTF-8 ' | as_root tee -a /etc/locale.conf &> "$LOG_FILE"
+    echo 'LANG=en_US.UTF-8 ' | as_root tee -a /etc/locale.conf &>> "$LOG_FILE"
     assert $? "can't modify /etc/locale.conf"
     action_run 'Update locale config' "" "${CLR}/etc/locale.conf"
 }

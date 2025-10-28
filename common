@@ -132,7 +132,7 @@ is_command_available() {
     #
     local command_name="$1"
 
-    command -v "$command_name" &> "$LOG_FILE"
+    command -v "$command_name" &> /dev/null
 }
 
 
@@ -382,7 +382,7 @@ have_privilege() {
 
     # need sudo
     # shellcheck disable=SC2024
-    if sudo -n true &> "$LOG_FILE"; then
+    if sudo -n true &>> "$LOG_FILE"; then
         # the privilege is still valid since last request
         return 0
     fi
@@ -403,7 +403,7 @@ is_package_installed() {
     #
     local package="$1"
 
-    pacman -Qi "${package}" &> "$LOG_FILE" && return 0
+    pacman -Qi "${package}" &>> "$LOG_FILE" && return 0
     return 1
 }
 
@@ -528,7 +528,7 @@ backup_file() {
     done
 
     # Create the backup
-    if $prefix cp "${filename}" "${backup_name}" &> "$LOG_FILE"; then
+    if $prefix cp "${filename}" "${backup_name}" &>> "$LOG_FILE"; then
         echo "${backup_name}" # return backup filename
         return 0
     else
@@ -669,14 +669,14 @@ action_require_package() {
         assert $? "password request failed"
 
         # shellcheck disable=SC2024
-        echo "$password" | sudo -Si true &> "$LOG_FILE"
+        echo "$password" | sudo -Si true &>> "$LOG_FILE"
         assert $? "privilege request failed"
     fi
 
     # pacman & spinner
     gum spin --align="right"  \
              --title "${action_title}$(gum style --faint ' - installing')" \
-             -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &> ${LOG_FILE}"
+             -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &>> ${LOG_FILE}"
     assert $? "can't install package"
 
     printf "%b\n" "${action_title}$(gum style --faint ' - done')"
@@ -740,7 +740,7 @@ action_request_permission() {
     assert $? "password request failed"
 
     # shellcheck disable=SC2024
-    echo "$password" | sudo -Si true &> "$LOG_FILE"
+    echo "$password" | sudo -Si true &>> "$LOG_FILE"
     assert $? "permission request failed"
 
     printf_action "Request permission - granted\n"
