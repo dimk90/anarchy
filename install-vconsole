@@ -108,7 +108,7 @@ install_keymap() {
     ## Update /etc/vconsole.conf
 
     action_request_permission
-    as_root localectl set-keymap us-extra &> "$LOG_FILE"
+    as_root localectl set-keymap us-extra &>> "$LOG_FILE"
     assert $? "can't set keymap with localectl"
     action_run 'Update keymap in /etc/vconsole.conf' "" 'done'
 }
@@ -181,7 +181,7 @@ main() {
     choices=$(gum choose --no-limit --selected="*" \
                          --header "Select items to install:" \
                          'Locale - Set console locale to en_US.UTF-8' \
-                         'Keymap - US/ANSI keyboard with extra bindings: CTRL+,SHIFT+' \
+                         'Keymap - US/ANSI keyboard with extra bindings for CTRL and SHIFT' \
                          'Font - Terminus font + size configuration for console')
     # shellcheck disable=SC2181
     [ $? -ne 0 ] && return 0 # cancelled by user
