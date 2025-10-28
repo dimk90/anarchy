@@ -75,7 +75,7 @@ else
 fi
 
 # The minimum delay for displaying a some status before changing it
-UI_INTERACTION_DELAY=1 # sec
+UI_INTERACTION_DELAY=0.6 # sec
 
 
 ## Logger
