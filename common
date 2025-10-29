@@ -437,8 +437,8 @@ request_gum() {
 
 choices_to_indices() {
     #
-    # Convert a newline-separated string of choices into their corresponding
-    # indices in the provided source array.
+    # Convert a newline-separated string of choices into the indices of matching
+    # items in the provided source array. Indices are printed separated by spaces.
     #
     # Example:
     #   indices=($(choices_to_indices "$file_choices" "${CONFIG_FILES[@]}"))
@@ -454,7 +454,7 @@ choices_to_indices() {
     # Find indices
     local indices=()
     for item in "${selected_items[@]}"; do
-        [[ -z "$item" ]] && continue  # Skip empty lines
+        [[ -z "$item" ]] && continue  # skip empty lines
         for i in "${!source_array[@]}"; do
             if [[ "${source_array[$i]}" == "$item" ]]; then
                 indices+=("$i")
@@ -463,18 +463,18 @@ choices_to_indices() {
         done
     done
 
-    # Return indices as space-separated string
-    echo "${indices[@]}"
+    # Print indices separated by spaces (suitable for capture with array=(...))
+    echo "${indices[*]}"
 }
 
 
 array_contains() {
     #
-    # Check if an array contains item(s) matching a given pattern.
-    # The matching is case-sensitive and supports shell globbing.
+    # Check whether an array contains one or more items matching a given pattern.
+    # Matching is case-sensitive and uses Bash extended regular expressions (the [[ =~ ]] operator).
     #
     # Example:
-    #   if array_contains "^Keymap*" "${array[@]}"; then ...
+    #   if array_contains '^Keymap.*' "${array[@]}"; then ...
     #
     local pattern="$1"
     shift
@@ -512,7 +512,7 @@ backup_file() {
     local filename="$1"
     local prefix="${2-}"
 
-    # Тo target file -> nothing to back up
+    # If the target file does not exist, there's nothing to back up.
     if [[ ! -f $filename ]]; then
         echo ""  # return empty string
         return 0 # no error
@@ -541,6 +541,7 @@ backup_file() {
 remove_line() {
     #
     # Remove lines matching a given pattern from a file.
+    # Return 0 if the file does not exist or if no matching lines are found.
     #
     # Parameters:
     #   $1 - file to modify
@@ -560,17 +561,16 @@ remove_line() {
 
     # Check if both parameters are provided
     if [[ -z $file || -z $pattern ]]; then
-        assert 1 "both <file> and <pattern> parameters are required"
+        assert 1 "parameters <file> and <pattern> are required"
     fi
 
     # Check if file exists
     if [[ ! -f $file ]]; then
-        return 0 # not file -> no line -> done
+        return 0 # not a file -> no lines -> done
     fi
 
-    # Remove lines matching the pattern using sed
-    # -i flag edits the file in-place
-    # The pattern is escaped to handle special characters safely
+    # Remove lines matching the pattern using sed (in-place).
+    # The pattern is surrounded by '|' delimiters to avoid escaping slashes.
     if ! $prefix sed -i "\|${pattern}|d" "$file"; then
         return 1
     fi
