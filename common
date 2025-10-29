@@ -679,7 +679,62 @@ action_require_package() {
              -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &>> ${LOG_FILE}"
     assert $? "can't install package"
 
-    printf "%b\n" "${action_title}$(gum style --faint ' - done')"
+    printf "%b\n" "${action_title}$(gum style --faint ' - installed')"
+}
+
+
+action_install_file() {
+    #
+    # Download and install a file to the given destination path.
+    # If a file already exists at the destination, a backup will be created.
+    # Exits with status 1 on failure.
+    #
+    # Parameters:
+    #   $1 - destination path for the file
+    #   $2 - URL to download the file from
+    #   $3 - (optional) prefix command (e.g., "sudo")
+    #
+    # Example:
+    #   action_install_file "/etc/vconsole.conf" "https://example.com/vconsole.conf" "sudo"
+    #
+    local file_path="$1"
+    local file_url="$2"
+    local prefix="${3-}"
+
+    local basename="${file_path##*/}"
+
+    # Get unique temp file name
+    local tmpfile
+    tmpfile="$(mktemp)"
+    assert $? "can't create temporary file"
+
+    # Register cleanup trap
+    # shellcheck disable=SC2064
+    trap "rm -f $tmpfile" EXIT
+
+    # Download file
+    action_run "Download file: $basename"        \
+        "curl -fsSL ${file_url} -o ${tmpfile}" \
+        'done'
+    assert $? "can't download keymap file"
+
+    # Backup existing config file (if exists)
+    if [ -f "$file_path" ]; then
+        # Check if sudo required
+        [ "${prefix,,}" = 'sudo' ] && action_request_permission
+        backup_file=$(backup_file "$file_path" "$prefix")
+        assert $? "can't backup: $basename"
+        action_run "Backup $basename -> $backup_file" "" 'done'
+    fi
+
+    # Move downloaded file to the target location
+    [ "${prefix,,}" = 'sudo' ] && action_request_permission
+    action_run "$(printf "%b %b %b"      \
+        "$(gum style --faint 'Install')" \
+        "$(gum style --foreground $GUM_YELLOW "$basename")" \
+        "$(gum style --faint "to $file_path")${DIM}" \
+    )" "$prefix mv $tmpfile $file_path" 'done'
+    assert $? "can't move $tmpfile -> $file_path"
 }
 
 
