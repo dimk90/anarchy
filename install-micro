@@ -10,23 +10,10 @@ set -o nounset
 set -o errexit # exit on non-zero exit code
 
 COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
 source <(echo "$COMMON")
 
 set +o errexit # disable exit on non-zero exit code
-
-
-## Globals
-
-
-CONFIG_FILES=(
-    ~/.config/micro/settings.json
-    ~/.config/micro/bindings.json
-)
-
-CONFIG_URL=(
-    "https://dimk90.github.io/anarchy/micro/settings.json"
-    "https://dimk90.github.io/anarchy/micro/bindings.json"
-)
 
 
 ## Routines
@@ -39,52 +26,66 @@ main() {
     request_gum
     assert $? "no gum - no fun :("
 
+    ## Logging
+
+    printf_section "Logging\n"
+    start_logger
+    printf_action "log started: ${CLR}${LOG_FILE}\n"
+
+    ## Ask user for items to install
+
+    printf_section "Confirm Items\n"
+
+    local choices
+    choices=$(gum choose --no-limit --selected="*" \
+                         --header "Select items to install:" \
+                         'Settings' \
+                         'Keybindings' \
+                         'Set as default editor')
+    # shellcheck disable=SC2181
+    [ $? -ne 0 ] && return 0 # cancelled by user
+    mapfile -t choices <<< "$choices" # Convert choices string to array
+    printf_action "Selected items: ${CLR}${#choices[@]}\n"
+
+    # Empty choice means nothing to do -> exit
+    if [ ${#choices[@]} -eq 0 ]; then
+        return 0
+    fi
+
     ## Install micro
 
-    request_package "micro"
-    assert $? "can't install micro"
+    printf_section "Installing & Configuring\n"
 
-    ## Configs
-
-    info "Configs...\n"
-
-    # Ask user for configs to install
-    choices=$(gum choose --no-limit --selected="*" \
-                         --header "Select configs to install:" \
-                         "${CONFIG_FILES[@]}")
-
-    # Get indices for selected configs
-    config_indices=( $(choices_to_indices "$choices" "${CONFIG_FILES[@]}") )
+    action_require_package "micro"
 
     # Create micro config directory if it doesn't exist
     mkdir -p ~/.config/micro
     assert $? "can't create ~/.config/micro"
 
-    # Create a temporary directory and ensure it's deleted on exit
-    local tmpdir
-    tmpdir="$(mktemp -d)"
-    assert $? "can't create temporary directory"
-    # Setup cleanup for temporary directory
-    trap "rm -rf $tmpdir" EXIT
+    ## Install selected items
 
-    # Download and install selected configs
-    for idx in "${config_indices[@]}"; do
-        # Download config to temporary file
-        curl -fsSL "${CONFIG_URL[$idx]}" -o "${tmpdir}/config.tmp"
-        assert $? "can't download ${CONFIG_URL[$idx]}"
-
-        # Backup existing config file if it exists
-        backup_file=$(backup_file "${CONFIG_FILES[$idx]}")
-        assert $? "can't backup ${CONFIG_FILES[$idx]}"
-        [ -n "$backup_file" ] && log_result "Backup: ${CLR}${backup_file}\n"
-
-        # Move the downloaded config to the target location
-        mv "${tmpdir}/config.tmp" "${CONFIG_FILES[$idx]}"
-        assert $? "can't move ${tmpdir}/config.tmp to ${CONFIG_FILES[$idx]}"
-        log_result "Installed: ${CLR}${CONFIG_FILES[$idx]}\n"
+    for choice in "${choices[@]}"; do
+        case "${choice,,}" in
+            settings*)
+                action_install_file                        \
+                    "${HOME}/.config/micro/settings.json"  \
+                    "https://dimk90.github.io/anarchy/micro/settings.json"
+                ;;
+            keybindings*)
+                action_install_file                        \
+                    "${HOME}/.config/micro/bindings.json"  \
+                    "https://dimk90.github.io/anarchy/micro/bindings.json"
+                ;;
+            *editor*)
+                local shells
+                shells="$(env_set_permanent "EDITOR" "micro")"
+                [ -n "$shells" ] && action_run "Set EDITOR to micro in ${CLR}${BOLD}$shells"
+                ;;
+            *) assert 1 "invalid choice: ${choice}"
+                ;;
+        esac
     done
 
-    echo
     return 0
 }
 

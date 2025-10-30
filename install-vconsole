@@ -73,16 +73,16 @@ install_keymap() {
 
     ## Download keymap file
 
-    # get unique temp file name
+    # Get unique temp file name
     local tmpfile
     tmpfile="$(mktemp)"
     assert $? "can't create temporary file"
 
-    # register cleanup trap
+    # Register cleanup trap
     # shellcheck disable=SC2064
     trap "rm -f $tmpfile" EXIT
 
-    # download keymap file
+    # Download keymap file
     curl -fsSL 'https://dimk90.github.io/anarchy/vconsole/us-extra.map' -o "$tmpfile"
     assert $? "can't download keymap file"
     action_run 'Download keymap file' "" 'done'
