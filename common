@@ -541,12 +541,14 @@ backup_file() {
 remove_line() {
     #
     # Remove lines matching a given pattern from a file.
+    # The pattern matching is case sensitive by default.
     # Return 0 if the file does not exist or if no matching lines are found.
     #
     # Parameters:
     #   $1 - file to modify
     #   $2 - pattern to match (sed regex)
     #   $3 - (optional) prefix command (e.g., "sudo")
+    #   $4 - (optional) set to "i" or "I" for case-insensitive matching
     #
     # Example:
     #   remove_line "/etc/vconsole.conf" "^FONT="
@@ -555,9 +557,13 @@ remove_line() {
     #   remove_line "/etc/vconsole.conf" "^FONT=" "sudo"
     #   assert $? "failed to remove line from /etc/vconsole.conf (with sudo)"
     #
+    #   remove_line "/etc/vconsole.conf" "^font=" "" "i"
+    #   assert $? "failed to remove line (case-insensitive)"
+    #
     local file="$1"
     local pattern="$2"
     local prefix="${3-}"
+    local case_mode="${4-}"
 
     # Check if both parameters are provided
     if [[ -z $file || -z $pattern ]]; then
@@ -571,7 +577,7 @@ remove_line() {
 
     # Remove lines matching the pattern using sed (in-place).
     # The pattern is surrounded by '|' delimiters to avoid escaping slashes.
-    if ! $prefix sed -i "\|${pattern}|d" "$file"; then
+    if ! $prefix sed -i "\|${pattern}|${case_mode^^}d" "$file"; then
         return 1
     fi
 
