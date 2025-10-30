@@ -490,7 +490,7 @@ array_contains() {
 }
 
 
-## Files
+## Files & Env
 
 
 backup_file() {
@@ -623,6 +623,61 @@ replace_line() {
     fi
 
     return 0
+}
+
+
+env_set_permanent() {
+    #
+    # Set an environment variable permanently across shell sessions.
+    # Attempts to set the variable in all available shells (fish, bash, ...).
+    # Returns 0 if successful in at least one shell, non-zero otherwise.
+    #
+    # Parameters:
+    #   $1 - variable name (e.g., "EDITOR")
+    #   $2 - variable value (e.g., "nano")
+    #
+    # Outputs:
+    #   Prints comma-separated list of shells where variable was set successfully
+    #   (e.g., "fish,bash" or "bash" or empty string if all failed)
+    #
+    # Example:
+    #   shells=$(env_set_permanent "EDITOR" "nano")
+    #   assert $? "failed to set EDITOR permanently"
+    #   echo "Set in: $shells"
+    #
+    local var_name="$1"
+    local var_value="$2"
+
+    local result_code=0
+    local result_msg=""
+
+    # fish
+    if is_command_available "fish"; then
+        ((result_code += 1))
+        # set fish universal variable:
+        # shared across all fish sessions, persists after reboot
+        if fish -c "set -Ux $var_name $var_value" &>> "$LOG_FILE"; then
+            ((result_code -= 1))
+            # Append fish to the current result msg
+            [ -z "$result_msg" ] && result_msg="fish" || result_msg="${result_msg},fish"
+        fi
+    fi
+
+    # bash
+    if is_command_available "bash"; then
+        ((result_code += 1))
+        # set permanent variable:
+        # remove current variable (if present) and add new
+        if remove_line ~/.bashrc "^export ${var_name}=" "" "i" &&
+           echo "export ${var_name}=\"${var_value}\"" >> ~/.bashrc; then
+            ((result_code -= 1))
+            # Append bash to the current result msg
+            [ -z "$result_msg" ] && result_msg="bash" || result_msg="${result_msg},bash"
+        fi
+    fi
+
+    echo "$result_msg"
+    return $result_code
 }
 
 
