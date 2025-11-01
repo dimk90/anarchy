@@ -22,6 +22,14 @@ Install and configure Micro text editor:
 curl -fsSL https://dimk90.github.io/anarchy/install-micro | bash
 ```
 
+### colors
+
+Enable colors for command-line tools (pacman, ls, grep, ...):
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/enable-colors | bash
+```
+
+
 
 ## Tests
 
