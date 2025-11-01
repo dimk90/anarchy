@@ -751,9 +751,9 @@ action_install_file() {
     # Exits with status 1 on failure.
     #
     # Parameters:
-    #   $1 - destination path for the file
-    #   $2 - URL to download the file from
-    #   $3 - (optional) prefix command (e.g., "sudo")
+    #   $1 - file path - destination path for the file
+    #   $2 - file url - URL to download the file from
+    #   $3 - prefix (optional) - prefix command (e.g., "sudo")
     #
     # Example:
     #   action_install_file "/etc/vconsole.conf" "https://example.com/vconsole.conf" "sudo"
@@ -807,7 +807,7 @@ action_run() {
     # Parameters:
     #   $1 - title - the action title to show.
     #   $2 - command - a command to run. The 'sleep' will be used if not provided.
-    #   $3 - status - text to show after when the command finished (optional).
+    #   $3 - status (optional) - text to show after when the command finished.
     #
     local title="$1"
     local command="${2-}"
@@ -845,10 +845,17 @@ action_request_permission() {
     # Request root privilege via sudo and gum UI.
     # Exit with 1 on failure.
     #
+    # Parameters:
+    #   $1 - reason text (optional).
+    #
+    local reason_text="${1-}"
+
     have_privilege && return 0
 
     # request user password for sudo
-    request_title=$(printf_action "Request permission")
+    [ -n "$reason_text" ] && reason_text=" $reason_text"
+    request_title=$(printf_action "Request permission%b" "$reason_text")
+
     password=$(gum input --password --char-limit=30 \
                          --no-show-help             \
                          --placeholder "enter your password for sudo" \
@@ -859,5 +866,5 @@ action_request_permission() {
     echo "$password" | sudo -Si true &>> "$LOG_FILE"
     assert $? "permission request failed"
 
-    printf_action "Request permission - granted\n"
+    printf_action "Request permission%b - granted\n" "$reason_text"
 }
