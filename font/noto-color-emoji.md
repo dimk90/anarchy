@@ -32,14 +32,14 @@ https://learn.microsoft.com/en-us/typography/opentype/spec/otff
 |      |        |      | Android | Windows |           iOS/Mac            |
 | ---- | ------ | :--: | :-----: | :-----: | :--------------------------: |
 | cbdt |        | .ttf | Native  |    ?    |              x               |
-| sbix |        | .ttf |    ?    |    ?    |       Native, iOS >= 4       |
-| cff2 | colr_1 | .otf |    ?    |    ?    |              ?               |
+| sbix |        | .ttf |    ?    |    x    |       Native, iOS >= 4       |
+| cff2 | colr_1 | .otf |    ?    |    x    |              ?               |
 | cff2 | colr_0 | .otf |   N/A   |   N/A   | N/A, Deprecated since iOS 17 |
 | cff  | colr_1 | .otf |   N/A   |   N/A   |             N/A              |
-| cff  | colr_0 | .otf |    ?    |    ?    |   Deprecated since iOS 17    |
-| glyf | colr_1 | .ttf |    ?    |    ?    |              ?               |
+| cff  | colr_0 | .otf |   N/A   |   N/A   | N/A, Deprecated since iOS 17 |
+| glyf | colr_1 | .ttf |    ?    |    x    |              x               |
 | glyf | colr_0 | .ttf |   N/A   |   N/A   | N/A, Deprecated since iOS 17 |
-| svg  |        | .otf |    ?    |    ?    |          iOS >= 12           |
+| svg  |        | .otf |    ?    |    x    |              x               |
 
 `N/A` - build with nanoemoji failed.
 
