@@ -90,6 +90,11 @@ shape = 700
 menu = 700
 css = 700
 
+[buildPlans.IosevkaText.weights.Light]
+shape = 300
+menu = 300
+css = 300
+
 [buildPlans.IosevkaText.weights.Medium]
 shape = 500
 menu = 500
