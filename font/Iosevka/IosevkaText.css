@@ -1,0 +1,72 @@
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 400;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Regular.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 400;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Italic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 700;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Bold.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 700;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-BoldItalic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 500;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Medium.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 500;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-MediumItalic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 600;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 600;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-SemiBoldItalic.woff2') format('woff2');
+}

@@ -1,0 +1,18 @@
+
+@font-face {
+	font-family : 'Iosevka Code';
+	font-display: swap;
+	font-weight : 700;
+	font-stretch: normal;
+	font-style  : normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-Bold.woff2') format('woff2');
+}
+
+@font-face {
+	font-family : 'Iosevka Code';
+	font-display: swap;
+	font-weight : 700;
+	font-stretch: normal;
+	font-style  : italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-BoldItalic.woff2') format('woff2');
+}

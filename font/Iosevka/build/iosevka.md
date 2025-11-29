@@ -2,9 +2,9 @@
 
 Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
 
-> [!Note] Iosevka Customizer
-> https://typeof.net/Iosevka/customizer  
-> https://github.com/be5invis/Iosevka/blob/main/doc/custom-build.md
+> [!NOTE]
+>  - https://typeof.net/Iosevka/customizer  
+>  - https://github.com/be5invis/Iosevka/blob/main/doc/custom-build.md
 
 
 ## Build
@@ -35,10 +35,15 @@ Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
 
 - Build font:
     ```shell
-    npm run build -- webfont-unhinted::IosevkaCustom --jCmd=4
+    npm run build -- webfont-unhinted::IosevkaCode --jCmd=4
     ```
 
-    > [!Tip] Verbose build
+    ```shell
+    npm run build -- webfont-unhinted::IosevkaText --jCmd=4
+    ```
+
+    > [!TIP]
+    > Verbose build:
     > ```shell
     > npm run build --loglevel verbose -- webfont-unhinted::IosevkaCustom --jCmd=1 --verbosity 100
     > ```
