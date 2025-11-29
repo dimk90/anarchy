@@ -240,7 +240,7 @@ body {
   font-display: swap;
   src:
     /* Last update 11.2025  */
-    url('https://dimk90.github.io/anarchy/font/NotoEmoji/NotoColorEmoji.sbix.ttf');
+    url(https://github.com/dimk90/anarchy/raw/refs/heads/main/font/NotoEmoji/NotoColorEmoji.sbix.ttf);
     /* Issues: */
     /*  - VS15 modifier doesn't work -> B&W emoji are colorful  */
     /*  - VS16 modifier partially fixed */
