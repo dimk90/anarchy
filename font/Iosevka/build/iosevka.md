@@ -30,7 +30,7 @@ Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
 
 - Get custom config:
     ```shell
-    curl -o private-build-plans.toml "https://github.com/dimk90/anarchy/raw/refs/heads/main/font/build/private-build-plans.toml"
+    curl -o private-build-plans.toml "https://github.com/dimk90/anarchy/font/Iosevka/build/private-build-plans.toml"
     ```
 
 - Build font:

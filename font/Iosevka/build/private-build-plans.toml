@@ -60,7 +60,7 @@ css = "italic"
 [buildPlans.IosevkaText]
 family = "Iosevka Text"
 spacing = "quasi-proportional"
-serifs = "slab"
+serifs = "sans"
 noCvSs = true
 exportGlyphNames = false
 
