@@ -11,6 +11,7 @@ noCvSs = true
 exportGlyphNames = false
 
 [buildPlans.IosevkaCode.variants.design]
+zero = "slashed-split"
 punctuation-dot = "round"
 asterisk = "penta-mid"
 brace = "straight"
@@ -25,11 +26,6 @@ lig-single-arrow-bar = "without-notch"
 
 [buildPlans.IosevkaCode.ligations]
 inherits = "clike"
-
-[buildPlans.IosevkaCode.weights.Regular]
-shape = 400
-menu = 400
-css = 400
 
 [buildPlans.IosevkaCode.weights.Bold]
 shape = 700
@@ -65,6 +61,7 @@ noCvSs = true
 exportGlyphNames = false
 
 [buildPlans.IosevkaText.variants.design]
+zero = "slashed-split"
 punctuation-dot = "round"
 asterisk = "penta-mid"
 brace = "straight"
@@ -85,25 +82,25 @@ shape = 400
 menu = 400
 css = 400
 
-[buildPlans.IosevkaText.weights.Bold]
-shape = 700
-menu = 700
-css = 700
-
-[buildPlans.IosevkaText.weights.Light]
-shape = 300
-menu = 300
-css = 300
-
 [buildPlans.IosevkaText.weights.Medium]
 shape = 500
 menu = 500
 css = 500
 
-[buildPlans.IosevkaText.weights.SemiBold]
-shape = 600
-menu = 600
-css = 600
+[buildPlans.IosevkaText.weights.Bold]
+shape = 700
+menu = 700
+css = 700
+
+[buildPlans.IosevkaText.weights.ExtraBold]
+shape = 800
+menu = 800
+css = 800
+
+[buildPlans.IosevkaText.weights.Heavy]
+shape = 900
+menu = 900
+css = 900
 
 [buildPlans.IosevkaText.widths.Normal]
 shape = 500
