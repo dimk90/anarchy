@@ -27,6 +27,11 @@ lig-single-arrow-bar = "without-notch"
 [buildPlans.IosevkaCode.ligations]
 inherits = "clike"
 
+[buildPlans.IosevkaCode.weights.Medium]
+shape = 500
+menu = 500
+css = 500
+
 [buildPlans.IosevkaCode.weights.Bold]
 shape = 700
 menu = 700

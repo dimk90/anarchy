@@ -47,3 +47,16 @@ Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
     > ```shell
     > npm run build --loglevel verbose -- webfont-unhinted::IosevkaCustom --jCmd=1 --verbosity 100
     > ```
+
+
+###  TTC Font Package
+
+Packages are useful for system-wide installation.
+
+```shell
+uv tool install afdko
+```
+
+```shell
+otf2otc -o dist/IosevkaCode/IosevkaCode.ttc dist/IosevkaCode/TTF-Unhinted/*.ttf
+```
