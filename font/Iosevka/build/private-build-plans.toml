@@ -12,8 +12,9 @@ exportGlyphNames = false
 
 [buildPlans.IosevkaCode.variants.design]
 zero = "slashed-split"
+capital-n = "asymmetric-serifless"
 punctuation-dot = "round"
-asterisk = "penta-mid"
+asterisk = "penta-low"
 brace = "straight"
 guillemet = "straight"
 percent = "rings-continuous-slash"
@@ -24,18 +25,15 @@ lig-equal-chain = "without-notch"
 lig-plus-chain = "with-notch"
 lig-single-arrow-bar = "without-notch"
 
-[buildPlans.IosevkaCode.ligations]
-inherits = "clike"
+[buildPlans.IosevkaCode.weights.Bold]
+shape = 700
+menu = 700
+css = 700
 
 [buildPlans.IosevkaCode.weights.Medium]
 shape = 500
 menu = 500
 css = 500
-
-[buildPlans.IosevkaCode.weights.Bold]
-shape = 700
-menu = 700
-css = 700
 
 [buildPlans.IosevkaCode.widths.Normal]
 shape = 600
