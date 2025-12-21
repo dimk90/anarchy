@@ -65,22 +65,38 @@ serifs = "sans"
 noCvSs = true
 exportGlyphNames = false
 
-[buildPlans.IosevkaText.variants.design]
-zero = "slashed-split"
-punctuation-dot = "round"
-asterisk = "penta-mid"
-brace = "straight"
-guillemet = "straight"
-percent = "rings-continuous-slash"
-question = "smooth"
-pilcrow = "low"
-lig-ltgteq = "slanted"
-lig-equal-chain = "without-notch"
-lig-plus-chain = "with-notch"
-lig-single-arrow-bar = "without-notch"
+  [buildPlans.IosevkaText.variants]
+  inherits = "ss08"
 
-[buildPlans.IosevkaText.ligations]
-inherits = "clike"
+    [buildPlans.IosevkaText.variants.design]
+    two = "curly-neck-serifless"
+    three = "two-arcs"
+    five = "oblique-arched-serifless"
+    six = "open-contour"
+    nine = "open-contour"
+    zero = "slashed-split"
+    capital-q = "crossing"
+    d = "tailed-serifless"
+    e = "rounded"
+    g = "single-storey-serifless"
+    i = "serifed-flat-tailed"
+    j = "serifed"
+    l = "serifed-flat-tailed"
+    u = "tailed-serifless"
+    y = "curly-turn-serifless"
+    long-s = "flat-hook-serifless"
+    lower-theta = "oval"
+    lower-tau = "short-tailed"
+    partial-derivative = "curly-bar"
+    number-sign = "upright"
+    ampersand = "closed"
+    at = "fourfold"
+    dollar = "through"
+    cent = "through"
+    percent = "rings-continuous-slash"
+    pilcrow = "low"
+    lig-ltgteq = "slanted"
+    lig-neq = "slightly-slanted"
 
 [buildPlans.IosevkaText.weights.Regular]
 shape = 400
@@ -98,7 +114,7 @@ menu = 900
 css = 900
 
 [buildPlans.IosevkaText.widths.Normal]
-shape = 500
+shape = 600
 menu = 5
 css = "normal"
 

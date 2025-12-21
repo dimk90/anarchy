@@ -35,17 +35,17 @@ Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
 
 - Build font:
     ```shell
-    npm run build -- webfont-unhinted::IosevkaCode --jCmd=4
+    npm run build -- webfont::IosevkaCode --jCmd=4
     ```
 
     ```shell
-    npm run build -- webfont-unhinted::IosevkaText --jCmd=4
+    npm run build -- webfont::IosevkaText --jCmd=4
     ```
 
     > [!TIP]
     > Verbose build:
     > ```shell
-    > npm run build --loglevel verbose -- webfont-unhinted::IosevkaCustom --jCmd=1 --verbosity 100
+    > npm run build --loglevel verbose -- webfont::IosevkaCustom --jCmd=1 --verbosity 100
     > ```
 
 
@@ -58,5 +58,5 @@ uv tool install afdko
 ```
 
 ```shell
-otf2otc -o dist/IosevkaCode/IosevkaCode.ttc dist/IosevkaCode/TTF-Unhinted/*.ttf
+otf2otc -o dist/IosevkaCode/IosevkaCode.ttc dist/IosevkaCode/TTF/*.ttf
 ```
