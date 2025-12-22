@@ -1,7 +1,6 @@
 # Anarchy
 
-Personal configs and install scripts for setting Arch Linux.  
-There is no centralized install script, each script is independent and can be used separately.
+Highly disorganized personal configs and install scripts for Arch Linux.  
 
 
 ## Configs
@@ -22,6 +21,7 @@ Install and configure Micro text editor:
 curl -fsSL https://dimk90.github.io/anarchy/install-micro | bash
 ```
 
+
 ### colors
 
 Enable colors for command-line tools (pacman, ls, grep, ...):
@@ -30,8 +30,8 @@ curl -fsSL https://dimk90.github.io/anarchy/enable-colors | bash
 ```
 
 
-
 ## Tests
+
 
 ### color-test
 
