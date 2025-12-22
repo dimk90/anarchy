@@ -41,7 +41,8 @@ main() {
                          --header "Select items to install:" \
                          'Settings' \
                          'Keybindings' \
-                         'Set as default editor')
+                         'Set as default editor' \
+                         'Enable TrueColor')
     # shellcheck disable=SC2181
     [ $? -ne 0 ] && return 0 # cancelled by user
     mapfile -t choices <<< "$choices" # Convert choices string to array
@@ -79,7 +80,11 @@ main() {
             *editor*)
                 local shells
                 shells="$(env_set_permanent "EDITOR" "micro")"
-                [ -n "$shells" ] && action_run "Set EDITOR to micro in ${CLR}${BOLD}$shells"
+                [ -n "$shells" ] && action_run "Set EDITOR to micro for ${CLR}${BOLD}$shells"
+                ;;
+            *truecolor*)
+                shells="$(env_set_permanent "MICRO_TRUECOLOR" "1")"
+                [ -n "$shells" ] && action_run "Set MICRO_TRUECOLOR to 1 for ${CLR}${BOLD}$shells"
                 ;;
             *) assert 1 "invalid choice: ${choice}"
                 ;;
