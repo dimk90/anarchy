@@ -580,7 +580,7 @@ remove_line() {
 
     # Remove lines matching the pattern using sed (in-place).
     # The pattern is surrounded by '|' delimiters to avoid escaping slashes.
-    if ! $prefix sed -i "\|${pattern}|${case_mode^^}d" "$file"; then
+    if ! $prefix sed -i "\|${pattern}|${case_mode^^}d" "$file" &>> "$LOG_FILE"; then
         return 1
     fi
 
@@ -621,7 +621,7 @@ replace_line() {
     fi
 
     # Replace lines matching the pattern using sed
-    if ! $prefix sed -i "\|${pattern}|c\\${new_line}" "$file"; then
+    if ! $prefix sed -i "\|${pattern}|c\\${new_line}" "$file" &>> "$LOG_FILE"; then
         return 1
     fi
 
