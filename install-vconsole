@@ -150,7 +150,7 @@ install_locale() {
     assert $? "can't backup /etc/locale.conf"
     [ -n "$backup_file" ] && action_run 'Backup' "" "${CLR}${backup_file}"
 
-    # update /etc/locale.conf
+    # Update /etc/locale.conf
     action_request_permission
     remove_line '/etc/locale.conf' "^LANG=" "$(check_sudo)"
     assert $? "can't modify /etc/locale.conf"
@@ -171,7 +171,7 @@ main() {
 
     printf_section "Logging\n"
     start_logger
-    printf_action "log started: ${CLR}${LOG_FILE}\n"
+    printf_action "Log started: ${CLR}${LOG_FILE}\n"
 
     ## Ask user for items to install
 
