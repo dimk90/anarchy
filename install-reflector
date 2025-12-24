@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Routines
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? "no gum - no fun :("
+
+    ## Logging
+
+    printf_section "Logging\n"
+    start_logger
+    printf_action "Log started: ${CLR}${LOG_FILE}\n"
+
+    ## Install
+
+    printf_section "Installing & Configuring\n"
+
+    # Reflector package
+    action_require_package "reflector"
+
+    # Configure mirror sorting [reflector.conf]
+    action_request_permission "to update reflector.conf"
+    action_run "Configure mirror sorting to 'rate'" \
+        "$(check_sudo) sed -i 's/--sort age/--sort rate/' /etc/xdg/reflector/reflector.conf" \
+        "done"
+
+    # Set mirror update only on AC [reflector.service]
+    if ! grep -q -E '^\s*ConditionACPower' "/usr/lib/systemd/system/reflector.service"; then
+        # ConditionACPower is not set in .service yet
+        action_run "Configure reflector to run on AC only" \
+            "$(check_sudo) sed -i '/^\[Unit\]/aConditionACPower=true' /usr/lib/systemd/system/reflector.service" \
+            "done"
+    fi
+
+    # Reload reflector config
+    action_request_permission "to reflector daemon reload"
+    action_run "Reload reflector daemon" \
+        "$(check_sudo) systemctl daemon-reload" \
+        "done"
+
+    # Enable reflector timer
+    action_request_permission "to run reflector timer"
+    action_run "Enable reflector timer" \
+        "$(check_sudo) systemctl enable reflector.timer" \
+        "done"
+
+    # Exclude mirrorlist from pacman package updates
+    action_request_permission "to exclude mirrorlist from pacman updates"
+    action_run "Exclude mirrorlist from pacman update" \
+        "$(check_sudo) sed -i '/^\[options\]/aNoExtract = etc/pacman.d/mirrorlist' /etc/pacman.conf" \
+        "done"
+
+    echo
+    return 0
+}
+
+
+# Run main and return its exit code
+main "$@"
+exit $?
