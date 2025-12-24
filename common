@@ -804,13 +804,13 @@ action_install_file() {
 
 action_run() {
     #
-    # Run a command with spinner. Print status is provided after the command finished.
+    # Run a command with spinner. Print success status on completion if provided.
     # Return the command exit code.
     #
     # Parameters:
     #   $1 - title - the action title to show.
     #   $2 - command - a command to run. The 'sleep' will be used if not provided.
-    #   $3 - status (optional) - text to show after when the command finished.
+    #   $3 - status (optional) - text to show when the command successfully finished.
     #
     local title="$1"
     local command="${2-}"
@@ -819,26 +819,29 @@ action_run() {
     is_command_available "gum"
     assert $? "gum is required"
 
-    # if command is missing set it to the minimal UI sleep
+    # If command is missing set it to the minimal UI sleep
     if [ -z "$command" ]; then
         command="sleep $UI_INTERACTION_DELAY"
     fi
 
-    # run command and show spinner
+    # Run command and show spinner
     gum spin --align="right" --title "$(printf_action "${title} -")" \
         -- bash -c "$command"
 
-    # return exit code and skip status if non-zero
+    # Return exit code and skip status if non-zero
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
+        printf_action "%b - %b\n" "$title" \
+                      "$(gum style --foreground $GUM_RED "failed")"
         return $exit_code
     fi
 
-    # show status if provided and command finished without an error
+    # Show status if provided and command finished without an error
     if [ -z "$status" ]; then
         printf_action "%b\n" "$title"
     else
-        printf_action "%b - %b\n" "$title" "$status"
+        printf_action "%b - %b\n" "$title" \
+                      "$(gum style --foreground $GUM_GREEN "$status")"
     fi
 }
 
