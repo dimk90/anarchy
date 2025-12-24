@@ -32,12 +32,12 @@ print_result() {
 
 
 enable_colors_pacman() {
-    if $(check_sudo) grep '^Color$' "/etc/pacman.conf" &> /dev/null; then
+    if $(check_sudo) grep -q '^Color$' "/etc/pacman.conf"; then
         # Enabled already
         return 1
     fi
 
-    if $(check_sudo) grep '^#Color$' "/etc/pacman.conf" &> /dev/null; then
+    if $(check_sudo) grep -q '^#Color$' "/etc/pacman.conf"; then
         # Uncomment line "Color" in the config
         if replace_line /etc/pacman.conf "^#Color$" "Color" "$(check_sudo)"; then
             return 0
