@@ -22,11 +22,19 @@ curl -fsSL https://dimk90.github.io/anarchy/install-micro | bash
 ```
 
 
-### colors
+### pacman
 
-Enable colors for command-line tools (pacman, ls, grep, ...):
+Enable colors and install `reflector` for automatic mirror ranking:
 ```bash
-curl -fsSL https://dimk90.github.io/anarchy/enable-colors | bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-pacman | bash
+```
+
+
+### yay
+
+Install and configure `yay`:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/install-yay | bash
 ```
 
 
