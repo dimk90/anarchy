@@ -1,65 +1,60 @@
 #!/bin/bash
 
-# shellcheck disable=SC2034
-readonly VERSION='1.0'
+export COMMON_VERSION='2.0'
 
 
 ## Colors
 
 
-# shellcheck disable=SC2034
-{
-
 # Selected Gum Colors (ANSI)
 
-readonly GUM_CYAN=44
-readonly GUM_BLUE=39
-readonly GUM_YELLOW=226
-readonly GUM_RED=160
-readonly GUM_GREEN=77
-readonly GUM_MAGENTA=212
-readonly GUM_WHITE=231
+export GUM_CYAN=44
+export GUM_BLUE=39
+export GUM_YELLOW=226
+export GUM_RED=160
+export GUM_GREEN=77
+export GUM_MAGENTA=212
+export GUM_WHITE=231
 
 # ANSI Colors with escape sequence
 
-readonly ESC='\033['
+export STYLE_ESC='\033['
 # Reset Style and Color
-readonly CLEAR="${ESC}0m"
-readonly CLR="${CLEAR}"
+export STYLE_CLEAR="${STYLE_ESC}0m"
+export STYLE_CLR="${STYLE_CLEAR}"
 # Styles
-readonly BOLD="${ESC}1m"
-readonly DIM="${ESC}2m"
-readonly ITALIC="${ESC}3m"
-readonly UNDERLINE="${ESC}4m"
-readonly BLINK="${ESC}5m"
-readonly REVERSE="${ESC}7m"
-readonly HIDDEN="${ESC}8m"
+export STYLE_BOLD="${STYLE_ESC}1m"
+export STYLE_DIM="${STYLE_ESC}2m"
+export STYLE_ITALIC="${STYLE_ESC}3m"
+export STYLE_UNDERLINE="${STYLE_ESC}4m"
+export STYLE_BLINK="${STYLE_ESC}5m"
+export STYLE_REVERSE="${STYLE_ESC}7m"
+export STYLE_HIDDEN="${STYLE_ESC}8m"
 # Foreground Colors (bright version)
-readonly BLACK="${ESC}90m"
-readonly RED="${ESC}91m"
-readonly GREEN="${ESC}92m"
-readonly YELLOW="${ESC}93m"
-readonly BLUE="${ESC}94m"
-readonly MAGENTA="${ESC}95m"
-readonly CYAN="${ESC}96m"
-readonly WHITE="${ESC}97m"
+export FG_BLACK="${STYLE_ESC}90m"
+export FG_RED="${STYLE_ESC}91m"
+export FG_GREEN="${STYLE_ESC}92m"
+export FG_YELLOW="${STYLE_ESC}93m"
+export FG_BLUE="${STYLE_ESC}94m"
+export FG_MAGENTA="${STYLE_ESC}95m"
+export FG_CYAN="${STYLE_ESC}96m"
+export FG_WHITE="${STYLE_ESC}97m"
 # Standard background
-readonly BG_BLACK="${ESC}100m"
-readonly BG_RED="${ESC}101m"
-readonly BG_GREEN="${ESC}102m"
-readonly BG_YELLOW="${ESC}103m"
-readonly BG_BLUE="${ESC}104m"
-readonly BG_MAGENTA="${ESC}105m"
-readonly BG_CYAN="${ESC}106m"
-readonly BG_WHITE="${ESC}107m"
-}
+export BG_BLACK="${STYLE_ESC}100m"
+export BG_RED="${STYLE_ESC}101m"
+export BG_GREEN="${STYLE_ESC}102m"
+export BG_YELLOW="${STYLE_ESC}103m"
+export BG_BLUE="${STYLE_ESC}104m"
+export BG_MAGENTA="${STYLE_ESC}105m"
+export BG_CYAN="${STYLE_ESC}106m"
+export BG_WHITE="${STYLE_ESC}107m"
 
 
 ## Style
 
 
 # accent color
-export ACCENT=$GREEN
+export FG_ACCENT=$FG_GREEN
 export GUM_ACCENT=$GUM_GREEN
 
 # gum subcommands style
@@ -78,7 +73,7 @@ else
 fi
 
 # The minimum delay for displaying a some status before changing it
-UI_INTERACTION_DELAY=0.6 # sec
+export UI_INTERACTION_DELAY=0.6 # sec
 
 
 ## Logger
@@ -86,7 +81,7 @@ UI_INTERACTION_DELAY=0.6 # sec
 
 # Path to current log file. If unset or set to "/dev/null", start_logger()
 # will create a temporary log file and assign it to LOG_FILE.
-LOG_FILE=/dev/null
+export LOG_FILE=/dev/null
 
 
 start_logger() {
@@ -184,8 +179,8 @@ bullet_section() {
         gum style --bold --foreground "$GUM_WHITE" '::'
     else
         printf "%b::%b"       \
-            "${BOLD}${WHITE}" \
-            "${CLR}"
+            "${STYLE_BOLD}${FG_WHITE}" \
+            "${STYLE_CLR}"
     fi
 }
 
@@ -198,8 +193,8 @@ bullet_action() {
         gum style --bold --foreground "$GUM_ACCENT" '   ->'
     else
         printf "   %b->%b"     \
-            "${BOLD}${ACCENT}" \
-            "${CLR}"
+            "${STYLE_BOLD}${FG_ACCENT}" \
+            "${STYLE_CLR}"
     fi
 }
 
@@ -215,9 +210,9 @@ bullet_warning() {
             "$(gum style --faint ']')"
     else
         printf "%b%b%b"                     \
-            "${DIM}[${CLR}"                 \
-            "${BOLD}${YELLOW}WARNING${CLR}" \
-            "${DIM}]${CLR}"
+            "${STYLE_DIM}[${STYLE_CLR}"                 \
+            "${STYLE_BOLD}${FG_YELLOW}WARNING${STYLE_CLR}" \
+            "${STYLE_DIM}]${STYLE_CLR}"
     fi
 }
 
@@ -233,9 +228,9 @@ bullet_error() {
             "$(gum style --faint ']')"
     else
         printf "%b%b%b"                \
-            "${DIM}[${CLR}"            \
-            "${BOLD}${RED}ERROR${CLR}" \
-            "${DIM}]${CLR}"
+            "${STYLE_DIM}[${STYLE_CLR}"            \
+            "${STYLE_BOLD}${FG_RED}ERROR${STYLE_CLR}" \
+            "${STYLE_DIM}]${STYLE_CLR}"
     fi
 }
 
@@ -247,7 +242,7 @@ prefix_printf() {
     if is_command_available "gum"; then
         title="$(gum style --faint "$title")"
     else
-        title="${DIM}${title}${CLR}"
+        title="${STYLE_DIM}${title}${STYLE_CLR}"
     fi
 
     printf "%b ${title}" "$prefix" "${@:3}"
@@ -422,8 +417,8 @@ request_gum() {
     is_command_available "gum" && return 0
 
     printf_section "The UI%b gum%b not found. Let's get some? " \
-        "${CLR}${BOLD}${MAGENTA}" \
-        "${CLR}${DIM}"
+        "${STYLE_CLR}${STYLE_BOLD}${FG_MAGENTA}" \
+        "${STYLE_CLR}${STYLE_DIM}"
 
     if ask_yn; then
         printf_action "pacman -Sy gum\n"
@@ -796,7 +791,7 @@ action_install_file() {
     action_run "$(printf "%b %b %b"      \
         "$(gum style --faint 'Install')" \
         "$(gum style --foreground $GUM_YELLOW "$basename")" \
-        "$(gum style --faint "to $file_path")${DIM}" \
+        "$(gum style --faint "to $file_path")${STYLE_DIM}" \
     )" "$prefix mv $tmpfile $file_path" 'done'
     assert $? "can't move $tmpfile -> $file_path"
 }
@@ -874,3 +869,50 @@ action_request_permission() {
 
     printf_action "Request permission%b - granted\n" "$reason_text"
 }
+
+
+## Export Functions
+
+
+# Logger
+export -f start_logger
+export -f get_logger
+export -f reset_logger
+
+# Common
+export -f is_command_available
+export -f assert
+
+# Print
+export -f bullet_section
+export -f bullet_action
+export -f bullet_warning
+export -f bullet_error
+export -f prefix_printf
+export -f printf_section
+export -f printf_action
+export -f printf_warning
+export -f printf_error
+
+# Input
+export -f ask_yn
+
+# Root & Privilege
+export -f as_root
+export -f check_sudo
+export -f have_privilege
+
+# Package Management
+export -f is_package_installed
+export -f request_gum
+
+# Array
+export -f choices_to_indices
+export -f array_contains
+
+# Files & Env
+export -f backup_file
+export -f remove_line
+export -f replace_line
+export -f env_set_permanent
+export -f check_sudo
