@@ -24,20 +24,21 @@ main() {
     ## Get gum
 
     request_gum
-    assert $? "no gum - no fun :("
+    assert $? 'no gum - no fun :('
 
     ## Logging
 
-    printf_section "Logging\n"
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
     start_logger
-    printf_action "Log started: ${CLR}${LOG_FILE}\n"
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
 
     ## Ask user for items to install
 
     printf_section "Confirm Items\n"
 
     local choices
-    choices=$(gum choose --no-limit --selected="*" \
+    choices=$(gum choose --no-limit --selected='*' \
                          --header "Select items to install:" \
                          'Settings' \
                          'Keybindings' \
@@ -46,10 +47,11 @@ main() {
     # shellcheck disable=SC2181
     [ $? -ne 0 ] && return 0 # cancelled by user
     mapfile -t choices <<< "$choices" # Convert choices string to array
-    printf_action "Selected items: ${CLR}${#choices[@]}\n"
+    printf_action "Selected items: ${STYLE_CLR}${#choices[@]}\n"
 
     # Empty choice means nothing to do -> exit
     if [ ${#choices[@]} -eq 0 ]; then
+        echo
         return 0
     fi
 
@@ -57,7 +59,7 @@ main() {
 
     printf_section "Installing & Configuring\n"
 
-    action_require_package "micro"
+    action_require_package 'micro'
 
     # Create micro config directory if it doesn't exist
     mkdir -p ~/.config/micro
@@ -70,27 +72,28 @@ main() {
             settings*)
                 action_install_file                        \
                     "${HOME}/.config/micro/settings.json"  \
-                    "https://dimk90.github.io/anarchy/micro/settings.json"
+                    'https://dimk90.github.io/anarchy/micro/settings.json'
                 ;;
             keybindings*)
                 action_install_file                        \
                     "${HOME}/.config/micro/bindings.json"  \
-                    "https://dimk90.github.io/anarchy/micro/bindings.json"
+                    'https://dimk90.github.io/anarchy/micro/bindings.json'
                 ;;
             *editor*)
                 local shells
-                shells="$(env_set_permanent "EDITOR" "micro")"
-                [ -n "$shells" ] && action_run "Set EDITOR to micro for ${CLR}${BOLD}$shells"
+                shells="$(env_set_permanent 'EDITOR' 'micro')"
+                [ -n "$shells" ] && action_run "Set EDITOR to micro for ${STYLE_CLR}${STYLE_BOLD}$shells"
                 ;;
             *truecolor*)
-                shells="$(env_set_permanent "MICRO_TRUECOLOR" "1")"
-                [ -n "$shells" ] && action_run "Set MICRO_TRUECOLOR to 1 for ${CLR}${BOLD}$shells"
+                shells="$(env_set_permanent 'MICRO_TRUECOLOR' '1')"
+                [ -n "$shells" ] && action_run "Set MICRO_TRUECOLOR to 1 for ${STYLE_CLR}${STYLE_BOLD}$shells"
                 ;;
             *) assert 1 "invalid choice: ${choice}"
                 ;;
         esac
     done
 
+    echo
     return 0
 }
 
