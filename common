@@ -153,6 +153,33 @@ assert() {
 }
 
 
+regex_sanitize() {
+    #
+    # Remove regex metacharacters and apply escaping to string.
+    #
+    # Example:
+    #    regex_sanitize '^Color$' -> Output: 'Color'
+    #    regex_sanitize '^Color\s*=\s*red$' -> Output: 'Color=red'
+    #
+    # shellcheck disable=SC2001
+    echo "$1" | sed \
+        's/\\[bsdwBSDW][*+?]\?//g; # Remove character class patterns with quantifiers:
+                                   # \s* \s+ \s? ...
+
+        s/\\\$/$/g;                # Unescape escaped dollar signs: \$ becomes $
+                                   # This must come before removing all backslashes
+
+        s/\\//g;                   # Remove remaining backslashes (escape character)
+
+        s/\^//g;                   # Remove ^ (start of line anchor)
+        s/\$//g;                   # Remove $ (end of line anchor)
+
+        s/[*+?.()\[\]{}|]//g       # Remove other regex special characters:
+                                   # *, +, ?, ., (), [], {}, |
+    '
+}
+
+
 ## Print
 
 
@@ -882,6 +909,7 @@ export -f reset_logger
 # Common
 export -f is_command_available
 export -f assert
+export -f regex_sanitize
 
 # Print
 export -f bullet_section
