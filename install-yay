@@ -24,34 +24,47 @@ main() {
     ## Get gum
 
     request_gum
-    assert $? "no gum - no fun :("
+    assert $? 'no gum - no fun :('
 
     ## Logging
 
-    printf_section "Logging\n"
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
     start_logger
-    printf_action "Log started: ${CLR}${LOG_FILE}\n"
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
 
     ## Install
 
     printf_section "Installing & Configuring\n"
 
+    # Check if installed already
+    if is_command_available yay; then
+        printf_action 'yay is installed already - %b\n\n' "$(gum style --foreground $GUM_ACCENT 'exit')"
+        return 0
+    fi
+
     # git
-    action_require_package "git"
+    action_require_package 'git'
 
     # Clone yay's PKGBUILD
-    rm -rf "/tmp/anarchy-yay-install" &>> "${LOG_FILE}"
-    action_run "Cloning yay's PKGBUILD" "git clone https://aur.archlinux.org/yay.git /tmp/anarchy-yay-install" "done"
+    rm -rf '/tmp/anarchy-yay-install' &>> "${LOG_FILE}"
+    action_run "Cloning yay's PKGBUILD" \
+        'git clone https://aur.archlinux.org/yay.git /tmp/anarchy-yay-install' \
+        'done'
     assert $? "failed to clone yay's PKGBUILD"
 
     # Build package
-    action_run "Building" "makepkg -s --noconfirm -D /tmp/anarchy-yay-install" "done"
-    assert $? "failed to build and install yay"
+    action_run 'Building' \
+        'makepkg -s --noconfirm -D /tmp/anarchy-yay-install' \
+        'done'
+    assert $? 'failed to build and install yay'
 
     # Install
-    action_request_permission "for installing yay"
-    action_run "Installing yay" "sudo pacman -U --noconfirm /tmp/anarchy-yay-install/yay-*.pkg.tar.zst" "done"
-    assert $? "failed to install yay"
+    action_request_permission 'for installing yay'
+    action_run 'Installing yay' \
+        "sudo pacman -U --noconfirm /tmp/anarchy-yay-install/yay-*.pkg.tar.zst" \
+        'done'
+    assert $? 'failed to install yay'
 
     echo
     return 0
