@@ -28,9 +28,11 @@ main() {
 
     ## Logging
 
-    printf_section "Logging\n"
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
     start_logger
     printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
 
     ## Pacman
 
@@ -38,7 +40,7 @@ main() {
 
     # Enable colors
     action_request_permission 'to modify pacman.conf'
-    action_run 'Enabling pacman colors' \
+    action_run 'Enabling colors' \
         "config_set_param '/etc/pacman.conf' '^Color$' 'options' $(check_sudo)" \
         'done'
 
