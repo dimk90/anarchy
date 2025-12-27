@@ -1,0 +1,62 @@
+#!/bin/bash
+
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Routines
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Configure zram
+
+    printf_section "Configuring zram\n"
+
+    # Install zram-generator
+    action_require_package 'zram-generator'
+
+    # Download and install zram config (+existing config backup)
+    action_request_permission 'to install zram-generator.conf'
+    action_install_file '/etc/systemd/zram-generator.conf'  \
+                        'https://dimk90.github.io/anarchy/zram/zram-generator.conf' \
+                        "$(check_sudo)"
+
+    # Create zram0 by daemon reloading
+    action_request_permission 'to create zram0'
+    action_run 'Create zram0' "$(check_sudo) systemctl daemon-reload" 'done'
+    assert $? 'zram0 creation failed (daemon-reload failed)'
+
+    echo
+    return 0
+}
+
+
+# Run main and return its exit code
+main "$@"
+exit $?

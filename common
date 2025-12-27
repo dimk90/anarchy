@@ -857,14 +857,14 @@ action_install_file() {
     # Backup existing config file (if exists)
     if [ -f "$file_path" ]; then
         # Check if sudo required
-        [ "${prefix,,}" = 'sudo' ] && action_request_permission
+        [ "${prefix,,}" = 'sudo' ] && action_request_permission "to backup ${basename}"
         backup_file=$(backup_file "$file_path" "$prefix")
         assert $? "can't backup: $basename"
         action_run "Backup $basename -> $backup_file" "" 'done'
     fi
 
     # Move downloaded file to the target location
-    [ "${prefix,,}" = 'sudo' ] && action_request_permission
+    [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${basename}"
     action_run "$(printf "%b %b %b"      \
         "$(gum style --faint 'Install')" \
         "$(gum style --foreground $GUM_YELLOW "$basename")" \

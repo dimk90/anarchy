@@ -38,6 +38,13 @@ curl -fsSL https://dimk90.github.io/anarchy/install-yay | bash
 ```
 
 
+### zram
+
+Configure zram using `zram-generator`:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/copnfigure-zram | bash
+```
+
 ## Tests
 
 

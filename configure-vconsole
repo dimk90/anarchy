@@ -121,9 +121,9 @@ install_locale() {
     # Backup /etc/locale.gen if it exists
     if [ -f '/etc/locale.gen' ]; then
         action_request_permission 'for backing up /etc/locale.gen'
-        backup_file=$(backup_file '/etc/locale.gen' "$(check_sudo)")
+        backup_name=$(backup_file '/etc/locale.gen' "$(check_sudo)")
         assert $? "can't backup /etc/locale.gen"
-        action_run "Backup created: ${STYLE_CLR}${backup_file}"
+        action_run "Backup created: ${STYLE_CLR}${backup_name}"
     fi
 
     # Enable en_US.UTF-8 in /etc/locale.gen
@@ -147,9 +147,9 @@ install_locale() {
     # Backup /etc/locale.conf if it exists
     if [ -f '/etc/locale.conf' ]; then
         action_request_permission 'for backing up /etc/locale.conf'
-        backup_file=$(backup_file '/etc/locale.conf' "$(check_sudo)")
+        backup_name=$(backup_file '/etc/locale.conf' "$(check_sudo)")
         assert $? "can't backup /etc/locale.conf"
-        action_run "Backup created: ${STYLE_CLR}${backup_file}"
+        action_run "Backup created: ${STYLE_CLR}${backup_name}"
     fi
 
     # Update /etc/locale.conf
@@ -203,9 +203,9 @@ main() {
         if [ -f '/etc/vconsole.conf' ]; then
             printf_section "Backup\n"
             action_request_permission 'for backing up /etc/vconsole.conf'
-            backup_file=$(backup_file '/etc/vconsole.conf' "$(check_sudo)")
+            backup_name=$(backup_file '/etc/vconsole.conf' "$(check_sudo)")
             assert $? "can't backup /etc/vconsole.conf"
-            action_run "$backup_file"
+            action_run "$backup_name"
         fi
     fi
 
