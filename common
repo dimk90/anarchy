@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.0'
+export COMMON_VERSION='2.1'
 
 
 ## Colors
@@ -65,11 +65,11 @@ export GUM_CHOOSE_CURSOR_FOREGROUND=$GUM_CHOOSE_SELECTED_FOREGROUND
 export GUM_CHOOSE_HEADER_FOREGROUND=$GUM_WHITE
 
 # spinner
-if [ "$TERM" = "linux" ]; then
+if [ "$TERM" = 'linux' ]; then
     # vconsole font is limited
-    export GUM_SPIN_SPINNER="line"
+    export GUM_SPIN_SPINNER='line'
 else
-    export GUM_SPIN_SPINNER="minidot"
+    export GUM_SPIN_SPINNER='minidot'
 fi
 
 # The minimum delay for displaying a some status before changing it
@@ -94,7 +94,7 @@ start_logger() {
     #   start_logger
     #   echo " -> start log: $(get_logger)"
     #
-    if [ "$LOG_FILE" = "/dev/null" ]; then
+    if [ "$LOG_FILE" = '/dev/null' ]; then
         LOG_FILE="$(mktemp).log"
         assert $? "can't create log file in /tmp"
     fi
@@ -203,7 +203,7 @@ bullet_section() {
     #
     # Output section bullet with applied style.
     #
-    if is_command_available "gum"; then
+    if is_command_available 'gum'; then
         gum style --bold --foreground "$GUM_WHITE" '::'
     else
         printf "%b::%b"       \
@@ -217,7 +217,7 @@ bullet_action() {
     #
     # Output action bullet with applied style.
     #
-    if is_command_available "gum"; then
+    if is_command_available 'gum'; then
         gum style --bold --foreground "$GUM_ACCENT" '   ->'
     else
         printf "   %b->%b"     \
@@ -231,7 +231,7 @@ bullet_warning() {
     #
     # Output warning bullet with applied style.
     #
-    if is_command_available "gum"; then
+    if is_command_available 'gum'; then
         printf "%b%b%b"                                              \
             "$(gum style --faint '[')"                               \
             "$(gum style --bold --foreground $GUM_YELLOW 'WARNING')" \
@@ -249,7 +249,7 @@ bullet_error() {
     #
     # Output error bullet with applied style.
     #
-    if is_command_available "gum"; then
+    if is_command_available 'gum'; then
         printf "%b%b%b"                                         \
             "$(gum style --faint '[')"                          \
             "$(gum style --bold --foreground $GUM_RED 'ERROR')" \
@@ -267,7 +267,7 @@ prefix_printf() {
     local prefix="$1"
     local title="$2"
 
-    if is_command_available "gum"; then
+    if is_command_available 'gum'; then
         title="$(gum style --faint "$title")"
     else
         title="${STYLE_DIM}${title}${STYLE_CLR}"
@@ -337,7 +337,7 @@ ask_yn() {
     #   printf "Install gum? "
     #   if ask_yn; then as_root pacman -Sy gum; fi
     #
-    printf "(y/n): "
+    printf '(y/n): '
 
     # read input from /dev/tty to work correctly when stdin is redirected
     # e.g., curl -fsSL ...install.sh | bash
@@ -381,9 +381,9 @@ check_sudo() {
     #
     if [ "$EUID" -eq 0 ]; then
         # root already -> no need sudo
-        echo ""
+        echo ''
     else
-        echo "sudo"
+        echo 'sudo'
     fi
 }
 
@@ -442,7 +442,7 @@ request_gum() {
     #   gum_request
     #   assert $? "no gum - no fun :("
     #
-    is_command_available "gum" && return 0
+    is_command_available 'gum' && return 0
 
     printf_section "The UI%b gum%b not found. Let's get some? " \
         "${STYLE_CLR}${STYLE_BOLD}${FG_MAGENTA}" \
@@ -526,13 +526,13 @@ backup_file() {
     #
     # Parameters:
     #   $1 - filename - file to backup.
-    #   $2 - prefix - (optional) - prefix command (e.g., "sudo").
+    #   $2 - prefix - (optional) - prefix command (e.g., 'sudo').
     #
     # Example:
     #    backup_name=$(backup_file "$file")
     #    assert $? "backup failed for $file"
     #
-    #    backup_name=$(backup_file "$file" "sudo")
+    #    backup_name=$(backup_file "$file" 'sudo')
     #    assert $? "backup failed for $file (with sudo)"
     #
     local filename="$1"
@@ -540,7 +540,7 @@ backup_file() {
 
     # If the target file does not exist, there's nothing to back up.
     if [[ ! -f $filename ]]; then
-        echo ""  # return empty string
+        echo ''  # return empty string
         return 0 # no error
     fi
 
@@ -558,7 +558,7 @@ backup_file() {
         echo "${backup_name}" # return backup filename
         return 0
     else
-        echo ""  # return empty string - no backup created
+        echo ''  # return empty string - no backup created
         return 1
     fi
 }
@@ -573,18 +573,18 @@ remove_line() {
     # Parameters:
     #   $1 - file - file to modify.
     #   $2 - pattern - pattern to match (sed regex).
-    #   $3 - prefix - (optional) - prefix command (e.g., "sudo").
-    #   $4 - case_mode - (optional) - set to "i" or "I" for case-insensitive matching.
+    #   $3 - prefix - (optional) - prefix command (e.g., 'sudo').
+    #   $4 - case_mode - (optional) - set to 'i' or 'I' for case-insensitive matching.
     #
     # Example:
-    #   remove_line "/etc/vconsole.conf" "^FONT="
-    #   assert $? "failed to remove line from /etc/vconsole.conf"
+    #   remove_line '/etc/vconsole.conf' '^FONT='
+    #   assert $? 'failed to remove line from /etc/vconsole.conf'
     #
-    #   remove_line "/etc/vconsole.conf" "^FONT=" "sudo"
+    #   remove_line '/etc/vconsole.conf' '^FONT=' 'sudo'
     #   assert $? "failed to remove line from /etc/vconsole.conf (with sudo)"
     #
-    #   remove_line "/etc/vconsole.conf" "^font=" "" "i"
-    #   assert $? "failed to remove line (case-insensitive)"
+    #   remove_line '/etc/vconsole.conf' '^font=' '' 'i'
+    #   assert $? 'failed to remove line (case-insensitive)''
     #
     local file="$1"
     local pattern="$2"
@@ -593,7 +593,7 @@ remove_line() {
 
     # Check if both parameters are provided
     if [[ -z $file || -z $pattern ]]; then
-        assert 1 "parameters <file> and <pattern> are required"
+        assert 1 'parameters <file> and <pattern> are required'
     fi
 
     # Check if file exists
@@ -619,13 +619,13 @@ replace_line() {
     #   $1 - file - file to modify.
     #   $2 - pattern - pattern to match (sed regex).
     #   $3 - new_line - new line to insert.
-    #   $4 - prefix - (optional) - prefix command (e.g., "sudo").
+    #   $4 - prefix - (optional) - prefix command (e.g., 'sudo').
     #
     # Example:
-    #   replace_line "/etc/vconsole.conf" "^FONT=" "FONT=ter-124b"
-    #   assert $? "failed to replace line in /etc/vconsole.conf"
+    #   replace_line '/etc/vconsole.conf' '^FONT=' 'FONT=ter-124b'
+    #   assert $? 'failed to replace line in /etc/vconsole.conf'
     #
-    #   replace_line "/etc/vconsole.conf" "^FONT=" "FONT=ter-124b" "sudo"
+    #   replace_line '/etc/vconsole.conf' '^FONT='' "FONT=ter-124b' 'sudo'
     #   assert $? "failed to replace line in /etc/vconsole.conf (with sudo)"
     #
     local file="$1"
@@ -668,8 +668,8 @@ config_set_param() {
     #   $4 - (optional) - prefix command (e.g. 'sudo').
     #
     # Example:
-    #   config_set_param "/etc/pacman.conf" "^Color$" "options" "sudo"
-    #   config_set_param "reflector.service" "ConditionACPower\s*=\s*true" "Unit"
+    #   config_set_param '/etc/pacman.conf' '^Color$' 'options' 'sudo'
+    #   config_set_param 'reflector.service' 'ConditionACPower\s*=\s*true' 'Unit'
     #
     local file="$1"
     local param="$2"
@@ -723,23 +723,23 @@ env_set_permanent() {
     local result_msg=""
 
     # fish
-    if is_command_available "fish"; then
+    if is_command_available 'fish'; then
         ((result_code += 1))
         # set fish universal variable:
         # shared across all fish sessions, persists after reboot
         if fish -c "set -Ux $var_name $var_value" &>> "$LOG_FILE"; then
             ((result_code -= 1))
             # Append fish to the current result msg
-            [ -z "$result_msg" ] && result_msg="fish" || result_msg="${result_msg},fish"
+            [ -z "$result_msg" ] && result_msg='fish' || result_msg="${result_msg},fish"
         fi
     fi
 
     # bash
-    if is_command_available "bash"; then
+    if is_command_available 'bash'; then
         ((result_code += 1))
         # set permanent variable:
         # remove current variable (if present) and add new
-        if remove_line ~/.bashrc "^export ${var_name}=" "" "i" &&
+        if remove_line ~/.bashrc "^export ${var_name}=" '' 'i' &&
            echo "export ${var_name}=\"${var_value}\"" >> ~/.bashrc; then
             ((result_code -= 1))
             # Append bash to the current result msg
@@ -765,53 +765,57 @@ action_require_package() {
     #   $2 - title_prefix - (optional) - A prefix string used when rendering UI titles.
     #
     # Example:
-    #   action_require_package "nano"
+    #   action_require_package 'nano'
     #
     local package="$1"
     local title_prefix="${2-$(bullet_action) }"
 
-    is_command_available "gum"
-    assert $? "gum is required"
+    is_command_available 'gum'
+    assert $? 'gum is required'
 
     action_title=$(printf "%b%b %b" "$title_prefix"  \
         "$(gum style --faint 'Package')"    \
-        "$(gum style --bold --foreground "$GUM_ACCENT" "$package")" \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$package")" \
     )
 
     # check if package already installed
-    gum spin --align="right" \
+    gum spin --align='right' \
              --title "${action_title}$(gum style --faint ' - checking')" \
              -- sleep $UI_INTERACTION_DELAY
 
     if is_package_installed "$package"; then
-        printf "%b\n" "${action_title}$(gum style --faint ' - exists')"
+        printf "%b %b %b\n" "${action_title}" \
+                            "$(gum style --faint '-')" \
+                            "$(gum style --faint --foreground $GUM_ACCENT 'exists')"
         return 0
     fi
 
     # request privilege
-    gum spin --align="right" \
+    gum spin --align='right' \
              --title "${action_title}$(gum style --faint ' - privilege')" \
              -- sleep $UI_INTERACTION_DELAY
 
     if ! have_privilege; then
         password=$(gum input --password --char-limit=30 \
                              --no-show-help             \
-                             --placeholder "enter your password for sudo" \
+                             --placeholder 'enter your password for sudo' \
                              --prompt "${action_title} $(gum style --foreground "$GUM_WHITE" '>') ")
-        assert $? "password request failed"
+        assert $? 'password request failed'
 
         # shellcheck disable=SC2024
         echo "$password" | sudo -Si true &>> "$LOG_FILE"
-        assert $? "privilege request failed"
+        assert $? 'privilege request failed'
     fi
 
     # pacman & spinner
-    gum spin --align="right"  \
+    gum spin --align='right'  \
              --title "${action_title}$(gum style --faint ' - installing')" \
              -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &>> ${LOG_FILE}"
     assert $? "can't install package"
 
-    printf "%b\n" "${action_title}$(gum style --faint ' - installed')"
+    printf "%b %b %b\n" "${action_title}" \
+                        "$(gum style --faint '-')" \
+                        "$(gum style --faint --foreground $GUM_ACCENT 'installed')"
 }
 
 
@@ -824,10 +828,10 @@ action_install_file() {
     # Parameters:
     #   $1 - file_path - destination path for the file.
     #   $2 - file_url - URL to download the file from.
-    #   $3 - prefix - (optional) - prefix command (e.g., "sudo").
+    #   $3 - prefix - (optional) - prefix command (e.g., 'sudo').
     #
     # Example:
-    #   action_install_file "/etc/vconsole.conf" "https://example.com/vconsole.conf" "sudo"
+    #   action_install_file '/etc/vconsole.conf' 'https://example.com/vconsole.conf' 'sudo'
     #
     local file_path="$1"
     local file_url="$2"
@@ -884,8 +888,8 @@ action_run() {
     local command="${2-}"
     local status="${3-}"
 
-    is_command_available "gum"
-    assert $? "gum is required"
+    is_command_available 'gum'
+    assert $? 'gum is required'
 
     # If command is missing set it to the minimal UI sleep
     if [ -z "$command" ]; then
@@ -893,14 +897,14 @@ action_run() {
     fi
 
     # Run command and show spinner
-    gum spin --align="right" --title "$(printf_action "${title} -")" \
+    gum spin --align='right' --title "$(printf_action "${title} -")" \
         -- bash -c "${command} &>> ${LOG_FILE}"
 
     # Return exit code and skip status if non-zero
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
         printf_action "%b - %b\n" "$title" \
-                      "$(gum style --foreground $GUM_RED "failed")"
+                      "$(gum style --foreground $GUM_RED 'failed')"
         return $exit_code
     fi
 
@@ -909,7 +913,7 @@ action_run() {
         printf_action "%b\n" "$title"
     else
         printf_action "%b - %b\n" "$title" \
-                      "$(gum style --foreground $GUM_GREEN "$status")"
+                      "$(gum style --foreground $GUM_ACCENT "$status")"
     fi
 }
 
@@ -932,15 +936,17 @@ action_request_permission() {
 
     password=$(gum input --password --char-limit=30 \
                          --no-show-help             \
-                         --placeholder "enter your password for sudo" \
+                         --placeholder 'enter your password for sudo' \
                          --prompt "${request_title} $(gum style --foreground "$GUM_WHITE" '>') ")
-    assert $? "password request failed"
+    assert $? 'password request failed'
 
     # shellcheck disable=SC2024
     echo "$password" | sudo -Si true &>> "$LOG_FILE"
-    assert $? "permission request failed"
+    assert $? 'permission request failed'
 
-    printf_action "Request permission%b - granted\n" "$reason_text"
+    printf_action "Request permission%b - %b\n" \
+        "$reason_text" \
+        "$(gum style --foreground $GUM_ACCENT 'granted')"
 }
 
 
