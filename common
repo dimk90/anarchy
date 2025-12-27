@@ -652,6 +652,50 @@ replace_line() {
 }
 
 
+config_set_param() {
+    #
+    # Set configuration parameter in file if not already set.
+    # If config section specified, insert parameter under that section.
+    #
+    # The parameter name may contain regex meta-characters to broadly match existing entries.
+    # E.g. to set "Color" parameter in /etc/pacman.conf under [options] section:
+    #   config_set_param '/etc/pacman.conf' '^Color$' 'options' 'sudo'
+    #
+    # Parameters:
+    #   $1 - file path.
+    #   $2 - parameter name (may contain regex meta-characters).
+    #   $3 - (optional) - section name .
+    #   $4 - (optional) - prefix command (e.g. 'sudo').
+    #
+    # Example:
+    #   config_set_param "/etc/pacman.conf" "^Color$" "options" "sudo"
+    #   config_set_param "reflector.service" "ConditionACPower\s*=\s*true" "Unit"
+    #
+    local file="$1"
+    local param="$2"
+    local section="${3-}"
+    local prefix="${4-}"
+
+    # Check if parameter already exists
+    if ${prefix} grep -q -E "${param}" "${file}"; then
+        return 0
+    fi
+
+    # Sanitize param from regex meta-characters (e.g. '^Color$' -> 'Color').
+    param=$(regex_sanitize "$param")
+
+    # Insert param to the section if section name is provided
+    if [ -n "${section}" ]; then
+        ${prefix} sed -i "/^\[${section}\]/a${param}" "${file}" &>> "$LOG_FILE"
+        return $?
+    fi
+
+    # Append param to the end of the file if no section provided
+    echo "${param}" | ${prefix} tee -a "${file}" &>> "$LOG_FILE"
+    return $?
+}
+
+
 env_set_permanent() {
     #
     # Set an environment variable permanently across shell sessions.
@@ -943,5 +987,6 @@ export -f array_contains
 export -f backup_file
 export -f remove_line
 export -f replace_line
+export -f config_set_param
 export -f env_set_permanent
 export -f check_sudo
