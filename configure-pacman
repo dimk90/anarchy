@@ -9,10 +9,9 @@ set -o nounset
 
 set -o errexit # exit on non-zero exit code
 
-# COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
 # shellcheck source=common
-# source <(echo "$COMMON")
-source common
+source <(echo "$COMMON")
 
 set +o errexit # disable exit on non-zero exit code
 
@@ -20,30 +19,12 @@ set +o errexit # disable exit on non-zero exit code
 ## Routines
 
 
-# shellcheck disable=SC2329
-enable_colors_pacman() {
-    if $(check_sudo) grep -q '^Color$' "/etc/pacman.conf"; then
-        # Enabled already
-        return 0
-    fi
-
-    if $(check_sudo) grep -q '^#Color$' "/etc/pacman.conf"; then
-        # Uncomment line "Color" in the config
-        if replace_line /etc/pacman.conf "^#Color$" "Color" "$(check_sudo)"; then
-            return 0
-        fi
-    fi
-
-    return 2 # fail
-}
-
-
 main() {
 
     ## Get gum
 
     request_gum
-    assert $? "no gum - no fun :("
+    assert $? 'no gum - no fun :('
 
     ## Logging
 
@@ -56,46 +37,49 @@ main() {
     printf_section "Configuring Pacman\n"
 
     # Enable colors
-    export -f enable_colors_pacman
-    action_request_permission "to modify pacman.conf"
-    action_run "Enabling pacman colors" "enable_colors_pacman" "done"
+    action_request_permission 'to modify pacman.conf'
+    action_run 'Enabling pacman colors' \
+        "config_set_param '/etc/pacman.conf' '^Color$' 'options' $(check_sudo)" \
+        'done'
 
     ## Reflector
 
     printf_section "Installing Reflector\n"
 
     # Reflector package
-    action_require_package "reflector"
+    action_require_package 'reflector'
 
     # Configure mirror sorting [reflector.conf]
-    action_request_permission "to update reflector.conf"
+    action_request_permission 'to modify reflector.conf'
     action_run "Configure mirror sorting to 'rate'" \
         "replace_line /etc/xdg/reflector/reflector.conf '^--sort age' '--sort rate' '$(check_sudo)'" \
-        "done"
+        'done'
 
-    # Set mirror update only on AC [reflector.service]
-    # TODO: add config_set_param function
-    if ! grep -q -E '^\s*ConditionACPower' "/usr/lib/systemd/system/reflector.service"; then
-        # ConditionACPower is not set in .service yet
-        action_request_permission "to update reflector.service"
-        action_run "Configure reflector to run on AC only" \
-            "$(check_sudo) sed -i '/^\[Unit\]/aConditionACPower=true' /usr/lib/systemd/system/reflector.service &>> ${LOG_FILE}" \
-            "done"
-    fi
+    action_request_permission 'to modify reflector.service'
+    action_run 'Configure reflector to run on AC only' \
+        "config_set_param '/usr/lib/systemd/system/reflector.service'   \
+                          '\s*ConditionACPower\s*=\s*true' 'Unit' $(check_sudo)" \
+        'done'
 
     # Reload reflector config
-    action_request_permission "to reflector daemon reload"
-    action_run "Reload reflector daemon" "$(check_sudo) systemctl daemon-reload &>> ${LOG_FILE}" "done"
+    action_request_permission 'to reload reflector daemon'
+    action_run 'Reload reflector daemon' \
+        "$(check_sudo) systemctl daemon-reload &>> ${LOG_FILE}" \
+        'done'
 
     # Enable reflector timer
-    action_request_permission "to run reflector timer"
-    action_run "Enable reflector timer" "$(check_sudo) systemctl enable reflector.timer &>> ${LOG_FILE}" "done"
+    action_request_permission 'to enable reflector timer'
+    action_run 'Enable reflector timer' \
+        "$(check_sudo) systemctl enable reflector.timer &>> ${LOG_FILE}" \
+        'done'
 
     # Exclude mirrorlist from pacman package updates
-    action_request_permission "to exclude mirrorlist from pacman updates"
-    action_run "Exclude mirrorlist from pacman update" \
-        "$(check_sudo) sed -i '/^\[options\]/aNoExtract = etc/pacman.d/mirrorlist' /etc/pacman.conf &>> ${LOG_FILE}" \
-        "done"
+    action_request_permission 'to exclude mirrorlist from pacman updates'
+    action_run 'Exclude mirrorlist from pacman update' \
+        "config_set_param '/etc/pacman.conf'  \
+                          '\s*NoExtract\s*=\s*etc/pacman.d/mirrorlist' \
+                          'options' $(check_sudo)" \
+        'done'
 
     echo
     return 0
