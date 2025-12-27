@@ -159,6 +159,7 @@ regex_sanitize() {
     #
     # Example:
     #    regex_sanitize '^Color$' -> Output: 'Color'
+    #    regex_sanitize '\$Color\$' -> Output: '$Color$'
     #    regex_sanitize '^Color\s*=\s*red$' -> Output: 'Color=red'
     #
     # shellcheck disable=SC2001
@@ -424,7 +425,7 @@ is_package_installed() {
     # Check if a package installed.
     #
     # Parameters:
-    #   $1 - package name
+    #   $1 - package - package name.
     #
     local package="$1"
 
@@ -524,8 +525,8 @@ backup_file() {
     # where N is the next available number.
     #
     # Parameters:
-    #   $1 - filename to backup
-    #   $2 - (optional) prefix command (e.g., "sudo")
+    #   $1 - filename - file to backup.
+    #   $2 - prefix - (optional) - prefix command (e.g., "sudo").
     #
     # Example:
     #    backup_name=$(backup_file "$file")
@@ -570,10 +571,10 @@ remove_line() {
     # Return 0 if the file does not exist or if no matching lines are found.
     #
     # Parameters:
-    #   $1 - file to modify
-    #   $2 - pattern to match (sed regex)
-    #   $3 - (optional) prefix command (e.g., "sudo")
-    #   $4 - (optional) set to "i" or "I" for case-insensitive matching
+    #   $1 - file - file to modify.
+    #   $2 - pattern - pattern to match (sed regex).
+    #   $3 - prefix - (optional) - prefix command (e.g., "sudo").
+    #   $4 - case_mode - (optional) - set to "i" or "I" for case-insensitive matching.
     #
     # Example:
     #   remove_line "/etc/vconsole.conf" "^FONT="
@@ -615,10 +616,10 @@ replace_line() {
     # Replace lines matching a given pattern in a file with a new line.
     #
     # Parameters:
-    #   $1 - file to modify
-    #   $2 - pattern to match (sed regex)
-    #   $3 - new line to insert
-    #   $4 - (optional) prefix command (e.g., "sudo")
+    #   $1 - file - file to modify.
+    #   $2 - pattern - pattern to match (sed regex).
+    #   $3 - new_line - new line to insert.
+    #   $4 - prefix - (optional) - prefix command (e.g., "sudo").
     #
     # Example:
     #   replace_line "/etc/vconsole.conf" "^FONT=" "FONT=ter-124b"
@@ -658,8 +659,8 @@ env_set_permanent() {
     # Returns 0 if successful in at least one shell, non-zero otherwise.
     #
     # Parameters:
-    #   $1 - variable name (e.g., "EDITOR")
-    #   $2 - variable value (e.g., "nano")
+    #   $1 - var_name - variable name (e.g., "EDITOR").
+    #   $2 - var_value - variable value (e.g., "nano").
     #
     # Outputs:
     #   Prints comma-separated list of shells where variable was set successfully
@@ -716,7 +717,7 @@ action_require_package() {
     #
     # Parameters:
     #   $1 - package - The name of the package to install.
-    #   $2 - title_prefix - A prefix string used when rendering UI titles (optional).
+    #   $2 - title_prefix - (optional) - A prefix string used when rendering UI titles.
     #
     # Example:
     #   action_require_package "nano"
@@ -776,9 +777,9 @@ action_install_file() {
     # Exits with status 1 on failure.
     #
     # Parameters:
-    #   $1 - file path - destination path for the file
-    #   $2 - file url - URL to download the file from
-    #   $3 - prefix (optional) - prefix command (e.g., "sudo")
+    #   $1 - file_path - destination path for the file.
+    #   $2 - file_url - URL to download the file from.
+    #   $3 - prefix - (optional) - prefix command (e.g., "sudo").
     #
     # Example:
     #   action_install_file "/etc/vconsole.conf" "https://example.com/vconsole.conf" "sudo"
@@ -832,7 +833,7 @@ action_run() {
     # Parameters:
     #   $1 - title - the action title to show.
     #   $2 - command - a command to run. The 'sleep' will be used if not provided.
-    #   $3 - status (optional) - text to show when the command successfully finished.
+    #   $3 - status - (optional) - text to show when the command successfully finished.
     #
     local title="$1"
     local command="${2-}"
@@ -874,7 +875,7 @@ action_request_permission() {
     # Exit with 1 on failure.
     #
     # Parameters:
-    #   $1 - reason text (optional).
+    #   $1 - reason_text - (optional) - reason text.
     #
     local reason_text="${1-}"
 
