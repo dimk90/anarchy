@@ -64,13 +64,13 @@ main() {
     # Reload reflector config
     action_request_permission 'to reload reflector daemon'
     action_run 'Reload reflector daemon' \
-        "$(check_sudo) systemctl daemon-reload &>> ${LOG_FILE}" \
+        "$(check_sudo) systemctl daemon-reload" \
         'done'
 
     # Enable reflector timer
     action_request_permission 'to enable reflector timer'
     action_run 'Enable reflector timer' \
-        "$(check_sudo) systemctl enable reflector.timer &>> ${LOG_FILE}" \
+        "$(check_sudo) systemctl enable reflector.timer" \
         'done'
 
     # Exclude mirrorlist from pacman package updates

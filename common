@@ -686,6 +686,7 @@ config_set_param() {
 
     # Insert param to the section if section name is provided
     if [ -n "${section}" ]; then
+        # TODO: create section if mussing?
         ${prefix} sed -i "/^\[${section}\]/a${param}" "${file}" &>> "$LOG_FILE"
         return $?
     fi
@@ -893,7 +894,7 @@ action_run() {
 
     # Run command and show spinner
     gum spin --align="right" --title "$(printf_action "${title} -")" \
-        -- bash -c "$command"
+        -- bash -c "${command} &>> ${LOG_FILE}"
 
     # Return exit code and skip status if non-zero
     exit_code=$?
