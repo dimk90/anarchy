@@ -1,0 +1,237 @@
+#!/bin/bash
+
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Routines
+
+
+install_font() {
+    #
+    # Install and set Terminus font for console
+    #
+    printf_section "Installing font\n"
+
+    ## Install terminus
+
+    action_require_package 'terminus-font'
+
+    ## Update /etc/vconsole.conf
+
+    # Add new font setting
+    cmd_set_font=$(printf '%b && %b' \
+        "remove_line '/etc/vconsole.conf' '^FONT=' $(check_sudo)" \
+        "echo 'FONT=ter-124b' | as_root tee -a /etc/vconsole.conf")
+    action_request_permission 'for updating /etc/vconsole.conf'
+    action_run 'Update font in /etc/vconsole.conf' \
+        "${cmd_set_font}" \
+        'done'
+    assert $? "can't modify /etc/vconsole.conf"
+
+    ## Update initramfs to include new font
+
+    if is_command_available 'mkinitcpio'; then
+        action_request_permission 'for updating initramfs'
+        action_run 'Update initramfs to include new font' \
+            "$(check_sudo) mkinitcpio -P"  \
+            'done'
+        assert $? 'mkinitcpio failed'
+    fi
+
+    ## Change current font
+
+    action_run 'Change current font' 'setfont ter-124b' 'done'
+}
+
+
+install_keymap() {
+    #
+    # Install and set custom keymap for console
+    #
+    printf_section "Installing keymap\n"
+
+    ## Install kbd
+
+    action_require_package 'kbd'
+
+    ## Download keymap file
+
+    # Get unique temp file name
+    local tmpfile
+    tmpfile="$(mktemp)"
+    assert $? "can't create temporary file"
+
+    # Register cleanup trap
+    # shellcheck disable=SC2064
+    trap "rm -f $tmpfile" EXIT
+
+    # Download keymap file
+    action_run 'Download keymap file' \
+        "curl -fsSL https://dimk90.github.io/anarchy/vconsole/us-extra.map -o ${tmpfile}" \
+        'done'
+    assert $? "can't download keymap file"
+
+    # Move the downloaded config to the target location
+
+    action_request_permission 'for installing keymap file'
+    action_run "$(printf "%b %b %b" \
+                         "$(gum style --faint 'Install')" \
+                         "$(gum style --foreground $GUM_YELLOW 'us-extra')" \
+                         "$(gum style --faint 'to /usr/share/kbd/keymaps')${STYLE_DIM}")" \
+        "as_root mv $tmpfile /usr/share/kbd/keymaps/us-extra.map" \
+        'done'
+    assert $? "can't move keymap file to /usr/share/kbd/keymaps/"
+
+    ## Load keymap
+
+    action_run 'Switch keymap: us-extra' 'loadkeys us-extra' 'done'
+
+    ## Update /etc/vconsole.conf
+
+    action_request_permission 'for updating /etc/vconsole.conf'
+    action_run 'Update keymap in /etc/vconsole.conf' \
+        'as_root localectl set-keymap us-extra' \
+        'done'
+    assert $? "can't set keymap with localectl"
+}
+
+
+install_locale() {
+    #
+    # Set console locale to en_US.UTF-8
+    #
+    printf_section "Configuring locale\n"
+
+    ## Uncomment en_US.UTF-8 in /etc/locale.gen
+
+    # Backup /etc/locale.gen if it exists
+    if [ -f '/etc/locale.gen' ]; then
+        action_request_permission 'for backing up /etc/locale.gen'
+        backup_file=$(backup_file '/etc/locale.gen' "$(check_sudo)")
+        assert $? "can't backup /etc/locale.gen"
+        action_run "Backup created: ${STYLE_CLR}${backup_file}"
+    fi
+
+    # Enable en_US.UTF-8 in /etc/locale.gen
+    action_request_permission 'for modifying /etc/locale.gen'
+    action_run "$(printf "%b %b %b"   \
+                         "$(gum style --faint 'Enable')" \
+                         "$(gum style --foreground $GUM_YELLOW 'en_US.UTF-8')" \
+                         "$(gum style --faint 'in /etc/locale.gen')${STYLE_DIM}")" \
+        "replace_line /etc/locale.gen '^#en_US.UTF-8 UTF-8' 'en_US.UTF-8 UTF-8' $(check_sudo)"  \
+        'done'
+    assert $? "can't modify /etc/locale.gen"
+
+    ## Generate locale
+
+    action_request_permission 'for generating locale'
+    action_run 'Regenerate locale' "$(check_sudo) locale-gen" 'done'
+    assert $? "can't generate locale"
+
+    ## Set locale in /etc/locale.conf
+
+    # Backup /etc/locale.conf if it exists
+    if [ -f '/etc/locale.conf' ]; then
+        action_request_permission 'for backing up /etc/locale.conf'
+        backup_file=$(backup_file '/etc/locale.conf' "$(check_sudo)")
+        assert $? "can't backup /etc/locale.conf"
+        action_run "Backup created: ${STYLE_CLR}${backup_file}"
+    fi
+
+    # Update /etc/locale.conf
+    cmd_update_locale=$(printf '%b && %b' \
+        "remove_line '/etc/locale.conf' '^LANG=' $(check_sudo)" \
+        "echo 'LANG=en_US.UTF-8' | as_root tee -a /etc/locale.conf")
+    action_request_permission 'for modifying /etc/locale.conf'
+    action_run 'Updating locale.conf' "${cmd_update_locale}" 'done'
+    assert $? "can't modify /etc/locale.conf"
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Ask user for items to install
+
+    printf_section "Confirm Items\n"
+
+    local choices
+    choices=$(gum choose --no-limit --selected="*" \
+                         --header "Select items to install:" \
+                         'Locale - Set console locale to en_US.UTF-8' \
+                         'Keymap - US/ANSI keyboard with extra bindings for CTRL and SHIFT' \
+                         'Font - Terminus font + size configuration for console')
+    # shellcheck disable=SC2181
+    [ $? -ne 0 ] && return 0 # cancelled by user
+    mapfile -t choices <<< "$choices" # Convert choices string to array
+    printf_action "Selected items: ${STYLE_CLR}${#choices[@]}\n"
+
+    # Empty choice means nothing to do -> exit
+    if [ ${#choices[@]} -eq 0 ]; then
+        echo
+        return 0
+    fi
+
+    ## Create backup of /etc/vconsole.conf if needed
+
+    if array_contains "Font*" "${choices[@]}" || array_contains "Keymap*" "${choices[@]}"; then
+        if [ -f '/etc/vconsole.conf' ]; then
+            printf_section "Backup\n"
+            action_request_permission 'for backing up /etc/vconsole.conf'
+            backup_file=$(backup_file '/etc/vconsole.conf' "$(check_sudo)")
+            assert $? "can't backup /etc/vconsole.conf"
+            action_run "$backup_file"
+        fi
+    fi
+
+    ## Install selected items
+
+    for choice in "${choices[@]}"; do
+        case "${choice,,}" in
+            locale*)
+                install_locale
+                ;;
+            keymap*)
+                install_keymap
+                ;;
+            font*)
+                install_font
+                ;;
+            *)  assert 1 "invalid choice: ${choice}"
+                ;;
+        esac
+    done
+
+    echo
+    return 0
+}
+
+
+# Run main and return its exit code
+main "$@"
+exit $?

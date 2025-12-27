@@ -10,7 +10,7 @@ Highly disorganized personal configs and install scripts for Arch Linux.
 
 Install and configure keymap, font, and locale for virtual console:
 ```bash
-curl -fsSL https://dimk90.github.io/anarchy/install-vconsole | bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-vconsole | bash
 ```
 
 

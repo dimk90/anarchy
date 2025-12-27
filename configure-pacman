@@ -26,7 +26,7 @@ main() {
     request_gum
     assert $? 'no gum - no fun :('
 
-    ## Logging
+    ## Init
 
     printf_section "Starting\n"
     printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
