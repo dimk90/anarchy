@@ -45,6 +45,15 @@ Configure zram using `zram-generator`:
 curl -fsSL https://dimk90.github.io/anarchy/copnfigure-zram | bash
 ```
 
+
+### alias
+
+Configure alias for common commands:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/copnfigure-alias | bash
+```
+
+
 ## Tests
 
 

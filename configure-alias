@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Runtime
+
+
+# TODO: override default tools to modern version if exists
+# alias cat='bat -p ' # need to install bat
+# alias ls=exa
+
+ALIASES=(
+    # ls
+    'll' 'ls -lah --group-directories-first --color=auto'
+    'lh' 'll -d .*'
+    # history
+    'h'  'history | grep -i '
+    # process
+    'p'  'ps aux | grep -i '
+    # io
+    'less' 'less -x4' # tabs are 4 wide
+    # disks
+    'df' 'df -PTh -x tmpfs -x devtmpfs -x squashfs | column -t'
+    # journal
+    'jboot' 'journalctl -b --no-pager --since today' # today’s entries from this boot
+    'jkern' 'journalctl -k'                          # kernel messages
+    'jwarn' 'journalctl -p warning..emerg'           # show warnings and errors
+)
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Aliases
+
+    printf_section "Aliases\n"
+
+    for ((i=0; i<${#ALIASES[@]}; i+=2)); do
+        local alias_name="${ALIASES[i]}"
+        local alias_command="${ALIASES[i+1]}"
+        # shellcheck disable=SC2155
+        local result=$(alias_set_permanent "$alias_name" "$alias_command")
+        # shellcheck disable=SC2155
+        local title="Setting ${STYLE_CLR}$(gum style --bold --foreground $GUM_YELLOW "$alias_name")${STYLE_DIM}"
+        action_run "${title}" 'sleep 0' "${result}"
+    done
+
+    echo
+    return 0
+}
+
+
+main "$@"
+exit $?
