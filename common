@@ -603,7 +603,7 @@ remove_line() {
 
     # Remove lines matching the pattern using sed (in-place).
     # The pattern is surrounded by '|' delimiters to avoid escaping slashes.
-    if ! $prefix sed -i "\|${pattern}|${case_mode^^}d" "$file" &>> "$LOG_FILE"; then
+    if ! $prefix sed -i -E "\|${pattern}|${case_mode^^}d" "$file" &>> "$LOG_FILE"; then
         return 1
     fi
 
@@ -644,7 +644,7 @@ replace_line() {
     fi
 
     # Replace lines matching the pattern using sed
-    if ! $prefix sed -i "\|${pattern}|c\\${new_line}" "$file" &>> "$LOG_FILE"; then
+    if ! $prefix sed -i -E "\|${pattern}|c\\${new_line}" "$file" &>> "$LOG_FILE"; then
         return 1
     fi
 
@@ -686,8 +686,8 @@ config_set_param() {
 
     # Insert param to the section if section name is provided
     if [ -n "${section}" ]; then
-        # TODO: create section if mussing?
-        ${prefix} sed -i "/^\[${section}\]/a${param}" "${file}" &>> "$LOG_FILE"
+        # TODO: create section if missing?
+        ${prefix} sed -i -E "/^\[${section}\]/a${param}" "${file}" &>> "$LOG_FILE"
         return $?
     fi
 
@@ -704,28 +704,28 @@ env_set_permanent() {
     # Returns 0 if successful in at least one shell, non-zero otherwise.
     #
     # Parameters:
-    #   $1 - var_name - variable name (e.g., "EDITOR").
-    #   $2 - var_value - variable value (e.g., "nano").
+    #   $1 - var_name - variable name (e.g., 'EDITOR').
+    #   $2 - var_value - variable value (e.g., 'nano').
     #
     # Outputs:
     #   Prints comma-separated list of shells where variable was set successfully
     #   (e.g., "fish,bash" or "bash" or empty string if all failed)
     #
     # Example:
-    #   shells=$(env_set_permanent "EDITOR" "nano")
-    #   assert $? "failed to set EDITOR permanently"
+    #   shells=$(env_set_permanent 'EDITOR' 'nano')
+    #   assert $? 'failed to set EDITOR permanently'
     #   echo "Set in: $shells"
     #
     local var_name="$1"
     local var_value="$2"
 
     local result_code=0
-    local result_msg=""
+    local result_msg=''
 
     # fish
     if is_command_available 'fish'; then
         ((result_code += 1))
-        # set fish universal variable:
+        # Set fish universal variable:
         # shared across all fish sessions, persists after reboot
         if fish -c "set -Ux $var_name $var_value" &>> "$LOG_FILE"; then
             ((result_code -= 1))
@@ -737,13 +737,13 @@ env_set_permanent() {
     # bash
     if is_command_available 'bash'; then
         ((result_code += 1))
-        # set permanent variable:
+        # Set permanent variable:
         # remove current variable (if present) and add new
-        if remove_line ~/.bashrc "^export ${var_name}=" '' 'i' &&
+        if remove_line ~/.bashrc "^export\s+${var_name}\s*=" '' 'i' &&
            echo "export ${var_name}=\"${var_value}\"" >> ~/.bashrc; then
             ((result_code -= 1))
             # Append bash to the current result msg
-            [ -z "$result_msg" ] && result_msg="bash" || result_msg="${result_msg},bash"
+            [ -z "$result_msg" ] && result_msg='bash' || result_msg="${result_msg},bash"
         fi
     fi
 
