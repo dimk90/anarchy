@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.1'
+export COMMON_VERSION='2.2'
 
 
 ## Colors
@@ -752,6 +752,60 @@ env_set_permanent() {
 }
 
 
+alias_set_permanent() {
+    #
+    # Set an alias permanently across shell sessions.
+    # Attempts to set the alias in all available shells (fish, bash, ...).
+    # Returns 0 if successful in at least one shell, non-zero otherwise.
+    #
+    # Parameters:
+    #   $1 - alias_name - alias name (e.g., 'll').
+    #   $2 - alias_command - alias command (e.g., 'ls -lah').
+    #
+    # Outputs:
+    #   Prints comma-separated list of shells where alias was set successfully
+    #   (e.g., "fish,bash" or "bash" or empty string if all failed)
+    #
+    # Example:
+    #   shells=$(alias_set_permanent 'll' 'ls -lah')
+    #   assert $? 'failed to set ll alias permanently'
+    #   echo "Set in: $shells"
+    #
+    local alias_name="$1"
+    local alias_command="$2"
+    local result_code=0
+    local result_msg=''
+
+    # fish
+    if is_command_available 'fish'; then
+        ((result_code += 1))
+        # Set fish alias and save it permanently:
+        # funcsave creates a persistent function in ~/.config/fish/functions/
+        if fish -c "alias --save $alias_name '$alias_command'" &>> "$LOG_FILE"; then
+            ((result_code -= 1))
+            # Append fish to the current result msg
+            [ -z "$result_msg" ] && result_msg='fish' || result_msg="${result_msg},fish"
+        fi
+    fi
+
+    # bash
+    if is_command_available 'bash'; then
+        ((result_code += 1))
+        # Set permanent alias:
+        # remove current alias (if present) and add new
+        if remove_line ~/.bashrc "^alias\s+${alias_name}\s*=" '' 'i' && \
+           echo "alias ${alias_name}=\"${alias_command}\"" >> ~/.bashrc; then
+            ((result_code -= 1))
+            # Append bash to the current result msg
+            [ -z "$result_msg" ] && result_msg='bash' || result_msg="${result_msg},bash"
+        fi
+    fi
+
+    echo "$result_msg"
+    return $result_code
+}
+
+
 ## TUI - gum-based
 
 
@@ -996,4 +1050,4 @@ export -f remove_line
 export -f replace_line
 export -f config_set_param
 export -f env_set_permanent
-export -f check_sudo
+export -f alias_set_permanent
