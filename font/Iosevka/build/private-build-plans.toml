@@ -1,5 +1,58 @@
 
 
+## Iosevka Term
+
+
+[buildPlans.IosevkaTerm]
+family = "Iosevka Term"
+spacing = "term"
+serifs = "sans"
+noCvSs = true
+exportGlyphNames = false
+
+[buildPlans.IosevkaTerm.variants.design]
+zero = "slashed-split"
+capital-n = "asymmetric-serifless"
+punctuation-dot = "round"
+asterisk = "penta-low"
+brace = "straight"
+guillemet = "straight"
+percent = "rings-continuous-slash"
+question = "smooth"
+pilcrow = "low"
+lig-ltgteq = "slanted"
+lig-equal-chain = "without-notch"
+lig-plus-chain = "with-notch"
+lig-single-arrow-bar = "without-notch"
+
+[buildPlans.IosevkaTerm.weights.Bold]
+shape = 700
+menu = 700
+css = 700
+
+[buildPlans.IosevkaTerm.weights.Medium]
+shape = 500
+menu = 500
+css = 500
+
+[buildPlans.IosevkaTerm.widths.Normal]
+shape = 600
+menu = 5
+css = "normal"
+
+[buildPlans.IosevkaTerm.slopes.Upright]
+angle = 0
+shape = "upright"
+menu = "upright"
+css = "normal"
+
+[buildPlans.IosevkaTerm.slopes.Italic]
+angle = 9.4
+shape = "italic"
+menu = "italic"
+css = "italic"
+
+
 ## Iosevka Code
 
 
@@ -63,38 +116,38 @@ serifs = "sans"
 noCvSs = true
 exportGlyphNames = false
 
-  [buildPlans.IosevkaText.variants]
-  inherits = "ss08"
+[buildPlans.IosevkaText.variants]
+inherits = "ss08"
 
-    [buildPlans.IosevkaText.variants.design]
-    two = "curly-neck-serifless"
-    three = "two-arcs"
-    five = "oblique-arched-serifless"
-    six = "open-contour"
-    nine = "open-contour"
-    zero = "slashed-split"
-    capital-q = "crossing"
-    d = "tailed-serifless"
-    e = "rounded"
-    g = "single-storey-serifless"
-    i = "serifed-flat-tailed"
-    j = "serifed"
-    l = "serifed-flat-tailed"
-    u = "tailed-serifless"
-    y = "curly-turn-serifless"
-    long-s = "flat-hook-serifless"
-    lower-theta = "oval"
-    lower-tau = "short-tailed"
-    partial-derivative = "curly-bar"
-    number-sign = "upright"
-    ampersand = "closed"
-    at = "fourfold"
-    dollar = "through"
-    cent = "through"
-    percent = "rings-continuous-slash"
-    pilcrow = "low"
-    lig-ltgteq = "slanted"
-    lig-neq = "slightly-slanted"
+[buildPlans.IosevkaText.variants.design]
+two = "curly-neck-serifless"
+three = "two-arcs"
+five = "oblique-arched-serifless"
+six = "open-contour"
+nine = "open-contour"
+zero = "slashed-split"
+capital-q = "crossing"
+d = "tailed-serifless"
+e = "rounded"
+g = "single-storey-serifless"
+i = "serifed-flat-tailed"
+j = "serifed"
+l = "serifed-flat-tailed"
+u = "tailed-serifless"
+y = "curly-turn-serifless"
+long-s = "flat-hook-serifless"
+lower-theta = "oval"
+lower-tau = "short-tailed"
+partial-derivative = "curly-bar"
+number-sign = "upright"
+ampersand = "closed"
+at = "fourfold"
+dollar = "through"
+cent = "through"
+percent = "rings-continuous-slash"
+pilcrow = "low"
+lig-ltgteq = "slanted"
+lig-neq = "slightly-slanted"
 
 [buildPlans.IosevkaText.weights.Regular]
 shape = 400

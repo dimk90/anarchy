@@ -20,7 +20,7 @@ Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
 
 - Clone iosevka repo:
     ```shell
-    git clone --depth 1 https://github.com/be5invis/Iosevka.git 
+    git clone --depth 1 https://github.com/be5invis/Iosevka.git
     ```
 
 - Install npm dependencies:
@@ -59,4 +59,8 @@ uv tool install afdko
 
 ```shell
 otf2otc -o dist/IosevkaCode/IosevkaCode.ttc dist/IosevkaCode/TTF/*.ttf
+```
+
+```shell
+otf2otc -o dist/IosevkaTerm/IosevkaTerm.ttc dist/IosevkaTerm/TTF/*.ttf
 ```
