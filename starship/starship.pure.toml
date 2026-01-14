@@ -1,0 +1,252 @@
+'$schema' = 'https://starship.rs/config-schema.json'
+
+# Inserts a blank line between shell prompts
+add_newline = true
+
+# Timeout for starship to scan files (in milliseconds).
+scan_timeout = 100 # default 30
+
+# Timeout for commands executed by starship (in milliseconds).
+command_timeout = 1000 # default 500
+
+
+## Prompt
+
+
+format = """
+$username\
+$hostname\
+$directory\
+$package\
+$nodejs\
+$python\
+$git_branch\
+$git_commit\
+$git_state\
+$git_status\
+$fill\
+$status\
+$cmd_duration\
+$jobs\
+$container\
+$memory_usage\
+$shlvl\
+$battery\
+$line_break\
+$character"""
+
+
+## Color theme
+
+
+palette = 'pure'
+
+[palettes.pure]
+black = '#000000'
+red = '#F95D5B'
+orange = '208'
+green = '#62F592'
+blue = '#5DC8FD'
+yellow = '#F3F8A2'
+purple = '#DB61AA'
+magenta = '#DB61AA'
+cyan = '#94DEEE'
+white = '#F1F1F0'
+
+
+## Modules - Left
+
+
+[os]
+format = '[$symbol]($style) '
+style = 'white'
+disabled = false
+
+[os.symbols]
+Alpine = ''
+Arch = ''
+CachyOS = ''
+CentOS = ''
+Debian = ''
+Fedora = ''
+Gentoo = ''
+Android = ''
+Ios = '󰀷'
+Linux = ''
+Macos = ''
+FreeBSD = ''
+NetBSD = ''
+OpenBSD = '󰈺'
+NixOS = ''
+Pop = ''
+Raspbian = ''
+Redhat = ''
+RedHatEnterprise = ''
+openSUSE = ''
+SUSE = ''
+Ubuntu = ''
+Unknown = ''
+Windows = '󰍲'
+
+
+[username]
+format ='[$user]($style) '
+style_user = 'yellow bold'
+style_root = 'red bold'
+show_always = false
+
+
+[hostname]
+ssh_only = true
+ssh_symbol = '󰢹 '
+style = 'white dimmed bold'
+format = '[$ssh_symbol](white) [$hostname]($style) '
+
+
+[directory]
+format = '[$path]($style)[$read_only]($read_only_style) '
+truncate_to_repo = false
+read_only = ' 󰌾'
+style = 'blue bold'
+truncation_length = 6
+truncation_symbol = '.../'
+use_os_path_sep = false # always use /
+
+
+[package]
+symbol = '󰏗 '
+style = 'orange'
+format = '[$symbol$version]($style) '
+
+
+[nodejs]
+format = '[$symbol($version)]($style) '
+symbol = ' '
+style = 'green'
+disabled = false
+
+
+[python]
+format = '[${symbol}${pyenv_prefix}(${version} )(\($virtualenv\) )]($style)'
+symbol = ' '
+style = 'green'
+version_format = 'v${major}.${minor}'
+
+
+[git_branch]
+format = '[$symbol$branch(:$remote_branch)]($style)'
+style = 'bright-black'
+
+[git_commit]
+format = '[$tag]($style)'
+tag_symbol = '  '
+tag_disabled = false
+style = 'bright-black'
+
+[git_state]
+format = '\([$state( $progress_current/$progress_total)]($style)\) '
+style = 'cbright-black'
+
+[git_status]
+format = '[[(*$conflicted$untracked$modified$staged$renamed$deleted)](purple bold) ($ahead_behind$stashed)]($style)'
+style = 'blue bold'
+conflicted = '​'
+untracked = '​'
+modified = '​'
+staged = '​'
+renamed = '​'
+deleted = '​'
+stashed = '≡'
+
+
+## Modules - Center
+
+
+[fill]
+symbol = ' '
+
+
+## Modules - Right
+
+
+[status]
+format = '[ $symbol$status]($style)'
+symbol = ' '
+disabled = false
+
+
+[cmd_duration]
+min_time = 2000
+format = ' took [$duration]($style)'
+style = 'yellow bold'
+
+
+[jobs]
+format = '[ $symbol(:$number)]($style)'
+symbol = '&'
+number_threshold = 2
+
+
+[container]
+format = '[ ($symbol \\[$name\\])]($style)'
+style = 'red dimmed'
+
+
+[memory_usage]
+format = '[( $symbol$ram)]($style)'
+symbol = '󰍛 '
+threshold = 90
+disabled = false
+
+
+[shlvl]
+disabled = false
+format = '[ $symbol]($style)'
+repeat = true
+symbol = ' '
+style = 'white'
+repeat_offset = 1
+
+
+[battery]
+full_symbol = '󰁹'
+empty_symbol = '󰂎'
+format = '[ $symbol ]($style)'
+
+[[battery.display]]
+threshold = 80
+style = 'green'
+discharging_symbol = '󱊣'
+charging_symbol = '󱊦'
+
+[[battery.display]]
+threshold = 50
+style = 'green'
+discharging_symbol = '󱊢'
+charging_symbol = '󱊥'
+
+[[battery.display]]
+threshold = 30
+style = 'green'
+discharging_symbol = '󱊡'
+charging_symbol = '󱊤'
+
+[[battery.display]]
+threshold = 15
+style = 'yellow'
+discharging_symbol = '󱊡'
+charging_symbol = '󱊤'
+
+[[battery.display]]
+threshold = 5
+style = 'red'
+discharging_symbol = '󰂎'
+charging_symbol = '󰢟'
+
+
+## Modules - New Line
+
+
+[character]
+format = '$symbol '
+error_symbol = '[❯](bold green)' # disable red symbol on error
