@@ -166,11 +166,11 @@ regex_sanitize() {
     #    regex_sanitize '\s eval \s*"\$(starship \s*init \s*bash)"' -> ' eval "$(starship init bash)"'
     #
     echo "$1" | sed -E \
-        -e 's/\\[bsdwBSDW][*+?]?//g' \  # Remove escaped character classes (\b \s \d \w and uppercase variants), with an optional following quantifier (* + ?)
-        -e 's/[.?+*]//g' \              # Remove standalone regex metacharacters: . ? + *
-        -e 's/^\^//' \                  # Remove a leading caret anchor (^) if present
-        -e 's/^([^\\]*)\$$/\1/' \       # Remove a trailing $ only if it is at end-of-string and no backslash appears before it (i.e., not escaped)
-        -e 's/\\//g'                    # Remove all remaining backslashes (escape characters)
+        -e 's/\\[bsdwBSDW][*+?]?//g' \
+        -e 's/[.?+*]//g' \
+        -e 's/^\^//' \
+        -e 's/^([^\\]*)\$$/\1/' \
+        -e 's/\\//g'
     }
 
 
