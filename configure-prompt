@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Runtime
+
+
+fish_configure_highlighting() {
+    # Hide fish greeting
+    fish -c "set -U fish_greeting ''"
+    # Set the emoji width (iTerm only?)
+    fish -c "set -U fish_emoji_width 2"
+    # Adjust fish syntax highlighting
+    # Note: empty parameter => reset to default color (fish_color_normal)
+    fish -c "set -U fish_color_normal 999"
+    fish -c "set -U fish_color_command 8AF --bold"
+    fish -c "set -U fish_color_operator FC6"
+    fish -c "set -U fish_color_param"
+    fish -c "set -U fish_color_autosuggestion 555"
+    fish -c "set -U fish_color_comment 444 --italic"
+    fish -c "set -U fish_color_quote BE7"
+    fish -c "set -U fish_color_user 6E6 --bold"
+    fish -c "set -U fish_color_valid_path --underline"
+    fish -c "set -U fish_color_status red"
+    fish -c "set -U fish_color_error D55"
+    fish -c "set -U fish_color_cancel --reverse"
+    fish -c "set -U fish_color_cwd 7CF"
+    fish -c "set -U fish_color_cwd_root red --bold"
+    fish -c "set -U fish_color_end FD6"
+    fish -c "set -U fish_color_escape 9EC"
+    fish -c "set -U fish_color_history_current --bold"
+    fish -c "set -U fish_color_host"
+    fish -c "set -U fish_color_host_remote yellow"
+    fish -c "set -U fish_color_match --background=brblue"
+    fish -c "set -U fish_color_redirection FDA"
+    fish -c "set -U fish_color_search_match"
+    fish -c "set -U fish_color_selection --bold --background=FC6"
+    fish -c "set -U fish_pager_color_completion"
+    fish -c "set -U fish_pager_color_description D92"
+    fish -c "set -U fish_pager_color_prefix AAA --bold --underline"
+    fish -c "set -U fish_pager_color_progress brwhite --bold --background=cyan"
+    fish -c "set -U fish_pager_color_selected_background --bold --background=FC6"
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Starship
+
+    printf_section "Starship\n"
+    action_require_package 'starship'
+    action_install_file ~/.config/starship.toml 'https://dimk90.github.io/anarchy/starship/starship.pure.toml'
+
+    ## Fish
+
+    if is_command_available 'fish'; then
+        printf_section "Configure fish\n"
+
+        export -f fish_configure_highlighting
+        action_run 'Configure syntax highlighting' 'fish_configure_highlighting' 'done'
+
+        local fish_starship_init='starship init fish \| source'
+        action_run 'Enable starship' \
+            "config_set_param ~/.config/fish/config.fish '${fish_starship_init}'" 'done'
+    fi
+
+    ## Bash
+
+    if is_command_available 'bash'; then
+        printf_section "Configure bash\n"
+        # shellcheck disable=SC2016
+        local bash_starship_init='eval "\$\(starship init bash\)"'
+        action_run 'Enable starship' \
+            "config_set_param ~/.bashrc '${bash_starship_init}'" 'done'
+    fi
+
+    return 0
+}
+
+
+# Run main and return its exit code
+main "$@"
+exit $?
