@@ -43,6 +43,7 @@ palette = 'pure'
 
 [palettes.pure]
 black = '#000000'
+bright-black = '#606060'
 red = '#F95D5B'
 orange = '208'
 green = '#62F592'
