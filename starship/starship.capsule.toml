@@ -12,8 +12,11 @@ command_timeout = 1000 # default 500
 
 ## Prompt
 
+palette = 'capsule'
+
 
 format = """
+[╭─](cap_separator)$os\
 $username\
 $hostname\
 $directory\
@@ -33,15 +36,13 @@ $memory_usage\
 $shlvl\
 $battery\
 $line_break\
-$character"""
+[╰─](fg:cap_separator)$character"""
 
 
 ## Color theme
 
 
-palette = 'pure'
-
-[palettes.pure]
+[palettes.capsule]
 black = '#000000'
 bright-black = '#606060'
 red = '#F95D5B'
@@ -54,13 +55,21 @@ magenta = '#DB61AA'
 cyan = '#94DEEE'
 white = '#F1F1F0'
 
+cap_icon       = '#161514'
+cap_separator  = '#35312c'
+cap_background = '#35312c'
+
+cap_os         = '#36e3b5'
+cap_directory  = '#931edb'
+cap_duration   = '#e26f31'
+cap_status     = '#e23140'
+
 
 ## Modules - Left
 
 
 [os]
-format = '[$symbol]($style) '
-style = 'white'
+format = '[](fg:cap_os)[$symbol ](fg:cap_icon bg:cap_os)[](fg:cap_os)'
 disabled = false
 
 [os.symbols]
@@ -105,13 +114,11 @@ format = '[$ssh_symbol](white) [$hostname]($style) '
 
 
 [directory]
-format = '[$path]($style)[$read_only]($read_only_style) '
+format = "[─](fg:cap_separator)[](fg:cap_directory)[󰣇 ](fg:cap_icon bg:cap_directory)[](fg:cap_directory bg:cap_background)[$path](bg:cap_background)[](fg:cap_background)"
 truncate_to_repo = false
-read_only = ' 󰌾'
-style = 'blue bold'
-truncation_length = 6
-truncation_symbol = '.../'
+truncation_length = 0
 use_os_path_sep = false # always use /
+# read_only = ' 󰌾'
 
 
 [package]
@@ -122,7 +129,7 @@ format = '[$symbol$version]($style) '
 
 [nodejs]
 format = '[$symbol($version)]($style) '
-symbol = '󰎙 '
+symbol = ' '
 style = 'green'
 disabled = false
 
@@ -146,7 +153,7 @@ style = 'bright-black'
 
 [git_state]
 format = '\([$state( $progress_current/$progress_total)]($style)\) '
-style = 'bright-black'
+style = 'cbright-black'
 
 [git_status]
 format = '[[(*$conflicted$untracked$modified$staged$renamed$deleted)](purple bold) ($ahead_behind$stashed)]($style)'
@@ -191,7 +198,6 @@ number_threshold = 2
 [container]
 format = '[ ($symbol \\[$name\\])]($style)'
 style = 'red dimmed'
-symbol = ' '
 
 
 [memory_usage]
