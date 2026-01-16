@@ -75,7 +75,17 @@ main() {
 
     printf_section "Starship\n"
     action_require_package 'starship'
-    action_install_file ~/.config/starship.toml 'https://dimk90.github.io/anarchy/starship/starship.pure.toml'
+
+    # Select starship theme
+    local header=$(prefix_printf "$(bullet_action)" 'Select starship theme:\n')
+    local choice
+    choice=$(gum choose --cursor="      > " --header="${header}" \
+                        --limit=1 'pure' 'capsule')
+    if [ $? -eq 0 ]; then
+        printf_action "Starship theme: ${STYLE_CLR}${choice}\n"
+        action_install_file ~/.config/starship.toml \
+            "https://dimk90.github.io/anarchy/starship/starship.${choice}.toml"
+    fi
 
     ## Fish
 
