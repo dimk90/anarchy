@@ -178,7 +178,7 @@ disabled = false
 
 [cmd_duration]
 min_time = 2000
-format = ' took [$duration]($style)'
+format = ' 󱎫 [$duration]($style)'
 style = 'yellow bold'
 
 
@@ -250,5 +250,4 @@ charging_symbol = '󰢟'
 
 
 [character]
-format = '$symbol '
-error_symbol = '[❯](bold green)' # disable red symbol on error
+format = '[❯](bold green) '

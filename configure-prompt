@@ -80,7 +80,7 @@ main() {
     local header=$(prefix_printf "$(bullet_action)" 'Select starship theme:\n')
     local choice
     choice=$(gum choose --cursor="      > " --header="${header}" \
-                        --limit=1 'pure' 'capsule')
+                        --limit=1 'pure' 'capsule' 'pure-text')
     if [ $? -eq 0 ]; then
         printf_action "Starship theme: ${STYLE_CLR}${choice}\n"
         action_install_file ~/.config/starship.toml \
