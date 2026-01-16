@@ -109,8 +109,8 @@ format = '[$path]($style)[$read_only]($read_only_style) '
 truncate_to_repo = false
 read_only = ' 󰌾'
 style = 'blue bold'
-truncation_length = 6
-truncation_symbol = '.../'
+truncation_length = 5
+truncation_symbol = ''
 use_os_path_sep = false # always use /
 
 

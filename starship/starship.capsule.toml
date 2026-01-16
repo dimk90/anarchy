@@ -12,35 +12,33 @@ command_timeout = 1000 # default 500
 
 ## Prompt
 
-palette = 'capsule'
-
 
 format = """
-[╭─](cap_separator)$os\
-$username\
-$hostname\
+[╭](fg:cap-separator)$os\
 $directory\
 $package\
 $nodejs\
 $python\
 $git_branch\
 $git_commit\
-$git_state\
 $git_status\
 $fill\
 $status\
 $cmd_duration\
 $jobs\
 $container\
-$memory_usage\
 $shlvl\
+$username\
+$hostname\
 $battery\
 $line_break\
-[╰─](fg:cap_separator)$character"""
+[╰─](fg:cap-separator)$character"""
 
 
 ## Color theme
 
+
+palette = 'capsule'
 
 [palettes.capsule]
 black = '#000000'
@@ -49,27 +47,33 @@ red = '#F95D5B'
 orange = '208'
 green = '#62F592'
 blue = '#5DC8FD'
-yellow = '#F3F8A2'
+yellow = '#F1FA8C'
 purple = '#DB61AA'
 magenta = '#DB61AA'
 cyan = '#94DEEE'
 white = '#F1F1F0'
 
-cap_icon       = '#161514'
-cap_separator  = '#35312c'
-cap_background = '#35312c'
+cap-icon       = '#202020'
+cap-separator  = '#383838'
+cap-background = '#383838'
 
-cap_os         = '#36e3b5'
-cap_directory  = '#931edb'
-cap_duration   = '#e26f31'
-cap_status     = '#e23140'
+cap-os         = '#F95D5B'
+cap-directory  = '#aa4ded'
+cap-branch     = '#62F592'
+cap-duration   = '#e28c31'
+cap-hostname   = '#4dede5'
+cap-language   = '#4dabe9'
+cap-package    = '208'
+cap-nodejs     = '#c2ef58'
+cap-jobs       = '#4dcfe9'
+cap-status     = '#F95D5B'
 
 
 ## Modules - Left
 
 
 [os]
-format = '[](fg:cap_os)[$symbol ](fg:cap_icon bg:cap_os)[](fg:cap_os)'
+format = '[─](fg:cap-separator)[](fg:cap-os)[$symbol ](fg:cap-icon bg:cap-os)[](fg:cap-os)'
 disabled = false
 
 [os.symbols]
@@ -99,65 +103,40 @@ Unknown = ''
 Windows = '󰍲'
 
 
-[username]
-format ='[$user]($style) '
-style_user = 'yellow bold'
-style_root = 'red bold'
-show_always = false
-
-
-[hostname]
-ssh_only = true
-ssh_symbol = '󰢹 '
-style = 'white dimmed bold'
-format = '[$ssh_symbol](white) [$hostname]($style) '
-
-
 [directory]
-format = "[─](fg:cap_separator)[](fg:cap_directory)[󰣇 ](fg:cap_icon bg:cap_directory)[](fg:cap_directory bg:cap_background)[$path](bg:cap_background)[](fg:cap_background)"
+format = "[─](fg:cap-separator)[](fg:cap-directory)[ ](fg:cap-icon bg:cap-directory)[](fg:cap-directory bg:cap-background)[ $path[$read_only]($read_only_style)](bg:cap-background)[](fg:cap-background)"
 truncate_to_repo = false
-truncation_length = 0
+truncation_length = 3
+truncation_symbol = ''
 use_os_path_sep = false # always use /
-# read_only = ' 󰌾'
+read_only = ' 󰌾 '
+read_only_style = 'fg:red bg:cap-background'
 
 
 [package]
-symbol = '󰏗 '
-style = 'orange'
-format = '[$symbol$version]($style) '
+format = '[─](fg:cap-separator)[](fg:cap-package)[󰏗 ](fg:cap-icon bg:cap-package)[](fg:cap-package bg:cap-background)[ $version](bg:cap-background)[](fg:cap-background)'
 
 
 [nodejs]
-format = '[$symbol($version)]($style) '
-symbol = ' '
-style = 'green'
+format = '[─](fg:cap-separator)[](fg:cap-nodejs)[󰎙 ](fg:cap-icon bg:cap-nodejs)[](fg:cap-nodejs bg:cap-background)[ $version](bg:cap-background)[](fg:cap-background)'
 disabled = false
 
 
 [python]
-format = '[${symbol}${pyenv_prefix}(${version} )(\($virtualenv\) )]($style)'
-symbol = ' '
-style = 'green'
+format = '[─](fg:cap-separator)[](fg:cap-language)[ ](fg:cap-icon bg:cap-language)[](fg:cap-language bg:cap-background)[ ${pyenv_prefix}(${version} )(\($virtualenv\))](bg:cap-background)[](fg:cap-background)'
 version_format = 'v${major}.${minor}'
 
 
 [git_branch]
-format = '[$symbol$branch(:$remote_branch)]($style)'
-style = 'bright-black'
+format = '[─](fg:cap-separator)[](fg:cap-branch)[$symbol](fg:cap-icon bg:cap-branch)[](fg:cap-branch bg:cap-background)[ $branch(:$remote_branch)](bg:cap-background)'
 
 [git_commit]
-format = '[$tag]($style)'
+format = '[$tag](fg:dimmed bg:cap-background)'
 tag_symbol = '  '
 tag_disabled = false
-style = 'bright-black'
-
-[git_state]
-format = '\([$state( $progress_current/$progress_total)]($style)\) '
-style = 'cbright-black'
 
 [git_status]
-format = '[[(*$conflicted$untracked$modified$staged$renamed$deleted)](purple bold) ($ahead_behind$stashed)]($style)'
-style = 'blue bold'
+format = '[(*$conflicted$untracked$modified$staged$renamed$deleted)](fg:red bold bg:cap-background)[](fg:cap-background)'
 conflicted = '​'
 untracked = '​'
 modified = '​'
@@ -171,55 +150,56 @@ stashed = '≡'
 
 
 [fill]
-symbol = ' '
+symbol = '─'
+style = 'fg:cap-separator'
 
 
 ## Modules - Right
 
 
 [status]
-format = '[ $symbol$status]($style)'
-symbol = ' '
+format = '[─](fg:cap-separator)[](fg:cap-status)[ ](fg:cap-icon bg:cap-status)[](fg:cap-status bg:cap-background)[ $status](fg:red bg:cap-background)[](fg:cap-background)'
 disabled = false
 
 
 [cmd_duration]
 min_time = 2000
-format = ' took [$duration]($style)'
-style = 'yellow bold'
+format = '[─](fg:cap-separator)[](fg:cap-duration)[󱎫 ](fg:cap-icon bg:cap-duration)[](fg:cap-duration bg:cap-background)[ $duration](bg:cap-background)[](fg:cap-background)'
 
 
 [jobs]
-format = '[ $symbol(:$number)]($style)'
-symbol = '&'
-number_threshold = 2
+format = '[─](fg:cap-separator)[](fg:cap-jobs)[&](fg:cap-icon bg:cap-jobs)[](fg:cap-jobs bg:cap-background)[ $number](bg:cap-background)[](fg:cap-background)'
+number_threshold = 1
 
 
 [container]
-format = '[ ($symbol \\[$name\\])]($style)'
-style = 'red dimmed'
-
-
-[memory_usage]
-format = '[( $symbol$ram)]($style)'
-symbol = '󰍛 '
-threshold = 90
-disabled = false
+format = '[─](fg:cap-hostname)[](fg:cap-hostname)[ ](fg:cap-icon bg:cap-hostname)[](fg:cap-hostname bg:cap-background)[ $name](bg:cap-background)[](fg:cap-background)'
 
 
 [shlvl]
 disabled = false
-format = '[ $symbol]($style)'
+format = '[─](fg:cap-separator)[](fg:cap-background)[$symbol](bg:cap-background)[](fg:cap-background)'
 repeat = true
 symbol = ' '
-style = 'white'
 repeat_offset = 1
+
+
+[username]
+format ='[─](fg:cap-separator)[](fg:$style)[ ](fg:cap-icon bg:$style)[](fg:$style bg:cap-background)[ $user](bg:cap-background)[](fg:cap-background)'
+style_user = 'yellow bold'
+style_root = 'red bold'
+show_always = true
+
+
+[hostname]
+ssh_only = true
+format ='[─](fg:cap-separator)[](fg:cap-hostname)[󰢹 ](fg:cap-icon bg:cap-hostname)[](fg:cap-hostname bg:cap-background)[ $hostname](bg:cap-background)[](fg:cap-background)'
 
 
 [battery]
 full_symbol = '󰁹'
 empty_symbol = '󰂎'
-format = '[ $symbol ]($style)'
+format = '[─](fg:cap-separator)[](fg:$style)[$symbol ](fg:cap-icon bg:$style)[](fg:$style bg:cap-background)[ $percentage](bg:cap-background)[](fg:cap-background)'
 
 [[battery.display]]
 threshold = 80
