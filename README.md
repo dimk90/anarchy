@@ -57,17 +57,31 @@ curl -fsSL https://dimk90.github.io/anarchy/copnfigure-alias | bash
 ## Tests
 
 
-### color-test
+### color-test16
 
-Test color output in terminal:
+Test standard ANSI colors 0-15 (3 & 4 bit mode):
 ```bash
-curl -fsSL https://dimk90.github.io/anarchy/color-test | bash
+curl -fsSL https://dimk90.github.io/anarchy/color-test16 | bash
+```
+
+### color-test256
+
+Test standard ANSI colors 8bit color:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/color-test256 | bash
+```
+
+### color-test-common
+
+Test colors from `common` lib:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/color-test-common | bash
 ```
 
 
 ### color-gum
 
-Test color selected for `gum`:
+Test colors selected for `gum`:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/color-gum | bash
 ```
