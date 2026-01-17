@@ -35,17 +35,17 @@ $character"""
 palette = 'pure'
 
 [palettes.pure]
-black = '#000000'
-bright-black = '#606060'
-red = '#F95D5B'
+black = '0'
+bright-black = '239'
+red = '203'
 orange = '208'
-green = '#62F592'
-blue = '#5DC8FD'
-yellow = '#F3F8A2'
-purple = '#DB61AA'
-magenta = '#DB61AA'
-cyan = '#94DEEE'
-white = '#F1F1F0'
+green = '46'
+blue = '69'
+yellow = '220'
+purple = '211'
+magenta = '211'
+white = '15'
+bright-white = '15'
 
 
 ## Modules - Left
@@ -125,7 +125,7 @@ disabled = false
 format = ' \[[$symbol]($style)\]'
 repeat = true
 symbol = '>'
-style = 'bold white'
+style = 'bright-white bold'
 repeat_offset = 1
 
 
@@ -139,47 +139,47 @@ show_always = false
 [hostname]
 ssh_only = true
 style = 'white dimmed bold'
-format = ' \[[SSH:](white)[$hostname]($style)\]'
+format = ' \[[SSH:](bright-white)[$hostname]($style)\]'
 
 
 [battery]
-full_symbol = '\[---}'
-empty_symbol = '\[   }'
+full_symbol = '{---}'
+empty_symbol = '{   }'
 format = '[ $symbol ]($style)'
 
 [[battery.display]]
 threshold = 80
 style = 'green'
-discharging_symbol = '\[---}'
-charging_symbol = '\[--+}'
+discharging_symbol = '{---}'
+charging_symbol = '{--+}'
 
 [[battery.display]]
 threshold = 50
 style = 'green'
-discharging_symbol = '\[-- }'
-charging_symbol = '\[-+ }'
+discharging_symbol = '{-- }'
+charging_symbol = '{-+ }'
 
 [[battery.display]]
 threshold = 30
 style = 'green'
-discharging_symbol = '\[-  }'
-charging_symbol = '\[+  }'
+discharging_symbol = '{-  }'
+charging_symbol = '{+  }'
 
 [[battery.display]]
 threshold = 15
 style = 'yellow'
-discharging_symbol = '\[   }'
-charging_symbol = '\[+  }'
+discharging_symbol = '{   }'
+charging_symbol = '{+  }'
 
 [[battery.display]]
 threshold = 5
 style = 'red'
-discharging_symbol = '\[   }'
-charging_symbol = '\[+  }'
+discharging_symbol = '{   }'
+charging_symbol = '{+  }'
 
 
 ## Modules - New Line
 
 
 [character]
-format = '[>](bold green) '
+format = '[>](green bold) '
