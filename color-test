@@ -8,7 +8,8 @@ set -o errexit # exit on non-zero exit code
 
 COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
 # shellcheck source=common
-source <(echo "$COMMON")
+# source <(echo "$COMMON")
+source common
 
 set +o errexit # disable exit on non-zero exit code
 
@@ -18,7 +19,7 @@ set +o errexit # disable exit on non-zero exit code
 
 # Test function
 print_color() {
-    printf "${1}%-20s${CLR} %s\n" "$2" "$3"
+    printf "${1}%-20s${STYLE_CLR} %s\n" "$2" "$3"
 }
 
 echo "=========================================="
@@ -27,24 +28,24 @@ echo "=========================================="
 echo
 
 echo "--- Text Styles ---"
-print_color "${BOLD}" "BOLD" "Bold text"
-print_color "${DIM}" "DIM" "Dimmed text"
-print_color "${ITALIC}" "ITALIC" "Italic text"
-print_color "${UNDERLINE}" "UNDERLINE" "Underlined text"
-print_color "${BLINK}" "BLINK" "Blinking text"
-print_color "${REVERSE}" "REVERSE" "Reversed colors"
-print_color "${HIDDEN}" "HIDDEN" "Hidden text (you shouldn't see this)"
+print_color "${STYLE_BOLD}" "STYLE_BOLD" "Bold text"
+print_color "${STYLE_DIM}" "STYLE_DIM" "Dimmed text"
+print_color "${STYLE_ITALIC}" "STYLE_ITALIC" "Italic text"
+print_color "${STYLE_UNDERLINE}" "UNDERLINE" "Underlined text"
+print_color "${STYLE_BLINK}" "BLINK" "Blinking text"
+print_color "${STYLE_REVERSE}" "STYLE_REVERSE" "Reversed colors"
+print_color "${STYLE_HIDDEN}" "HIDDEN" "Hidden text (you shouldn't see this)"
 echo
 
 echo "--- Standard Foreground Colors ---"
-print_color "${BLACK}" "BLACK" "Black text"
-print_color "${RED}" "RED" "Red text"
-print_color "${GREEN}" "GREEN" "Green text"
-print_color "${YELLOW}" "YELLOW" "Yellow text"
-print_color "${BLUE}" "BLUE" "Blue text"
-print_color "${MAGENTA}" "MAGENTA" "Magenta text"
-print_color "${CYAN}" "CYAN" "Cyan text"
-print_color "${WHITE}" "WHITE" "White text"
+print_color "${FG_BLACK}" "BLACK" "Black text"
+print_color "${FG_RED}" "RED" "Red text"
+print_color "${FG_GREEN}" "GREEN" "Green text"
+print_color "${FG_YELLOW}" "FG_YELLOW" "Yellow text"
+print_color "${FG_BLUE}" "BLUE" "Blue text"
+print_color "${FG_MAGENTA}" "MAGENTA" "Magenta text"
+print_color "${FG_CYAN}" "CYAN" "Cyan text"
+print_color "${FG_WHITE}" "WHITE" "White text"
 echo
 
 echo "--- Standard Background Colors ---"
@@ -59,13 +60,13 @@ print_color "${BG_WHITE}" "BG_WHITE" "White background"
 echo
 
 echo "--- Combined Styles ---"
-printf "${BOLD}${RED}Bold Red${CLR}\n"
-printf "${UNDERLINE}${BLUE}Underlined Blue${CLR}\n"
-printf "${BOLD}${ITALIC}${GREEN}Bold Italic Green${CLR}\n"
-printf "${REVERSE}${YELLOW}Reversed Yellow${CLR}\n"
-printf "${BG_BLUE}${YELLOW}Yellow on Blue${CLR}\n"
-printf "${BOLD}${BG_MAGENTA}${WHITE}Bold White on Magenta${CLR}\n"
-printf "${BOLD}${DIM}${BLUE}Bold dim blue${CLR}\n"
+printf "${STYLE_BOLD}${FG_RED}Bold Red${STYLE_CLR}\n"
+printf "${STYLE_UNDERLINE}${FG_BLUE}Underlined Blue${STYLE_CLR}\n"
+printf "${STYLE_BOLD}${STYLE_ITALIC}${FG_GREEN}Bold Italic Green${STYLE_CLR}\n"
+printf "${STYLE_REVERSE}${FG_YELLOW}Reversed Yellow${STYLE_CLR}\n"
+printf "${BG_BLUE}${FG_YELLOW}Yellow on Blue${STYLE_CLR}\n"
+printf "${STYLE_BOLD}${BG_MAGENTA}${FG_WHITE}Bold White on Magenta${STYLE_CLR}\n"
+printf "${STYLE_BOLD}${STYLE_DIM}${FG_BLUE}Bold dim blue${STYLE_CLR}\n"
 echo
 
 echo "=========================================="
