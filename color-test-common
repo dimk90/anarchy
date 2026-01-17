@@ -22,7 +22,7 @@ print_color() {
 }
 
 echo "=========================================="
-echo "  ANSI Color and Style Test"
+echo "  Common Color and Style Test"
 echo "=========================================="
 echo
 
