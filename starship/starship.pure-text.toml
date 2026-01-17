@@ -15,12 +15,7 @@ command_timeout = 1000 # default 500
 
 format = """
 $directory\
-\\[\
-$git_branch\
-$git_commit\
-$git_state\
-$git_status\
-\\]\
+(\\[$git_branch$git_commit$git_state$git_status\\])\
 $fill\
 $status\
 $cmd_duration\
