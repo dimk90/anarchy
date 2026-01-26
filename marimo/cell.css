@@ -1,0 +1,12 @@
+
+
+/*  Adjust Marimo Cell  */
+
+
+.marimo-cell.interactive .output-area {
+    max-height: unset;  /* remove cell height limitation */
+}
+
+.output.block {
+    overflow-y: auto;  /* allow horizontal scrollbar on cell overflow */
+}

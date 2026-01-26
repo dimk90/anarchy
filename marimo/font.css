@@ -1,0 +1,89 @@
+
+
+/*  Iosevka Code  */
+
+
+@font-face {
+	font-family : 'Iosevka Code';
+	font-display: swap;
+	font-weight : 700;
+	font-stretch: normal;
+	font-style  : normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-Bold.woff2') format('woff2');
+}
+
+@font-face {
+	font-family : 'Iosevka Code';
+	font-display: swap;
+	font-weight : 700;
+	font-stretch: normal;
+	font-style  : italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-BoldItalic.woff2') format('woff2');
+}
+
+/* Iosevka Text */
+
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 400;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Regular.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 400;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Italic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 700;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Bold.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 700;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-BoldItalic.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 900;
+	font-stretch: normal;
+	font-style: normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-Heavy.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Iosevka Text';
+	font-display: swap;
+	font-weight: 900;
+	font-stretch: normal;
+	font-style: italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaText-HeavyItalic.woff2') format('woff2');
+}
+
+
+/*  Set Font for Marimo */
+
+
+:root {
+  --marimo-monospace-font: "Iosevka Code";
+  --marimo-text-font: "Iosevka Text";
+  --marimo-heading-font: "Iosevka Text";
+}
