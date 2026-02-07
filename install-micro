@@ -42,8 +42,7 @@ main() {
                          --header "Select items to install:" \
                          'Settings' \
                          'Keybindings' \
-                         'Set as default editor' \
-                         'Enable TrueColor')
+                         'Set as default editor')
     # shellcheck disable=SC2181
     [ $? -ne 0 ] && return 0 # cancelled by user
     mapfile -t choices <<< "$choices" # Convert choices string to array
@@ -67,26 +66,23 @@ main() {
 
     ## Install selected items
 
+    local shells
     for choice in "${choices[@]}"; do
         case "${choice,,}" in
             settings*)
-                action_install_file                        \
-                    "${HOME}/.config/micro/settings.json"  \
+                action_install_file "${HOME}/.config/micro/settings.json"  \
                     'https://dimk90.github.io/anarchy/micro/settings.json'
+                # Replace obsolete MICRO_TRUECOLOR with truecolor=auto in settings (since 2.0.15)
+                shells="$(env_unset_permanent 'MICRO_TRUECOLOR')"
+                [ -n "$shells" ] && action_run "Remove MICRO_TRUECOLOR (in favor to settings) for ${STYLE_CLR}${STYLE_BOLD}$shells"
                 ;;
             keybindings*)
-                action_install_file                        \
-                    "${HOME}/.config/micro/bindings.json"  \
+                action_install_file "${HOME}/.config/micro/bindings.json"  \
                     'https://dimk90.github.io/anarchy/micro/bindings.json'
                 ;;
             *editor*)
-                local shells
                 shells="$(env_set_permanent 'EDITOR' 'micro')"
                 [ -n "$shells" ] && action_run "Set EDITOR to micro for ${STYLE_CLR}${STYLE_BOLD}$shells"
-                ;;
-            *truecolor*)
-                shells="$(env_set_permanent 'MICRO_TRUECOLOR' '1')"
-                [ -n "$shells" ] && action_run "Set MICRO_TRUECOLOR to 1 for ${STYLE_CLR}${STYLE_BOLD}$shells"
                 ;;
             *) assert 1 "invalid choice: ${choice}"
                 ;;
