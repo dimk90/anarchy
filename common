@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.2'
+export COMMON_VERSION='2.3'
 
 
 ## Colors
@@ -72,15 +72,14 @@ else
     export GUM_SPIN_SPINNER='minidot'
 fi
 
-# The minimum delay for displaying a some status before changing it
+# The minimum time for showing some status
 export UI_INTERACTION_DELAY=0.6 # sec
 
 
 ## Logger
 
 
-# Path to current log file. If unset or set to "/dev/null", start_logger()
-# will create a temporary log file and assign it to LOG_FILE.
+# Path to current log file.
 export LOG_FILE=/dev/null
 
 
@@ -745,6 +744,62 @@ env_set_permanent() {
 }
 
 
+env_unset_permanent() {
+    #
+    # Remove an environment variable permanently across shell sessions.
+    # Attempts to remove the variable from all available shells (fish, bash, ...).
+    # Returns 0 if successful in at least one shell, non-zero otherwise.
+    #
+    # Parameters:
+    #   $1 - var_name - variable name (e.g., 'EDITOR').
+    #
+    # Outputs:
+    #   Prints comma-separated list of shells where variable was removed successfully
+    #   (e.g., "fish,bash" or "bash" or empty string if all failed)
+    #
+    # Example:
+    #   shells=$(env_unset_permanent 'EDITOR')
+    #   assert $? 'failed to unset EDITOR permanently'
+    #   echo "Removed from: $shells"
+    #
+    local var_name="$1"
+
+    local result_code=0
+    local result_msg=''
+
+    # fish
+    if is_command_available 'fish'; then
+        # Erase fish universal variable:
+        if fish -c "set -q $var_name" &>> "$LOG_FILE"; then
+            ((result_code += 1))
+            # Removes the variable from all fish sessions
+            if fish -c "set -Ue $var_name" &>> "$LOG_FILE"; then
+                ((result_code -= 1))
+                # Append fish to the current result msg
+                [ -z "$result_msg" ] && result_msg='fish' || result_msg="${result_msg},fish"
+            fi
+        else
+            # Absence of the variable is also a successful result
+            [ -z "$result_msg" ] && result_msg='fish' || result_msg="${result_msg},fish"
+        fi
+    fi
+
+    # bash
+    if is_command_available 'bash'; then
+        ((result_code += 1))
+        # Remove permanent variable from ~/.bashrc
+        if remove_line ~/.bashrc "^export\s+${var_name}\s*=" '' 'i'; then
+            ((result_code -= 1))
+            # Append bash to the current result msg
+            [ -z "$result_msg" ] && result_msg='bash' || result_msg="${result_msg},bash"
+        fi
+    fi
+
+    echo "$result_msg"
+    return $result_code
+}
+
+
 alias_set_permanent() {
     #
     # Set an alias permanently across shell sessions.
@@ -901,7 +956,7 @@ action_install_file() {
         'done'
     assert $? "can't download keymap file"
 
-    # Backup existing config file (if exists)
+    # Backup existing file (if exists)
     if [ -f "$file_path" ]; then
         # Check if sudo required
         [ "${prefix,,}" = 'sudo' ] && action_request_permission "to backup ${basename}"
@@ -910,7 +965,7 @@ action_install_file() {
         action_run "Backup $basename -> $backup_file" "" 'done'
     fi
 
-    # Move downloaded file to the target location
+    # Move file to the target location
     [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${basename}"
     action_run "$(printf "%b %b %b"      \
         "$(gum style --faint 'Install')" \
@@ -1043,4 +1098,5 @@ export -f remove_line
 export -f replace_line
 export -f config_set_param
 export -f env_set_permanent
+export -f env_unset_permanent
 export -f alias_set_permanent
