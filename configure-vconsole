@@ -178,28 +178,36 @@ main() {
 
     ## Ask user for items to install
 
-    printf_section "Confirm Items\n"
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm Items')
 
     local choices
-    choices=$(gum choose --no-limit --selected="*" \
-                         --header "Select items to install:" \
-                         'Locale - Set console locale to en_US.UTF-8' \
-                         'Keymap - US/ANSI keyboard with extra bindings for CTRL and SHIFT' \
-                         'Font - Terminus font + size configuration for console')
-    # shellcheck disable=SC2181
-    [ $? -ne 0 ] && return 0 # cancelled by user
-    mapfile -t choices <<< "$choices" # Convert choices string to array
-    printf_action "Selected items: ${STYLE_CLR}${#choices[@]}\n"
+    if choices=$(gum choose --no-limit --selected='*' --cursor="   > "  \
+                     --header "${section}"                              \
+                     'Locale - Set console locale to en_US.UTF-8'       \
+                     'Keymap - US/ANSI keyboard with extra bindings for CTRL and SHIFT' \
+                     'Font - Terminus font + size configuration for console'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    # Print number of selected items
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
 
     # Empty choice means nothing to do -> exit
-    if [ ${#choices[@]} -eq 0 ]; then
+    if [ "$num_choice" -eq 0 ]; then
         echo
         return 0
     fi
 
     ## Create backup of /etc/vconsole.conf if needed
 
-    if array_contains "Font*" "${choices[@]}" || array_contains "Keymap*" "${choices[@]}"; then
+    if grep -q -e 'font' -e 'keymap' <<< "$choices"; then
         if [ -f '/etc/vconsole.conf' ]; then
             printf_section "Backup\n"
             action_request_permission 'for backing up /etc/vconsole.conf'
@@ -211,23 +219,10 @@ main() {
 
     ## Install selected items
 
-    for choice in "${choices[@]}"; do
-        case "${choice,,}" in
-            locale*)
-                install_locale
-                ;;
-            keymap*)
-                install_keymap
-                ;;
-            font*)
-                install_font
-                ;;
-            *)  assert 1 "invalid choice: ${choice}"
-                ;;
-        esac
-    done
+    grep -q 'locale' <<< "$choices" && install_locale
+    grep -q 'keymap' <<< "$choices" && install_keymap
+    grep -q 'font'   <<< "$choices" && install_font
 
-    echo
     return 0
 }
 

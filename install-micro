@@ -39,10 +39,12 @@ main() {
     section=$(prefix_printf "$(bullet_section)" 'Confirm Items')
 
     local choices
-    if ! choices=$(gum choose --no-limit --selected='*' \
-                              --cursor="   > "          \
-                              --header "${section}"     \
-                              'Settings' 'Keybindings' 'Default Editor'); then
+    if choices=$(gum choose --no-limit --selected='*' \
+                            --cursor="   > "          \
+                            --header "${section}"     \
+                            'Settings' 'Keybindings' 'Default Editor'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
         return 0
     fi
 
@@ -74,7 +76,7 @@ main() {
     local shells
 
     # Install settings file
-    if grep -q 'settings' <<< "${choices,,}"; then
+    if grep -q 'settings' <<< "$choices"; then
         action_install_file "${HOME}/.config/micro/settings.json"  \
                             'https://dimk90.github.io/anarchy/micro/settings.json'
 
@@ -84,18 +86,17 @@ main() {
     fi
 
     # Install keybindings
-    if grep -q 'settings' <<< "${choices,,}"; then
+    if grep -q 'settings' <<< "$choices"; then
         action_install_file "${HOME}/.config/micro/bindings.json"  \
                             'https://dimk90.github.io/anarchy/micro/bindings.json'
     fi
 
     # Set as default editor
-    if grep -q 'default editor' <<< "${choices,,}"; then
+    if grep -q 'default editor' <<< "$choices"; then
         shells="$(env_set_permanent 'EDITOR' 'micro')"
         [ -n "$shells" ] && action_run "Set EDITOR to micro for ${STYLE_CLR}${STYLE_BOLD}$shells"
     fi
 
-    echo
     return 0
 }
 
