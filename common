@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.3'
+export COMMON_VERSION='2.4'
 
 
 ## Colors
@@ -447,64 +447,6 @@ request_gum() {
     else
         return 1
     fi
-}
-
-
-## Array
-
-
-choices_to_indices() {
-    #
-    # Convert a newline-separated string of choices into the indices of matching
-    # items in the provided source array. Indices are printed separated by spaces.
-    #
-    # Example:
-    #   indices=($(choices_to_indices "$file_choices" "${CONFIG_FILES[@]}"))
-    #
-    local choices="$1"
-    shift
-    local source_array=("$@")
-
-    # Convert choices to array using mapfile
-    local selected_items=()
-    mapfile -t selected_items <<< "$choices"
-
-    # Find indices
-    local indices=()
-    for item in "${selected_items[@]}"; do
-        [[ -z "$item" ]] && continue  # skip empty lines
-        for i in "${!source_array[@]}"; do
-            if [[ "${source_array[$i]}" == "$item" ]]; then
-                indices+=("$i")
-                break
-            fi
-        done
-    done
-
-    # Print indices separated by spaces (suitable for capture with array=(...))
-    echo "${indices[*]}"
-}
-
-
-array_contains() {
-    #
-    # Check whether an array contains one or more items matching a given pattern.
-    # Matching is case-sensitive and uses Bash extended regular expressions (the [[ =~ ]] operator).
-    #
-    # Example:
-    #   if array_contains '^Keymap.*' "${array[@]}"; then ...
-    #
-    local pattern="$1"
-    shift
-    local items=("$@")
-
-    for item in "${items[@]}"; do
-        if [[ $item =~ $pattern ]]; then
-            return 0 # pattern found
-        fi
-    done
-
-    return 1
 }
 
 
@@ -1087,10 +1029,6 @@ export -f have_privilege
 # Package Management
 export -f is_package_installed
 export -f request_gum
-
-# Array
-export -f choices_to_indices
-export -f array_contains
 
 # Files & Env
 export -f backup_file
