@@ -35,21 +35,26 @@ main() {
 
     ## Ask user for items to install
 
-    printf_section "Confirm Items\n"
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm Items')
 
     local choices
-    choices=$(gum choose --no-limit --selected='*' \
-                         --header "Select items to install:" \
-                         'Settings' \
-                         'Keybindings' \
-                         'Set as default editor')
-    # shellcheck disable=SC2181
-    [ $? -ne 0 ] && return 0 # cancelled by user
-    mapfile -t choices <<< "$choices" # Convert choices string to array
-    printf_action "Selected items: ${STYLE_CLR}${#choices[@]}\n"
+    if ! choices=$(gum choose --no-limit --selected='*' \
+                              --cursor="   > "          \
+                              --header "${section}"     \
+                              'Settings' 'Keybindings' 'Default Editor'); then
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    # Print number of selected items
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
 
     # Empty choice means nothing to do -> exit
-    if [ ${#choices[@]} -eq 0 ]; then
+    if [ "$num_choice" -eq 0 ]; then
         echo
         return 0
     fi
@@ -67,27 +72,28 @@ main() {
     ## Install selected items
 
     local shells
-    for choice in "${choices[@]}"; do
-        case "${choice,,}" in
-            settings*)
-                action_install_file "${HOME}/.config/micro/settings.json"  \
-                    'https://dimk90.github.io/anarchy/micro/settings.json'
-                # Replace obsolete MICRO_TRUECOLOR with truecolor=auto in settings (since 2.0.15)
-                shells="$(env_unset_permanent 'MICRO_TRUECOLOR')"
-                [ -n "$shells" ] && action_run "Remove MICRO_TRUECOLOR (in favor to settings) for ${STYLE_CLR}${STYLE_BOLD}$shells"
-                ;;
-            keybindings*)
-                action_install_file "${HOME}/.config/micro/bindings.json"  \
-                    'https://dimk90.github.io/anarchy/micro/bindings.json'
-                ;;
-            *editor*)
-                shells="$(env_set_permanent 'EDITOR' 'micro')"
-                [ -n "$shells" ] && action_run "Set EDITOR to micro for ${STYLE_CLR}${STYLE_BOLD}$shells"
-                ;;
-            *) assert 1 "invalid choice: ${choice}"
-                ;;
-        esac
-    done
+
+    # Install settings file
+    if grep -q 'settings' <<< "${choices,,}"; then
+        action_install_file "${HOME}/.config/micro/settings.json"  \
+                            'https://dimk90.github.io/anarchy/micro/settings.json'
+
+        # Replace obsolete MICRO_TRUECOLOR with truecolor=auto in settings (since micro 2.0.15)
+        shells="$(env_unset_permanent 'MICRO_TRUECOLOR')"
+        [ -n "$shells" ] && action_run "Remove MICRO_TRUECOLOR (in favor to settings) for ${STYLE_CLR}${STYLE_BOLD}$shells"
+    fi
+
+    # Install keybindings
+    if grep -q 'settings' <<< "${choices,,}"; then
+        action_install_file "${HOME}/.config/micro/bindings.json"  \
+                            'https://dimk90.github.io/anarchy/micro/bindings.json'
+    fi
+
+    # Set as default editor
+    if grep -q 'default editor' <<< "${choices,,}"; then
+        shells="$(env_set_permanent 'EDITOR' 'micro')"
+        [ -n "$shells" ] && action_run "Set EDITOR to micro for ${STYLE_CLR}${STYLE_BOLD}$shells"
+    fi
 
     echo
     return 0
