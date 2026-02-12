@@ -590,6 +590,7 @@ config_set_param() {
     #
     # Set configuration parameter in file if not already set.
     # If config section specified, insert parameter under that section.
+    # Return 0 if parameter already exists or was set successfully, non-zero otherwise.
     #
     # The parameter name may contain regex meta-characters to broadly match existing entries.
     # E.g. to set "Color" parameter in /etc/pacman.conf under [options] section:
@@ -881,7 +882,8 @@ action_install_file() {
     local file_url="$2"
     local prefix="${3-}"
 
-    local basename="${file_path##*/}"
+    local url_basename="${file_url##*/}"
+    local file_basename="${file_path##*/}"
 
     # Get unique temp file name
     local tmpfile
@@ -893,7 +895,7 @@ action_install_file() {
     trap "rm -f $tmpfile" EXIT
 
     # Download file
-    action_run "Download file: $basename"        \
+    action_run "Download file: $url_basename"        \
         "curl -fsSL ${file_url} -o ${tmpfile}" \
         'done'
     assert $? "can't download keymap file"
@@ -901,17 +903,17 @@ action_install_file() {
     # Backup existing file (if exists)
     if [ -f "$file_path" ]; then
         # Check if sudo required
-        [ "${prefix,,}" = 'sudo' ] && action_request_permission "to backup ${basename}"
+        [ "${prefix,,}" = 'sudo' ] && action_request_permission "to backup ${file_basename}"
         backup_file=$(backup_file "$file_path" "$prefix")
-        assert $? "can't backup: $basename"
-        action_run "Backup $basename -> $backup_file" "" 'done'
+        assert $? "can't backup: $file_basename"
+        action_run "Backup $file_basename -> $backup_file" "" 'done'
     fi
 
     # Move file to the target location
-    [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${basename}"
+    [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${file_basename}"
     action_run "$(printf "%b %b %b"      \
         "$(gum style --faint 'Install')" \
-        "$(gum style --foreground $GUM_YELLOW "$basename")" \
+        "$(gum style --foreground $GUM_YELLOW "$url_basename")" \
         "$(gum style --faint "to $file_path")${STYLE_DIM}" \
     )" "$prefix mv $tmpfile $file_path" 'done'
     assert $? "can't move $tmpfile -> $file_path"
