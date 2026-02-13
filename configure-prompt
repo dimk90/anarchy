@@ -16,10 +16,46 @@ source <(echo "$COMMON")
 set +o errexit # disable exit on non-zero exit code
 
 
+## Const
+
+
+FISH_CONFIG_SELECTOR=$(cat << 'EOF'
+function select_starship_config
+    # Check if we're in the native Linux terminal
+    if test "$TERM" = "linux"
+        # Use simple text-based config for Linux console
+        set -gx STARSHIP_CONFIG ~/.config/starship/fallback.toml
+    else
+        # Use nerd font config for modern terminals
+        set -gx STARSHIP_CONFIG ~/.config/starship/starship.toml
+    end
+end
+EOF
+)
+
+BASH_CONFIG_SELECTOR=$(cat << 'EOF'
+select_starship_config() {
+    # Check if we're in the native Linux terminal
+    if [ "$TERM" = "linux" ]; then
+        # Use simple text-based config for Linux console
+        export STARSHIP_CONFIG=~/.config/starship/fallback.toml
+    else
+        # Use selected theme for modern terminals
+        export STARSHIP_CONFIG=~/.config/starship/starship.toml
+    fi
+}
+EOF
+)
+
+
 ## Runtime
 
 
+# shellcheck disable=SC2329
 fish_configure_highlighting() {
+    # ANSI color codes:
+    # https://hexdocs.pm/color_palette/ansi_color_codes.html
+
     # Hide fish greeting
     fish -c "set -U fish_greeting ''"
 
@@ -56,6 +92,42 @@ fish_configure_highlighting() {
 }
 
 
+# shellcheck disable=SC2329
+fish_enable_starship() {
+    # Add starship config selector function
+    echo "${FISH_CONFIG_SELECTOR}" > ~/.config/fish/functions/select_starship_config.fish
+    assert $? 'failed to add starship config selector function'
+
+    # Remove old starship init to guarantee select_starship_config call before init
+    remove_line ~/.config/fish/config.fish 'starship init fish \| source'
+    assert $? 'failed to remove old starship init'
+
+    # Add starship init with config selector
+    config_set_param ~/.config/fish/config.fish \
+        'select_starship_config; starship init fish \| source'
+    assert $? 'failed to add starship init with config selector'
+}
+
+
+# shellcheck disable=SC2329
+bash_enable_starship() {
+    # Remove old starship init to guarantee select_starship_config call before init
+    remove_line ~/.bashrc 'starship init bash'
+    assert $? 'failed to remove old starship init'
+
+    # Add config selector function to .bashrc
+    if ! grep -q 'select_starship_config' ~/.bashrc; then
+        { echo; echo "${BASH_CONFIG_SELECTOR}"; echo; } >> ~/.bashrc
+        assert $? 'failed to add starship config selector function'
+    fi
+
+    # Add starship init with config selector
+    config_set_param ~/.bashrc \
+        'select_starship_config && eval "\$\(starship init bash\)"'
+    assert $? 'failed to add starship init with config selector'
+}
+
+
 main() {
 
     ## Get gum
@@ -75,14 +147,26 @@ main() {
     printf_section "Starship\n"
     action_require_package 'starship'
 
-    # Select starship theme
-    local header=$(prefix_printf "$(bullet_action)" 'Select starship theme:\n')
+    # Create starship dir for configs
+    mkdir -p ~/.config/starship
+    assert $? 'failed to create starship config directory'
+
+    # Download fallback theme
+    printf_action "Fallback theme: ${STYLE_CLR}pure-text\n"
+    action_install_file ~/.config/starship/fallback.toml \
+        "https://dimk90.github.io/anarchy/starship/starship.pure-text.toml"
+
+    # Select & download starship theme
+    local header
+    header=$(prefix_printf "$(bullet_action)" 'Select starship theme:\n')
+
     local choice
-    choice=$(gum choose --cursor="      > " --header="${header}" \
-                        --limit=1 'pure' 'capsule' 'pure-text')
-    if [ $? -eq 0 ]; then
+    if choice=$(gum choose --cursor="      > "  \
+                           --header="${header}" \
+                           --limit=1            \
+                           'pure' 'capsule' 'pure-text'); then
         printf_action "Starship theme: ${STYLE_CLR}${choice}\n"
-        action_install_file ~/.config/starship.toml \
+        action_install_file ~/.config/starship/starship.toml \
             "https://dimk90.github.io/anarchy/starship/starship.${choice}.toml"
     fi
 
@@ -94,19 +178,19 @@ main() {
         export -f fish_configure_highlighting
         action_run 'Configure syntax highlighting' 'fish_configure_highlighting' 'done'
 
-        local fish_starship_init='starship init fish \| source'
-        action_run 'Enable starship' \
-            "config_set_param ~/.config/fish/config.fish '${fish_starship_init}'" 'done'
+        export FISH_CONFIG_SELECTOR
+        export -f fish_enable_starship
+        action_run 'Enable starship' 'fish_enable_starship' 'done'
     fi
 
     ## Bash
 
     if is_command_available 'bash'; then
         printf_section "Configure bash\n"
-        # shellcheck disable=SC2016
-        local bash_starship_init='eval "\$\(starship init bash\)"'
-        action_run 'Enable starship' \
-            "config_set_param ~/.bashrc '${bash_starship_init}'" 'done'
+
+        export BASH_CONFIG_SELECTOR
+        export -f bash_enable_starship
+        action_run 'Enable starship' 'bash_enable_starship' 'done'
     fi
 
     return 0
