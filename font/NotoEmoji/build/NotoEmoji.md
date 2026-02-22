@@ -76,3 +76,11 @@ Run `SBIX` font building:
 ```shell
 cd noto-emoji/colrv1 && uvx nanoemoji sbix.toml
 ```
+
+## Remove Symbols up to U+3A
+
+```shell
+pyftsubset NotoColorEmoji.sbix.ttf \
+    --unicodes="U+3A-10FFFF"       \
+    --output-file=NotoColorEmoji.sbix.ncap.ttf
+```
