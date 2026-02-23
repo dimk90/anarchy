@@ -1,12 +1,22 @@
 
 
-/*  Adjust Marimo Cell  */
+/* Special Cell Types */
 
 
-.marimo-cell.interactive .output-area {
-    max-height: unset;  /* remove cell height limitation */
+/* cell with clipping overflow content */
+[data-cell-name^='clip_cell']
+.output.block {
+    overflow-y: clip !important;
+    overflow-x: clip !important;
 }
 
+
+[data-cell-name^='scroll_cell_h']
 .output.block {
     overflow-y: auto;  /* allow horizontal scrollbar on cell overflow */
+}
+
+[data-cell-name^='scroll_cell_h']
+.marimo-cell.interactive .output-area {
+    max-height: unset;  /* remove cell height limitation */
 }
