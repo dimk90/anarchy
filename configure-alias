@@ -70,7 +70,6 @@ main() {
         action_run "${title}" '' "${result}"
     done
 
-    echo
     return 0
 }
 

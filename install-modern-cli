@@ -1,0 +1,99 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Runtime
+
+#
+# TODO:
+#
+# - [x] zoxide
+#     - test `ji`  / fzf
+#     - plugin for file manager
+# - [ ] less
+#     - default pager
+# - [ ] bat -> cat
+#     - BAT_PAGER
+#     - theme
+# - [ ] fzf
+#    - theme
+#    - remove keybindings ??
+#           fish -c "set -U FZF_LEGACY_KEYBINDINGS 1"
+#    - configure with bat
+# - [ ] file manager
+#
+
+
+# shellcheck disable=SC2329
+bash_enable_zoxide() {
+    config_set_param ~/.bashrc 'eval "\$\(zoxide init --cmd j bash\)"'
+}
+
+# shellcheck disable=SC2329
+fish_enable_zoxide() {
+    config_set_param ~/.config/fish/config.fish 'zoxide init --cmd j fish \| source'
+}
+
+
+install_zoxide() {
+    printf_section "zoxide\n"
+
+    # Install if missing
+    action_require_package 'zoxide'
+
+    # Enable for fish and bash
+    export -f bash_enable_zoxide
+    action_run 'Enable zoxide for bash' 'bash_enable_zoxide' 'done'
+
+    if is_command_available 'fish'; then
+        export -f fish_enable_zoxide
+        action_run 'Enable zoxide for fish' 'fish_enable_zoxide' 'done'
+    fi
+
+    # Add alias for cd
+
+    # shellcheck disable=SC2155
+    local result=$(alias_set_permanent 'cd' 'j')
+    action_run 'Set alias cd->zoxide' '' "${result}"
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Install CLI
+
+    install_zoxide
+
+
+    return 0
+}
+
+
+
+main "$@"
+exit $?
