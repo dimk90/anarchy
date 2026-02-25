@@ -20,20 +20,27 @@ set +o errexit # disable exit on non-zero exit code
 #
 # TODO:
 #
-# - [x] zoxide
-#     - test `ji`  / fzf
-#     - plugin for file manager
-# - [ ] less
-#     - default pager
-# - [ ] bat -> cat
-#     - BAT_PAGER
-#     - theme
-# - [ ] fzf
+# [x] zoxide
+#     [ ] test `ji`  / fzf
+#     [ ] plugin for file manager
+# [x] less
+#     [x] default pager
+# [ ] bat -> cat
+#     [ ] BAT_PAGER ?
+#     [ ] colorized help
+#     [ ] colorized man
+#     [ ] cat alias
+#     [ ] theme
+# [ ] better man
+# [ ] fzf
 #    - theme
 #    - remove keybindings ??
 #           fish -c "set -U FZF_LEGACY_KEYBINDINGS 1"
 #    - configure with bat
-# - [ ] file manager
+# [ ] ripgrep -> grep
+# [ ] delta -> diff
+# [ ] fd -> find
+# [ ] file manager
 #
 
 
@@ -71,6 +78,16 @@ install_zoxide() {
 }
 
 
+install_less() {
+    printf_section "less\n"
+    # Install if missing
+    action_require_package 'less'
+    # Set as default pager
+    shells=$(env_set_permanent 'PAGER' 'less')
+    action_run 'Set less as default pager' '' "${shells}"
+}
+
+
 main() {
 
     ## Get gum
@@ -88,6 +105,7 @@ main() {
     ## Install CLI
 
     install_zoxide
+    install_less
 
 
     return 0
