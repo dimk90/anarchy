@@ -25,12 +25,12 @@ set +o errexit # disable exit on non-zero exit code
 #     [ ] plugin for file manager
 # [x] less
 #     [x] default pager
-# [ ] bat -> cat
-#     [ ] BAT_PAGER ?
+# [x] bat -> cat
+#     [ ] less colorization
 #     [ ] colorized help
-#     [ ] colorized man
-#     [ ] cat alias
-#     [ ] theme
+#     [x] colorized man
+#     [x] cat alias
+#     [x] theme
 # [ ] better man
 # [ ] fzf
 #    - theme
@@ -73,8 +73,8 @@ install_zoxide() {
     # Add alias for cd
 
     # shellcheck disable=SC2155
-    local result=$(alias_set_permanent 'cd' 'j')
-    action_run 'Set alias cd->zoxide' '' "${result}"
+    local shells=$(alias_set_permanent 'cd' 'j')
+    action_run 'Set alias cd->zoxide' '' "${shells}"
 }
 
 
@@ -86,6 +86,29 @@ install_less() {
     shells=$(env_set_permanent 'PAGER' 'less')
     action_run 'Set less as default pager' '' "${shells}"
 }
+
+
+install_bat() {
+    printf_section "bat\n"
+    # Install if missing
+    action_require_package 'bat'
+
+    # Install config
+    mkdir -p ~/.config/bat
+    assert $? 'Failed to create config directory for bat'
+    action_install_file ~/.config/bat/config \
+        'https://dimk90.github.io/anarchy/cli/bat.cfg'
+
+    # Set alias for cat
+    local shells
+    shells=$(alias_set_permanent 'cat' 'bat')
+    action_run 'Set alias cat->bat' '' "${shells}"
+
+    # Use bat for man colorization
+    shells=$(env_set_permanent 'MANPAGER' 'bat -plman')
+    action_run 'Register bat for man colorization' '' "${shells}"
+}
+
 
 
 main() {
@@ -106,7 +129,7 @@ main() {
 
     install_zoxide
     install_less
-
+    install_bat
 
     return 0
 }
