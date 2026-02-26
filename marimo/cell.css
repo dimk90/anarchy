@@ -4,19 +4,35 @@
 
 
 /* cell with clipping overflow content */
-[data-cell-name^='clip_cell']
+[data-cell-name~='clip_cell']
 .output.block {
     overflow-y: clip !important;
     overflow-x: clip !important;
 }
 
+/* TODO: unbound cell */
+/* TODO: scrollable content */
 
-[data-cell-name^='scroll_cell_h']
+[data-cell-name~='scroll_cell_h']
 .output.block {
     overflow-y: auto;  /* allow horizontal scrollbar on cell overflow */
 }
 
-[data-cell-name^='scroll_cell_h']
+[data-cell-name~='scroll_cell_h']
 .marimo-cell.interactive .output-area {
     max-height: unset;  /* remove cell height limitation */
+}
+
+/* Wide Cell: 120% */
+[data-cell-name~='width120'] {
+    width: 120%;
+    position: relative;
+    left: -10%;
+}
+
+/* Wide Cell: 140% */
+[data-cell-name~='width140'] {
+    width: 140%;
+    position: relative;
+    left: -20%;
 }
