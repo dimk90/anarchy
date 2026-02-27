@@ -31,12 +31,12 @@ set +o errexit # disable exit on non-zero exit code
 #     [x] colorized man
 #     [x] cat alias
 #     [x] theme
-# [ ] better man
 # [ ] fzf
 #    - theme
 #    - remove keybindings ??
 #           fish -c "set -U FZF_LEGACY_KEYBINDINGS 1"
 #    - configure with bat
+# [ ] better man
 # [ ] ripgrep -> grep
 # [ ] delta -> diff
 # [ ] fd -> find
@@ -52,6 +52,15 @@ bash_enable_zoxide() {
 # shellcheck disable=SC2329
 fish_enable_zoxide() {
     config_set_param ~/.config/fish/config.fish 'zoxide init --cmd j fish \| source'
+}
+
+# shellcheck disable=SC2329
+fish_add_help_colorization() {
+    config_set_param ~/.config/fish/config.fish \
+        "abbr -a --position anywhere -- --help '--help \| bat -plhelp --theme TwoDark'"
+
+    # Note: some command use -h not for help, e.g. ls -h
+    # abbr -a --position anywhere -- -h '-h | bat -plhelp --theme TwoDark'
 }
 
 
@@ -80,8 +89,10 @@ install_zoxide() {
 
 install_less() {
     printf_section "less\n"
+
     # Install if missing
     action_require_package 'less'
+
     # Set as default pager
     shells=$(env_set_permanent 'PAGER' 'less')
     action_run 'Set less as default pager' '' "${shells}"
@@ -90,6 +101,7 @@ install_less() {
 
 install_bat() {
     printf_section "bat\n"
+
     # Install if missing
     action_require_package 'bat'
 
@@ -105,10 +117,16 @@ install_bat() {
     action_run 'Set alias cat->bat' '' "${shells}"
 
     # Use bat for man colorization
-    shells=$(env_set_permanent 'MANPAGER' 'bat -plman')
+    shells=$(env_set_permanent 'MANPAGER' 'bat -plman --theme TwoDark')
     action_run 'Register bat for man colorization' '' "${shells}"
-}
 
+    # Add --help colorization
+    if is_command_available 'fish'; then
+        export -f fish_add_help_colorization
+        action_run 'Add --help colorization (fish only)' \
+            'fish_add_help_colorization' 'done'
+    fi
+}
 
 
 main() {
@@ -133,7 +151,6 @@ main() {
 
     return 0
 }
-
 
 
 main "$@"
