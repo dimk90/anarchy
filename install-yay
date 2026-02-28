@@ -37,6 +37,11 @@ main() {
 
     printf_section "Installing & Configuring\n"
 
+    # Enable color in the pipe also: e.g. pacman -Ss ... | less -R
+    action_run 'Enabling color in the pipe' \
+        "alias_set_permanent 'yay' 'yay --color=always'" \
+        'done'
+
     # Check if installed already
     if is_command_available yay; then
         printf_action 'yay is installed already - %b\n\n' "$(gum style --foreground $GUM_ACCENT 'exit')"
@@ -66,7 +71,6 @@ main() {
         'done'
     assert $? 'failed to install yay'
 
-    echo
     return 0
 }
 

@@ -44,6 +44,11 @@ main() {
         "config_set_param '/etc/pacman.conf' '^Color$' 'options' $(check_sudo)" \
         'done'
 
+    # Enable color in the pipe also: e.g. pacman -Ss ... | less -R
+    action_run 'Enabling color in the pipe' \
+        "alias_set_permanent 'pacman' 'pacman --color=always'" \
+        'done'
+
     ## Reflector
 
     printf_section "Installing Reflector\n"
@@ -83,7 +88,6 @@ main() {
                           'options' $(check_sudo)" \
         'done'
 
-    echo
     return 0
 }
 
