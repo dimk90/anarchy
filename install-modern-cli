@@ -21,27 +21,44 @@ set +o errexit # disable exit on non-zero exit code
 # TODO:
 #
 # [x] zoxide
-#     [ ] test `ji`  / fzf
-#     [ ] plugin for file manager
+#     [x] test `ji`  / fzf
+#     [ ] plugin for file manager:
 # [x] less
 #     [x] default pager
+#     [ ] keep ANSI color in the input
 # [x] bat -> cat
-#     [ ] less colorization
-#     [ ] colorized help
+#     [x] colorized help
 #     [x] colorized man
 #     [x] cat alias
 #     [x] theme
-# [ ] fzf
-#    - theme
-#    - remove keybindings ??
-#           fish -c "set -U FZF_LEGACY_KEYBINDINGS 1"
-#    - configure with bat
-# [ ] better man
-# [ ] ripgrep -> grep
-# [ ] delta -> diff
+#     [ ] test colors in native linux terminal
 # [ ] fd -> find
+# [ ] ls -> lsd, eza
+# [ ] ripgrep -> grep
+# [ ] better man
+# [ ] delta -> diff
 # [ ] file manager
-#
+# [ ] fzf
+#     [ ] shell independent config ~/.config/fzf.conf
+#     [ ] bash and fish integration
+#     [ ] replace <TAB> keybinding for fish
+#           - custom keybinding <TAB>: https://github.com/PatrickF1/fzf.fish
+#           - remove alt+c: https://junegunn.github.io/fzf/shell-integration/#key-bindings
+#           - remove default keybindings ??
+#             fish -c "set -U FZF_LEGACY_KEYBINDINGS 1"
+#     [ ] add preview with bat:
+#           - https://github.com/junegunn/fzf?tab=readme-ov-file#preview-window
+#     [ ] configure theme: reverse UI
+#           - https://github.com/junegunn/fzf/blob/master/ADVANCED.md#color-themes
+#     [ ] faster search with fd
+#           - search hidden files also
+#           - follow symlink: https://github.com/junegunn/fzf?tab=readme-ov-file#respecting-gitignore
+#     [ ] integration with rg ? interactive grep?
+#     [ ] git diff integration
+#     [ ] git log integration
+#     [ ] pacman integration: https://wiki.archlinux.org/title/Fzf
+#           - abbr for -Q, -Ss, -R, ... ?
+#     [ ] test colors in native linux terminal
 
 
 # shellcheck disable=SC2329
@@ -96,6 +113,10 @@ install_less() {
     # Set as default pager
     shells=$(env_set_permanent 'PAGER' 'less')
     action_run 'Set less as default pager' '' "${shells}"
+
+    # Set default options
+    shells=$(alias_set_permanent 'less' 'less -RFXi --mouse')
+    action_run 'Set default options' '' "${shells}"
 }
 
 
