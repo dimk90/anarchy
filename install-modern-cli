@@ -33,7 +33,6 @@ set +o errexit # disable exit on non-zero exit code
 #     [x] cat alias
 #     [x] theme
 #     [ ] test colors in native linux terminal
-#     [ ] add completions
 # [x] fd
 # [ ] ripgrep -> grep
 # [ ] ls -> lsd, eza
@@ -168,6 +167,12 @@ install_fd() {
     action_require_package 'fd'
 }
 
+
+install_fzf() {
+    printf_section "fzf\n"
+
+    # Install if missing
+    action_require_package 'fzf'
 }
 
 
@@ -192,6 +197,7 @@ main() {
     install_bash_completion
     install_bat
     install_fd
+    install_fzf
 
     return 0
 }
