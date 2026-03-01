@@ -34,12 +34,14 @@ set +o errexit # disable exit on non-zero exit code
 #     [x] theme
 #     [ ] test colors in native linux terminal
 # [x] fd
-# [ ] ripgrep -> grep
+# [x] ripgrep -> grep
 # [ ] ls -> lsd, eza
 # [ ] better man
 # [ ] delta -> diff
+#     [ ] git integration: https://github.com/dandavison/delta?tab=readme-ov-file#a-syntax-highlighting-pager-for-git-diff-and-grep-output
+#     [ ] grep integration:
 # [ ] file manager
-# [ ] fzf
+# [x] fzf
 #     [ ] shell independent config ~/.config/fzf.conf
 #     [ ] bash and fish integration
 #     [ ] replace <TAB> keybinding for fish
@@ -168,6 +170,19 @@ install_fd() {
 }
 
 
+install_rg() {
+    printf_section "ripgrep\n"
+
+    # Install if missing
+    action_require_package 'ripgrep'
+
+    # Set alias for grep
+    # shellcheck disable=SC2155
+    local shells=$(alias_set_permanent 'grep' 'rg')
+    action_run 'Set alias grep->rg' '' "${shells}"
+}
+
+
 install_fzf() {
     printf_section "fzf\n"
 
@@ -197,6 +212,7 @@ main() {
     install_bash_completion
     install_bat
     install_fd
+    install_rg
     install_fzf
 
     return 0
