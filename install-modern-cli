@@ -26,6 +26,7 @@ set +o errexit # disable exit on non-zero exit code
 # [x] less
 #     [x] default pager
 #     [x] keep ANSI color in the input
+# [x] bash-completion
 # [x] bat -> cat
 #     [x] colorized help
 #     [x] colorized man
@@ -123,6 +124,14 @@ install_less() {
 }
 
 
+install_bash_completion() {
+    printf_section "bash-completion\n"
+
+    # Install if missing
+    action_require_package 'bash-completion'
+}
+
+
 install_bat() {
     printf_section "bat\n"
 
@@ -180,6 +189,7 @@ main() {
 
     install_zoxide
     install_less
+    install_bash_completion
     install_bat
     install_fd
 
