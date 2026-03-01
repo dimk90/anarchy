@@ -94,4 +94,3 @@ main() {
 
 # Run main and return its exit code
 main "$@"
-exit $?
