@@ -22,19 +22,20 @@ set +o errexit # disable exit on non-zero exit code
 #
 # [x] zoxide
 #     [x] test `ji`  / fzf
-#     [ ] plugin for file manager:
+#     [ ] plugin for file manager
 # [x] less
 #     [x] default pager
-#     [ ] keep ANSI color in the input
+#     [x] keep ANSI color in the input
 # [x] bat -> cat
 #     [x] colorized help
 #     [x] colorized man
 #     [x] cat alias
 #     [x] theme
 #     [ ] test colors in native linux terminal
-# [ ] fd -> find
-# [ ] ls -> lsd, eza
+#     [ ] add completions
+# [x] fd
 # [ ] ripgrep -> grep
+# [ ] ls -> lsd, eza
 # [ ] better man
 # [ ] delta -> diff
 # [ ] file manager
@@ -150,6 +151,16 @@ install_bat() {
 }
 
 
+install_fd() {
+    printf_section "fd\n"
+
+    # Install if missing
+    action_require_package 'fd'
+}
+
+}
+
+
 main() {
 
     ## Get gum
@@ -169,10 +180,10 @@ main() {
     install_zoxide
     install_less
     install_bat
+    install_fd
 
     return 0
 }
 
 
 main "$@"
-exit $?
