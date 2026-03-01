@@ -77,8 +77,10 @@ fish_add_help_colorization() {
     config_set_param ~/.config/fish/config.fish \
         "abbr -a --position anywhere -- --help '--help \| bat -plhelp --theme TwoDark'"
 
-    # Note: some command use -h not for help, e.g. ls -h
-    # abbr -a --position anywhere -- -h '-h | bat -plhelp --theme TwoDark'
+    # Note: potential conflict with some commands
+    #       which use -h not for help, e.g. ls -h
+    config_set_param ~/.config/fish/config.fish \
+        "abbr -a --position anywhere -- -h '-h \| bat -plhelp --theme TwoDark'"
 }
 
 
@@ -145,8 +147,7 @@ install_bat() {
     # Add --help colorization
     if is_command_available 'fish'; then
         export -f fish_add_help_colorization
-        action_run 'Add --help colorization (fish only)' \
-            'fish_add_help_colorization' 'done'
+        action_run 'Add --help colorization' 'fish_add_help_colorization' 'fish shell'
     fi
 }
 
