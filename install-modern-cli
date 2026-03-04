@@ -23,6 +23,7 @@ set +o errexit # disable exit on non-zero exit code
 # [x] zoxide
 #     [x] test `ji`  / fzf
 #     [ ] plugin for file manager
+#     [x] add cdi alias for ji
 # [x] less
 #     [x] default pager
 #     [x] keep ANSI color in the input
@@ -36,10 +37,14 @@ set +o errexit # disable exit on non-zero exit code
 # [x] fd
 # [x] ripgrep -> grep
 # [ ] ls -> lsd, eza
+#     [ ] git support
+#     [ ] icons
+#     [ ] colors
 # [ ] better man
 # [ ] delta -> diff
 #     [ ] git integration: https://github.com/dandavison/delta?tab=readme-ov-file#a-syntax-highlighting-pager-for-git-diff-and-grep-output
-#     [ ] grep integration:
+#     [ ] grep integration
+#     [ ] color theme
 # [ ] file manager
 # [x] fzf
 #     [ ] shell independent config ~/.config/fzf.conf
@@ -106,6 +111,10 @@ install_zoxide() {
     # shellcheck disable=SC2155
     local shells=$(alias_set_permanent 'cd' 'j')
     action_run 'Set alias cd->zoxide' '' "${shells}"
+
+    # shellcheck disable=SC2155
+    shells=$(alias_set_permanent 'cdi' 'ji')
+    action_run 'Set alias cdi->zoxide(interactive)' '' "${shells}"
 }
 
 
