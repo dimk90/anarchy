@@ -36,11 +36,12 @@ set +o errexit # disable exit on non-zero exit code
 #     [ ] test colors in native linux terminal
 # [x] fd
 # [x] ripgrep -> grep
-# [ ] ls -> eza (or lsd)
-#     [ ] git support
-#     [ ] icons (bigger than default)
+# [x] ls -> eza (or lsd)
+#     [x] git support
+#     [x] icons (bigger than default)
 #     [x] colors / theme
-#     [ ] alias: ls, ll
+#     [x] alias: ls, ll
+#     [ ] test colors in native terminal
 # [ ] better man
 # [ ] delta -> diff
 #     [ ] git integration: https://github.com/dandavison/delta?tab=readme-ov-file#a-syntax-highlighting-pager-for-git-diff-and-grep-output
@@ -189,6 +190,24 @@ install_eza() {
     mkdir -p ~/.config/eza
     action_install_file ~/.config/eza/theme.yml \
         'https://dimk90.github.io/anarchy/cli/eza-theme.yml'
+
+    # Configure alias for eza
+    local shells
+    # shellcheck disable=SC2034
+    shells=$(alias_set_permanent 'ls' 'eza')
+    action_run 'Set alias: ls' '' "${shells}"
+    # shellcheck disable=SC2034
+    shells=$(alias_set_permanent 'll' 'eza -lahF --icons --group-directories-first --git --header')
+    action_run 'Set alias: ll' '' "${shells}"
+    # shellcheck disable=SC2034
+    shells=$(alias_set_permanent 'll-size' 'll --total-size')
+    action_run 'Set alias: ll-size' '' "${shells}"
+    # shellcheck disable=SC2034
+    shells=$(alias_set_permanent 'lt' 'll --tree --level=2')
+    action_run 'Set alias: lt' '' "${shells}"
+    # shellcheck disable=SC2034
+    shells=$(alias_set_permanent 'lt-size' 'lt --total-size')
+    action_run 'Set alias: lt-size' '' "${shells}"
 }
 
 
@@ -214,14 +233,14 @@ main() {
 
     ## Install CLI
 
-    install_zoxide
-    install_less
-    install_bash_completion
-    install_bat
-    install_fd
-    install_rg
+    # install_zoxide
+    # install_less
+    # install_bash_completion
+    # install_bat
+    # install_fd
+    # install_rg
     install_eza
-    install_fzf
+    # install_fzf
 
     return 0
 }
