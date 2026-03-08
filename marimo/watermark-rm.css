@@ -1,0 +1,17 @@
+
+
+/** Remove 'Made with Marimo' watermark **/
+
+
+[data-testid="watermark"] {
+  display: none !important;
+}
+
+[data-testid="static-notebook-banner"] {
+  display: none !important;
+}
+
+/* Remove notification: static notebook ... */
+[role="region"][aria-label*="Notifications"] {
+  display: none !important;
+}

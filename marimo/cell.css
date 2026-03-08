@@ -1,36 +1,43 @@
 
-
 /* Special Cell Types */
 
 
-/* cell with clipping overflow content */
+/* TODO: unbound cell */
+
+
+/** Clip Cell Content **/
+
 [data-cell-name~='clip_cell']
 .output.block {
+    /* Cell with clipping overflow content */
     overflow-y: clip !important;
     overflow-x: clip !important;
 }
 
-/* TODO: unbound cell */
-/* TODO: scrollable content */
+/** Scrollable Cell (Vertical) **/
 
-[data-cell-name~='scroll_cell_h']
+[data-cell-name~='scroll_cell_v']
 .output.block {
-    overflow-y: auto;  /* allow horizontal scrollbar on cell overflow */
+    /* Allow vertical scrollbar on cell overflow */
+    overflow-y: auto;
 }
 
-[data-cell-name~='scroll_cell_h']
+[data-cell-name~='scroll_cell_v']
 .marimo-cell.interactive .output-area {
-    max-height: unset;  /* remove cell height limitation */
+    /* Allow horizontal scrollbar on cell overflow */
+    max-height: unset;
 }
 
-/* Wide Cell: 120% */
+/** Wide Cell: 120% **/
+
 [data-cell-name~='width120'] {
     width: 120%;
     position: relative;
     left: -10%;
 }
 
-/* Wide Cell: 140% */
+/** Wide Cell: 140% **/
+
 [data-cell-name~='width140'] {
     width: 140%;
     position: relative;

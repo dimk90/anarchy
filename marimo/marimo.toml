@@ -44,8 +44,8 @@ enable_flake8 = false
 enable_pydocstyle = false
 enable_pylint = false
 enabled = true
-enable_mypy = true
-enable_ruff = true
+enable_mypy = false
+enable_ruff = false
 
 [display]
 theme = "light"
@@ -59,6 +59,7 @@ default_width = "medium"
 custom_css = [
     "/home/dmitry/.config/marimo/cell.css",
     "/home/dmitry/.config/marimo/font.css",
+    "/home/dmitry/.config/marimo/watermark-rm.css"
 ]
 
 [keymap]
