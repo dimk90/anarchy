@@ -36,10 +36,11 @@ set +o errexit # disable exit on non-zero exit code
 #     [ ] test colors in native linux terminal
 # [x] fd
 # [x] ripgrep -> grep
-# [ ] ls -> lsd, eza
+# [ ] ls -> eza (or lsd)
 #     [ ] git support
-#     [ ] icons
-#     [ ] colors
+#     [ ] icons (bigger than default)
+#     [x] colors / theme
+#     [ ] alias: ls, ll
 # [ ] better man
 # [ ] delta -> diff
 #     [ ] git integration: https://github.com/dandavison/delta?tab=readme-ov-file#a-syntax-highlighting-pager-for-git-diff-and-grep-output
@@ -93,8 +94,6 @@ fish_add_help_colorization() {
 
 install_zoxide() {
     printf_section "zoxide\n"
-
-    # Install if missing
     action_require_package 'zoxide'
 
     # Enable for fish and bash
@@ -120,8 +119,6 @@ install_zoxide() {
 
 install_less() {
     printf_section "less\n"
-
-    # Install if missing
     action_require_package 'less'
 
     # Set as default pager
@@ -136,16 +133,12 @@ install_less() {
 
 install_bash_completion() {
     printf_section "bash-completion\n"
-
-    # Install if missing
     action_require_package 'bash-completion'
 }
 
 
 install_bat() {
     printf_section "bat\n"
-
-    # Install if missing
     action_require_package 'bat'
 
     # Install config
@@ -173,16 +166,12 @@ install_bat() {
 
 install_fd() {
     printf_section "fd\n"
-
-    # Install if missing
     action_require_package 'fd'
 }
 
 
 install_rg() {
     printf_section "ripgrep\n"
-
-    # Install if missing
     action_require_package 'ripgrep'
 
     # Set alias for grep
@@ -192,10 +181,19 @@ install_rg() {
 }
 
 
+install_eza() {
+    printf_section "eza\n"
+    action_require_package 'eza'
+
+    # Install custom theme
+    mkdir -p ~/.config/eza
+    action_install_file ~/.config/eza/theme.yml \
+        'https://dimk90.github.io/anarchy/cli/eza-theme.yml'
+}
+
+
 install_fzf() {
     printf_section "fzf\n"
-
-    # Install if missing
     action_require_package 'fzf'
 }
 
@@ -222,6 +220,7 @@ main() {
     install_bat
     install_fd
     install_rg
+    install_eza
     install_fzf
 
     return 0
