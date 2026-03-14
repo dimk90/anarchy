@@ -42,6 +42,10 @@ Custom build of [Iosevka](https://github.com/be5invis/Iosevka) font.
     npm run build -- webfont::IosevkaText --jCmd=4
     ```
 
+    ```shell
+    npm run build -- webfont::IosevkaTerm --jCmd=4
+    ```
+
     > [!TIP]
     > Verbose build:
     > ```shell
@@ -63,4 +67,8 @@ otf2otc -o dist/IosevkaCode/IosevkaCode.ttc dist/IosevkaCode/TTF/*.ttf
 
 ```shell
 otf2otc -o dist/IosevkaTerm/IosevkaTerm.ttc dist/IosevkaTerm/TTF/*.ttf
+```
+
+```shell
+otf2otc -o dist/IosevkaText/IosevkaText.ttc dist/IosevkaText/TTF/*.ttf
 ```
