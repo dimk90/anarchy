@@ -164,11 +164,11 @@ regex_sanitize() {
     #    regex_sanitize '^Color\s*=\s*red$' -> 'Color=red'
     #    regex_sanitize '\s eval \s*"\$(starship \s*init \s*bash)"' -> ' eval "$(starship init bash)"'
     #
-    echo "$1" | sed -E \
+    echo "$1" | sed -E               \
         -e 's/\\[bsdwBSDW][*+?]?//g' \
-        -e 's/[.?+*]//g' \
-        -e 's/^\^//' \
-        -e 's/^([^\\]*)\$$/\1/' \
+        -e 's/[.?+*]//g'             \
+        -e 's/^\^//'                 \
+        -e 's/^([^\\]*)\$$/\1/'      \
         -e 's/\\//g'
     }
 
@@ -198,7 +198,7 @@ bullet_section() {
     if is_command_available 'gum'; then
         gum style --bold --foreground "$GUM_WHITE" '::'
     else
-        printf "%b::%b"       \
+        printf "%b::%b"                \
             "${STYLE_BOLD}${FG_WHITE}" \
             "${STYLE_CLR}"
     fi
@@ -212,7 +212,7 @@ bullet_action() {
     if is_command_available 'gum'; then
         gum style --bold --foreground "$GUM_ACCENT" '   ->'
     else
-        printf "   %b->%b"     \
+        printf "   %b->%b"              \
             "${STYLE_BOLD}${FG_ACCENT}" \
             "${STYLE_CLR}"
     fi
@@ -229,8 +229,8 @@ bullet_warning() {
             "$(gum style --bold --foreground $GUM_YELLOW 'WARNING')" \
             "$(gum style --faint ']')"
     else
-        printf "%b%b%b"                     \
-            "${STYLE_DIM}[${STYLE_CLR}"                 \
+        printf "%b%b%b"                                    \
+            "${STYLE_DIM}[${STYLE_CLR}"                    \
             "${STYLE_BOLD}${FG_YELLOW}WARNING${STYLE_CLR}" \
             "${STYLE_DIM}]${STYLE_CLR}"
     fi
@@ -247,8 +247,8 @@ bullet_error() {
             "$(gum style --bold --foreground $GUM_RED 'ERROR')" \
             "$(gum style --faint ']')"
     else
-        printf "%b%b%b"                \
-            "${STYLE_DIM}[${STYLE_CLR}"            \
+        printf "%b%b%b"                               \
+            "${STYLE_DIM}[${STYLE_CLR}"               \
             "${STYLE_BOLD}${FG_RED}ERROR${STYLE_CLR}" \
             "${STYLE_DIM}]${STYLE_CLR}"
     fi
@@ -437,7 +437,7 @@ request_gum() {
     is_command_available 'gum' && return 0
 
     printf_section "The UI%b gum%b not found. Let's get some? " \
-        "${STYLE_CLR}${STYLE_BOLD}${FG_MAGENTA}" \
+        "${STYLE_CLR}${STYLE_BOLD}${FG_MAGENTA}"                \
         "${STYLE_CLR}${STYLE_DIM}"
 
     if ask_yn; then
@@ -818,31 +818,31 @@ action_require_package() {
     is_command_available 'gum'
     assert $? 'gum is required'
 
-    action_title=$(printf "%b%b %b" "$title_prefix"  \
-        "$(gum style --faint 'Package')"    \
+    action_title=$(printf "%b%b %b" "$title_prefix"                 \
+        "$(gum style --faint 'Package')"                            \
         "$(gum style --bold --foreground "$GUM_YELLOW" "$package")" \
     )
 
     # check if package already installed
-    gum spin --align='right' \
+    gum spin --align='right'                                             \
              --title "${action_title}$(gum style --faint ' - checking')" \
              -- sleep $UI_INTERACTION_DELAY
 
     if is_package_installed "$package"; then
-        printf "%b %b %b\n" "${action_title}" \
+        printf "%b %b %b\n" "${action_title}"          \
                             "$(gum style --faint '-')" \
                             "$(gum style --faint --foreground $GUM_ACCENT 'exists')"
         return 0
     fi
 
     # request privilege
-    gum spin --align='right' \
+    gum spin --align='right'                                              \
              --title "${action_title}$(gum style --faint ' - privilege')" \
              -- sleep $UI_INTERACTION_DELAY
 
     if ! have_privilege; then
-        password=$(gum input --password --char-limit=30 \
-                             --no-show-help             \
+        password=$(gum input --password --char-limit=30                   \
+                             --no-show-help                               \
                              --placeholder 'enter your password for sudo' \
                              --prompt "${action_title} $(gum style --foreground "$GUM_WHITE" '>') ")
         assert $? 'password request failed'
@@ -853,12 +853,12 @@ action_require_package() {
     fi
 
     # pacman & spinner
-    gum spin --align='right'  \
+    gum spin --align='right'                                               \
              --title "${action_title}$(gum style --faint ' - installing')" \
              -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &>> ${LOG_FILE}"
     assert $? "can't install package"
 
-    printf "%b %b %b\n" "${action_title}" \
+    printf "%b %b %b\n" "${action_title}"          \
                         "$(gum style --faint '-')" \
                         "$(gum style --faint --foreground $GUM_ACCENT 'installed')"
 }
@@ -895,7 +895,7 @@ action_install_file() {
     trap "rm -f $tmpfile" EXIT
 
     # Download file
-    action_run "Download file: $url_basename"        \
+    action_run "Download file: $url_basename"  \
         "curl -fsSL ${file_url} -o ${tmpfile}" \
         'done'
     assert $? "can't download keymap file"
@@ -911,10 +911,10 @@ action_install_file() {
 
     # Move file to the target location
     [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${file_basename}"
-    action_run "$(printf "%b %b %b"      \
-        "$(gum style --faint 'Install')" \
+    action_run "$(printf "%b %b %b"                             \
+        "$(gum style --faint 'Install')"                        \
         "$(gum style --foreground $GUM_YELLOW "$url_basename")" \
-        "$(gum style --faint "to $file_path")${STYLE_DIM}" \
+        "$(gum style --faint "to $file_path")${STYLE_DIM}"      \
     )" "$prefix mv $tmpfile $file_path" 'done'
     assert $? "can't move $tmpfile -> $file_path"
 }
@@ -980,8 +980,8 @@ action_request_permission() {
     [ -n "$reason_text" ] && reason_text=" $reason_text"
     request_title=$(printf_action "Request permission%b" "$reason_text")
 
-    password=$(gum input --password --char-limit=30 \
-                         --no-show-help             \
+    password=$(gum input --password --char-limit=30                   \
+                         --no-show-help                               \
                          --placeholder 'enter your password for sudo' \
                          --prompt "${request_title} $(gum style --foreground "$GUM_WHITE" '>') ")
     assert $? 'password request failed'
@@ -991,7 +991,7 @@ action_request_permission() {
     assert $? 'permission request failed'
 
     printf_action "Request permission%b - %b\n" \
-        "$reason_text" \
+        "$reason_text"                          \
         "$(gum style --foreground $GUM_ACCENT 'granted')"
 }
 
