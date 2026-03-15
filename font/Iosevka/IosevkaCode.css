@@ -16,3 +16,21 @@
 	font-style  : italic;
 	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-BoldItalic.woff2') format('woff2');
 }
+
+@font-face {
+	font-family : 'Iosevka Code';
+	font-display: swap;
+	font-weight : 500;
+	font-stretch: normal;
+	font-style  : normal;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-Medium.woff2') format('woff2');
+}
+
+@font-face {
+	font-family : 'Iosevka Code';
+	font-display: swap;
+	font-weight : 500;
+	font-stretch: normal;
+	font-style  : italic;
+	src: url('https://dimk90.github.io/anarchy/font/Iosevka/IosevkaCode-MediumItalic.woff2') format('woff2');
+}

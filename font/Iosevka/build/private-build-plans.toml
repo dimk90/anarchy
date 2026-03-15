@@ -63,35 +63,46 @@ serifs = "sans"
 noCvSs = true
 exportGlyphNames = false
 
+[buildPlans.IosevkaCode.variants]
+inherits = "ss08"
+
 [buildPlans.IosevkaCode.variants.design]
 zero = "slashed-split"
-capital-n = "asymmetric-serifless"
-punctuation-dot = "round"
-asterisk = "penta-low"
-brace = "straight"
-guillemet = "straight"
+l = "serifed"
+lower-theta = "diamond"
 percent = "rings-continuous-slash"
-question = "smooth"
 pilcrow = "low"
-lig-ltgteq = "slanted"
-lig-equal-chain = "without-notch"
-lig-plus-chain = "with-notch"
-lig-single-arrow-bar = "without-notch"
+lig-single-arrow-bar = "with-notch"
+
+[buildPlans.IosevkaCode.weights.Heavy]
+shape = 900
+menu = 900
+css = 900
 
 [buildPlans.IosevkaCode.weights.Bold]
 shape = 700
 menu = 700
 css = 700
 
+[buildPlans.IosevkaCode.weights.SemiBold]
+shape = 600
+menu = 600
+css = 600
+
 [buildPlans.IosevkaCode.weights.Medium]
 shape = 500
 menu = 500
 css = 500
 
-[buildPlans.IosevkaCode.widths.Normal]
-shape = 600
-menu = 5
-css = "normal"
+[buildPlans.IosevkaCode.weights.Regular]
+shape = 400
+menu = 400
+css = 400
+
+[buildPlans.IosevkaCode.weights.Light]
+shape = 300
+menu = 300
+css = 300
 
 [buildPlans.IosevkaCode.slopes.Upright]
 angle = 0
@@ -155,11 +166,6 @@ pilcrow = "low"
 micro-sign = "toothed-serifless"
 lig-ltgteq = "slanted"
 
-[buildPlans.IosevkaText.weights.Regular]
-shape = 400
-menu = 400
-css = 400
-
 [buildPlans.IosevkaText.weights.Heavy]
 shape = 900
 menu = 900
@@ -170,20 +176,25 @@ shape = 700
 menu = 700
 css = 700
 
-[buildPlans.IosevkaText.weights.Light]
-shape = 300
-menu = 300
-css = 300
+[buildPlans.IosevkaText.weights.SemiBold]
+shape = 600
+menu = 600
+css = 600
 
 [buildPlans.IosevkaText.weights.Medium]
 shape = 500
 menu = 500
 css = 500
 
-[buildPlans.IosevkaText.weights.SemiBold]
-shape = 600
-menu = 600
-css = 600
+[buildPlans.IosevkaText.weights.Regular]
+shape = 400
+menu = 400
+css = 400
+
+[buildPlans.IosevkaText.weights.Light]
+shape = 300
+menu = 300
+css = 300
 
 [buildPlans.IosevkaText.widths.Normal]
 shape = 600
