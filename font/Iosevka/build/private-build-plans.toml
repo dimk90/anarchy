@@ -62,7 +62,7 @@ inherits = "ss08"
 
 [buildPlans.IosevkaCode.variants.design]
 zero = "slashed-split"
-l = "serifed"
+l = "serifed-asymmetric"
 lower-theta = "diamond"
 percent = "rings-continuous-slash"
 pilcrow = "low"
@@ -109,6 +109,11 @@ angle = 9.4
 shape = "italic"
 menu = "italic"
 css = "italic"
+
+[buildPlans.IosevkaCode.widths.Normal]
+shape = 548
+menu = 6
+css = "normal"
 
 
 ## Iosevka Text
