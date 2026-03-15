@@ -10,20 +10,14 @@ serifs = "sans"
 noCvSs = true
 exportGlyphNames = false
 
+[buildPlans.IosevkaTerm.variants]
+inherits = "ss08"
+
 [buildPlans.IosevkaTerm.variants.design]
 zero = "slashed-split"
-capital-n = "asymmetric-serifless"
-punctuation-dot = "round"
-asterisk = "penta-low"
-brace = "straight"
-guillemet = "straight"
+l = "serifed-asymmetric"
 percent = "rings-continuous-slash"
-question = "smooth"
 pilcrow = "low"
-lig-ltgteq = "slanted"
-lig-equal-chain = "without-notch"
-lig-plus-chain = "with-notch"
-lig-single-arrow-bar = "without-notch"
 
 [buildPlans.IosevkaTerm.weights.Bold]
 shape = 700
@@ -34,11 +28,6 @@ css = 700
 shape = 500
 menu = 500
 css = 500
-
-[buildPlans.IosevkaTerm.widths.Normal]
-shape = 600
-menu = 5
-css = "normal"
 
 [buildPlans.IosevkaTerm.slopes.Upright]
 angle = 0
@@ -51,6 +40,11 @@ angle = 9.4
 shape = "italic"
 menu = "italic"
 css = "italic"
+
+[buildPlans.IosevkaTerm.widths.Normal]
+shape = 548
+menu = 6
+css = "normal"
 
 
 ## Iosevka Code
