@@ -67,6 +67,7 @@ lower-theta = "diamond"
 percent = "rings-continuous-slash"
 pilcrow = "low"
 lig-single-arrow-bar = "with-notch"
+capital-q = "crossing"
 
 [buildPlans.IosevkaCode.weights.Heavy]
 shape = 900
