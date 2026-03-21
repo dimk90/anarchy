@@ -84,6 +84,6 @@
 
 :root {
   --marimo-monospace-font: "Iosevka Code";
-  --marimo-text-font: "Iosevka Text";
-  --marimo-heading-font: "Iosevka Text";
+  --marimo-text-font     : "Iosevka Text";
+  --marimo-heading-font  : "Iosevka Text";
 }

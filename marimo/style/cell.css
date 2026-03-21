@@ -1,0 +1,36 @@
+
+/** Always Expended **/
+
+[data-cell-name*='expanded'] .output-area {
+    max-height: none !important;
+}
+
+/** Wide Cell: 120% **/
+
+[data-cell-name*='width120'] {
+    width: 120%;
+    position: relative;
+    left: -10%;
+}
+
+/** Wide Cell: 140% **/
+
+[data-cell-name*='width140'] {
+    width: 140%;
+    position: relative;
+    left: -20%;
+}
+
+/** Clip Content Outside of a Cell **/
+
+[data-cell-name*='clip']
+.output.block {
+    overflow-y: clip !important;
+    overflow-x: clip !important;
+}
+
+/** Debug **/
+
+[data-cell-name*='highlight'] {
+    background-color: rgb(97, 199, 143);
+}
