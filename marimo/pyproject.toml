@@ -5,7 +5,6 @@ destructive_delete = true
 
 [tool.marimo.keymap.overrides]
 "global.commandPalette" = "Ctrl-Shift-p"
-"cell.delete" = "Shift-delete"
 "cell.signatureHelp" = "Ctrl-q"
 "global.toggleTerminal" = "Ctrl-`"
 
