@@ -823,18 +823,21 @@ alias_set_permanent() {
 
 action_require_package() {
     #
-    # Install a package using pacman with interactive UI and privilege handling.
+    # Install a package with interactive UI and privilege handling.
     # Exit with 1 on failure.
     #
     # Parameters:
-    #   $1 - package - The name of the package to install.
+    #   $1 - package - The name of the package to install (Arch/pacman).
     #   $2 - title_prefix - (optional) - A prefix string used when rendering UI titles.
+    #   $3 - package_apt - (optional) - Package name for Ubuntu/Debian, if different from $1.
     #
     # Example:
     #   action_require_package 'nano'
+    #   action_require_package 'fd' '' 'fd-find'
     #
     local package="$1"
     local title_prefix="${2-$(bullet_action) }"
+    local package_apt="${3:-$package}"
 
     is_command_available 'gum'
     assert $? 'gum is required'
@@ -849,7 +852,7 @@ action_require_package() {
              --title "${action_title}$(gum style --faint ' - checking')" \
              -- sleep $UI_INTERACTION_DELAY
 
-    if is_package_installed "$package"; then
+    if is_package_installed "$package" "$package_apt"; then
         printf "%b %b %b\n" "${action_title}"          \
                             "$(gum style --faint '-')" \
                             "$(gum style --faint --foreground $GUM_ACCENT 'exists')"
@@ -873,10 +876,17 @@ action_require_package() {
         assert $? 'privilege request failed'
     fi
 
-    # pacman & spinner
+    # install package
+    local install_cmd
+    case "$(get_package_manager)" in
+        pacman) install_cmd="$(check_sudo) pacman --noconfirm -Sy ${package}" ;;
+        apt)    install_cmd="$(check_sudo) apt-get install -y ${package_apt}" ;;
+        *)      assert 1 'unsupported package manager' ;;
+    esac
+
     gum spin --align='right'                                               \
              --title "${action_title}$(gum style --faint ' - installing')" \
-             -- bash -c "$(check_sudo) pacman --noconfirm -Sy ${package} &>> ${LOG_FILE}"
+             -- bash -c "${install_cmd} &>> ${LOG_FILE}"
     assert $? "can't install package"
 
     printf "%b %b %b\n" "${action_title}"          \
