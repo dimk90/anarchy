@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.4'
+export COMMON_VERSION='2.5'
 
 
 ## Colors
@@ -1068,6 +1068,7 @@ export -f check_sudo
 export -f have_privilege
 
 # Package Management
+export -f get_package_manager
 export -f is_package_installed
 export -f request_gum
 
