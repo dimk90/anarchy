@@ -412,17 +412,38 @@ have_privilege() {
 ## Package Management
 
 
+get_package_manager() {
+    #
+    # Detect the available package manager.
+    # Returns 'pacman', 'apt', or 'unknown'.
+    #
+    if is_command_available 'pacman'; then
+        echo 'pacman'
+    elif is_command_available 'apt-get'; then
+        echo 'apt'
+    else
+        echo 'unknown'
+    fi
+}
+
+
 is_package_installed() {
     #
     # Check if a package installed.
     #
     # Parameters:
-    #   $1 - package - package name.
+    #   $1 - package - package name (Arch/pacman).
+    #   $2 - (optional) package name for Ubuntu/Debian, if different from $1.
     #
     local package="$1"
+    local package_apt="${2:-$1}"
 
-    pacman -Qi "${package}" &>> "$LOG_FILE" && return 0
-    return 1
+    case "$(get_package_manager)" in
+        pacman) pacman -Qi "${package}" &>> "$LOG_FILE" ;;
+        apt)    dpkg-query -W -f='${Status}' "${package_apt}" 2>>"$LOG_FILE" \
+                    | grep -q 'install ok installed' ;;
+        *)      return 1 ;;
+    esac
 }
 
 
