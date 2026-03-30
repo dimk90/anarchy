@@ -462,8 +462,16 @@ request_gum() {
         "${STYLE_CLR}${STYLE_DIM}"
 
     if ask_yn; then
-        printf_action "pacman -Sy gum\n"
-        as_root pacman -Sy gum </dev/tty
+        case "$(get_package_manager)" in
+            pacman)
+                printf_action "pacman -Sy gum\n"
+                as_root pacman -Sy gum </dev/tty
+                ;;
+            apt)
+                printf_action "apt-get install -y gum\n"
+                as_root apt-get install -y gum </dev/tty
+                ;;
+        esac
         echo
     else
         return 1
