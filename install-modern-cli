@@ -52,27 +52,29 @@ set +o errexit # disable exit on non-zero exit code
 # [x] fzf
 #     [x] default fzf setting: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#color-themes
 #     [x] custom color theme for fzf and fzf.fish
-#     [ ] fzf aliases:
-#         [ ] fzf-fd
-#         [ ] fzf-ps
-#         [ ] fzf-history
-#         [ ] fzf-env
-#         [ ] fzf-git-log
-#         [ ] fzf-git-status
-#         [ ] fzf-git-diff ?
-#         [ ] fzf-grep
+#     [x] fzf aliases:
+#         [x] fzf-fd
+#         [x] fzf-ps
+#         [x] fzf-history
+#         [x] fzf-env
+#         [x] fzf-git-log
+#         [x] fzf-git-status
+#         [ ] fzf-grep: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#switching-between-ripgrep-mode-and-fzf-mode
 #         [ ] fzf-pacman: https://wiki.archlinux.org/title/Fzf
 #             [ ] abbr for -Q, -Ss, -R, ... ?
+#     [x]
 #     [x] faster search with fd
 #           - search hidden files also
 #           - follow symlink: https://github.com/junegunn/fzf?tab=readme-ov-file#respecting-gitignore
 #     [x] fzf plugin for keybindings:
 #           - Ctrl+Alt+F -> fd | fzf
+#             [ ] include hidden files and folders
 #           - Ctrl+Alt+L -> git log -> delta
 #           - Ctrl+Alt+S -> git status -> delta
 #           - Ctrl+Alt+P -> ps | fzf
 #           - Ctrl+Alt+H -> history
 #           - Ctrl+Alt+V -> env | fzf
+#     [ ] update style to split screen without border, +bat borders: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#switching-to-fzf-only-search-mode
 #     [ ] test colors in native linux terminal
 #
 # [ ] file manager
@@ -124,6 +126,34 @@ fish_install_fzf_plugin() {
     # Adjust some keybindings
     # Note: must be single call to fzf_configure_bindings
     config_set_param ~/.config/fish/config.fish 'fzf_configure_bindings --variables=ctrl-alt-v --history=ctrl-alt-h'
+}
+
+# shellcheck disable=SC2329
+fzf_install_fish_aliases() {
+    local FZF_ALIASES=(
+        fzf-fd
+        fzf-ps
+        fzf-history
+        fzf-env
+        fzf-git-log
+        fzf-git-status
+        fzf-git-diff
+    )
+
+    mkdir -p ~/.config/fish/functions
+
+    for alias in "${FZF_ALIASES[@]}"; do
+        action_install_file "$HOME/.config/fish/functions/${alias}.fish" \
+            "https://dimk90.github.io/anarchy/cli/${alias}.fish"
+    done
+}
+
+# shellcheck disable=SC2329
+fzf_install_bash_aliases() {
+    mkdir -p ~/.config/bash
+    action_install_file ~/.config/bash/fzf-aliases.bash \
+        'https://dimk90.github.io/anarchy/cli/fzf-aliases.bash'
+    config_set_param ~/.bashrc 'source ~/.config/bash/fzf-aliases.bash'
 }
 
 
@@ -262,9 +292,13 @@ install_fzf() {
     action_run 'Configure default options' 'fzf_configure_default' 'done'
 
     # Install fzf.fish plugin
+    # Set fzf aliases
     if is_command_available 'fish'; then
-        export -f fish_install_fzf_plugin
-        action_run 'Install fzf.fish plugin (hotkeys)' 'fish_install_fzf_plugin' 'done'
+        fzf_install_fish_aliases
+    fi
+
+    if is_command_available 'bash'; then
+        fzf_install_bash_aliases
     fi
 }
 
