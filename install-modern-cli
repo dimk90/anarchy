@@ -47,24 +47,28 @@ set +o errexit # disable exit on non-zero exit code
 #     [ ] git integration: https://github.com/dandavison/delta?tab=readme-ov-file#a-syntax-highlighting-pager-for-git-diff-and-grep-output
 #     [ ] grep integration
 #     [ ] color theme
+#     [ ] test colors in native terminal
 # [x] fzf
 #     [ ] shell independent config ~/.config/fzf.conf
-#     [ ] bash and fish integration
-#     [ ] replace <TAB> keybinding for fish
-#           - custom keybinding <TAB>: https://github.com/PatrickF1/fzf.fish
-#           - remove alt+c: https://junegunn.github.io/fzf/shell-integration/#key-bindings
-#           - remove default keybindings ??
-#             fish -c "set -U FZF_LEGACY_KEYBINDINGS 1"
-#     [ ] add preview with bat:
+#           [ ] default fzf redirect setting (general case)
+#           [ ] default fzf run setting
+#           [ ] sync settings and theme with fzf plugin
+#     [ ] file preview with bat:
 #           - https://github.com/junegunn/fzf?tab=readme-ov-file#preview-window
 #     [ ] configure theme: reverse UI
 #           - https://github.com/junegunn/fzf/blob/master/ADVANCED.md#color-themes
 #     [ ] faster search with fd
 #           - search hidden files also
 #           - follow symlink: https://github.com/junegunn/fzf?tab=readme-ov-file#respecting-gitignore
+#     [x] fzf plugin for keybindings:
+#           - Ctrl+Alt+F -> fd | fzf
+#           - Ctrl+Alt+L -> git log -> delta
+#           - Ctrl+Alt+S -> git status -> delta
+#           - Ctrl+Alt+P -> ps | fzf
+#           - Ctrl+Alt+H -> history
+#           - Ctrl+Alt+V -> env | fzf
 #     [ ] integration with rg ? interactive grep?
-#     [ ] git diff integration
-#     [ ] git log integration
+#     [ ] delta integration
 #     [ ] pacman integration: https://wiki.archlinux.org/title/Fzf
 #           - abbr for -Q, -Ss, -R, ... ?
 #     [ ] test colors in native linux terminal
@@ -90,6 +94,21 @@ fish_add_help_colorization() {
     #       which use -h not for help, e.g. ls -h
     config_set_param ~/.config/fish/config.fish \
         "abbr -a --position anywhere -- -h '-h \| bat -plhelp --theme TwoDark'"
+}
+
+fish_install_fzf_plugin() {
+    local tmpdir
+    tmpdir=$(mktemp -d) || return 1
+    git clone https://github.com/PatrickF1/fzf.fish "$tmpdir" || { rm -rf "$tmpdir"; return 1; }
+    rm -rf ~/.config/fish/plugins/fzf.fish
+    mv "$tmpdir" ~/.config/fish/plugins/fzf.fish || return 1
+    # Symlink the plugin files into fish config dirs
+    ln -sf ~/.config/fish/plugins/fzf.fish/functions/*    ~/.config/fish/functions/   || return 1
+    ln -sf ~/.config/fish/plugins/fzf.fish/conf.d/*       ~/.config/fish/conf.d/      || return 1
+    ln -sf ~/.config/fish/plugins/fzf.fish/completions/*  ~/.config/fish/completions/ || return 1
+    # Adjust some keybindings
+    # Note: must be single call to fzf_configure_bindings
+    config_set_param ~/.config/fish/config.fish 'fzf_configure_bindings --variables=ctrl-alt-v --history=ctrl-alt-h'
 }
 
 
@@ -222,6 +241,12 @@ install_tldr() {
 install_fzf() {
     printf_section "fzf\n"
     action_require_package 'fzf'
+
+    # Install fzf.fish plugin
+    if is_command_available 'fish'; then
+        export -f fish_install_fzf_plugin
+        action_run 'Install fzf.fish plugin (hotkeys)' 'fish_install_fzf_plugin' 'done'
+    fi
 }
 
 
