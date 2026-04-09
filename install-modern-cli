@@ -152,7 +152,7 @@ fzf_install_bash_aliases() {
     mkdir -p ~/.config/bash
     action_install_file ~/.config/bash/fzf-aliases.bash \
         'https://dimk90.github.io/anarchy/cli/fzf-aliases.bash'
-    config_set_param ~/.bashrc 'source ~/.config/bash/fzf-aliases.bash'
+    config_set_param ~/.bashrc 'source ~/\.config/bash/fzf-aliases\.bash'
 }
 
 
