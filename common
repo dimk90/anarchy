@@ -691,7 +691,7 @@ env_set_permanent() {
         ((result_code += 1))
         # Set fish universal variable:
         # shared across all fish sessions, persists after reboot
-        if fish -c "set -Ux $var_name $var_value" &>> "$LOG_FILE"; then
+        if fish -c "set -Ux $var_name '$var_value'" &>> "$LOG_FILE"; then
             ((result_code -= 1))
             # Append fish to the current result msg
             [ -z "$result_msg" ] && result_msg='fish' || result_msg="${result_msg},fish"
