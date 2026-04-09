@@ -123,6 +123,7 @@ install_less() {
     action_require_package 'less'
 
     # Set as default pager
+    local shells
     shells=$(env_set_permanent 'PAGER' 'less')
     action_run 'Set less as default pager' '' "${shells}"
 
