@@ -163,10 +163,13 @@ regex_sanitize() {
     #    regex_sanitize '\$Color\$' -> '$Color$'
     #    regex_sanitize '^Color\s*=\s*red$' -> 'Color=red'
     #    regex_sanitize '\s eval \s*"\$(starship \s*init \s*bash)"' -> ' eval "$(starship init bash)"'
+    #    regex_sanitize 'source ~/\.config/bash/aliases\.bash' -> 'source ~/.config/bash/aliases.bash'
     #
     echo "$1" | sed -E               \
         -e 's/\\[bsdwBSDW][*+?]?//g' \
+        -e 's/\\\./\x01/g'           \
         -e 's/[.?+*]//g'             \
+        -e 's/\x01/./g'              \
         -e 's/^\^//'                 \
         -e 's/^([^\\]*)\$$/\1/'      \
         -e 's/\\//g'
