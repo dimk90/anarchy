@@ -704,7 +704,7 @@ env_set_permanent() {
         # Set permanent variable:
         # remove current variable (if present) and add new
         if remove_line ~/.bashrc "^export\s+${var_name}\s*=" '' 'i' &&
-           echo "export ${var_name}=\"${var_value}\"" >> ~/.bashrc; then
+           echo "export ${var_name}=\"${var_value//\"/\\\"}\"" >> ~/.bashrc; then
             ((result_code -= 1))
             # Append bash to the current result msg
             [ -z "$result_msg" ] && result_msg='bash' || result_msg="${result_msg},bash"
