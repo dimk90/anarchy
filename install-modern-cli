@@ -137,7 +137,6 @@ fzf_install_fish_aliases() {
         fzf-env
         fzf-git-log
         fzf-git-status
-        fzf-git-diff
     )
 
     mkdir -p ~/.config/fish/functions

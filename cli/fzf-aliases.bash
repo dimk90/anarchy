@@ -27,8 +27,3 @@ fzf-git-status() {
     git -c color.status=always status --short | \
         fzf --ansi --multi --prompt="Git Status> " --nth="2.." --preview="git diff --color=always -- {2..}";
 }
-
-fzf-git-diff() {
-    git diff --name-only | \
-        fzf --ansi --multi --prompt="Git Diff> " --preview="git diff --color=always -- {}";
-}
