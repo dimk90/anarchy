@@ -62,7 +62,6 @@ set +o errexit # disable exit on non-zero exit code
 #         [ ] fzf-grep: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#switching-between-ripgrep-mode-and-fzf-mode
 #         [ ] fzf-pacman: https://wiki.archlinux.org/title/Fzf
 #             [ ] abbr for -Q, -Ss, -R, ... ?
-#     [x]
 #     [x] faster search with fd
 #           - search hidden files also
 #           - follow symlink: https://github.com/junegunn/fzf?tab=readme-ov-file#respecting-gitignore
@@ -231,7 +230,15 @@ install_bat() {
 
 install_fd() {
     printf_section "fd\n"
-    action_require_package 'fd' '' 'fd-find'
+    action_require_package 'fd' '' 'fd-find' # TODO: fix empty title
+
+    # Install vivid for LS_COLORS generation
+    action_require_package 'vivid'
+
+    # Set LS_COLORS using vivid with tokyonight-storm theme
+    local shells
+    shells=$(env_set_permanent 'LS_COLORS' "$(vivid generate tokyonight-storm)")
+    action_run 'Set fd colors to tokyonight-storm (LS_COLORS via vivid)' '' "${shells}"
 }
 
 
