@@ -2,7 +2,7 @@
 
 fzf-fd() {
     fd --color=always --hidden --follow --exclude .git | \
-        fzf --ansi --multi --prompt="Directory> " --preview="bat --style=numbers --color=always {} 2>/dev/null || cat {}";
+        fzf --ansi --multi --prompt="Directory> " --preview="if [ -d {} ]; then ls -A -F {}; else bat --style=numbers --color=always {} 2>/dev/null || cat {}; fi";
 }
 
 fzf-ps() {
@@ -15,7 +15,11 @@ fzf-history() {
 }
 
 fzf-env() {
-    env | sort | fzf --prompt="Variables> ";
+    env | sort | cut -d= -f1 | \
+        fzf --prompt="Variables> " \
+            --preview='printenv {}' \
+            --preview-window="wrap" \
+            --multi;
 }
 
 fzf-git-log() {
