@@ -168,7 +168,7 @@ install_bat() {
 
 install_fd() {
     printf_section "fd\n"
-    action_require_package 'fd'
+    action_require_package 'fd' '' 'fd-find'
 }
 
 
