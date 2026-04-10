@@ -68,6 +68,7 @@ fish_install_fzf_plugin() {
     # Adjust some keybindings
     # Note: must be single call to fzf_configure_bindings
     config_set_param ~/.config/fish/config.fish 'fzf_configure_bindings --variables=ctrl-alt-v --history=ctrl-alt-h'
+    config_set_param ~/.config/fish/config.fish 'fzf_preview_dir_cmd ll --color=always'
 }
 
 # shellcheck disable=SC2329
@@ -216,7 +217,7 @@ install_eza() {
     shells=$(alias_set_permanent 'ls' 'eza')
     action_run 'Set alias: ls' '' "${shells}"
     # shellcheck disable=SC2034
-    shells=$(alias_set_permanent 'll' 'eza -lahF --icons --group-directories-first --git --header')
+    shells=$(alias_set_permanent 'll' 'eza -lahF --icons --group-directories-first --header')
     action_run 'Set alias: ll' '' "${shells}"
     # shellcheck disable=SC2034
     shells=$(alias_set_permanent 'll-size' 'll --total-size')
