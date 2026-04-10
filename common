@@ -1083,3 +1083,9 @@ export -f config_set_param
 export -f env_set_permanent
 export -f env_unset_permanent
 export -f alias_set_permanent
+
+# Actions
+export -f action_require_package
+export -f action_install_file
+export -f action_run
+export -f action_request_permission
