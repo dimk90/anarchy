@@ -48,7 +48,7 @@ fish_add_help_colorization() {
 fzf_configure_default() {
     # Run directory scan with fd by default
     env_set_permanent 'FZF_DEFAULT_COMMAND' \
-        'fd --type f --color=always --hidden --follow --exclude .git'
+        'fd --color=always --hidden --follow -E .git -E .env -E .venv -E .cache'
 
     # Note: color theme playground: https://vitormv.github.io/fzf-themes/
     env_set_permanent 'FZF_DEFAULT_OPTS' \
@@ -68,7 +68,9 @@ fish_install_fzf_plugin() {
     # Adjust some keybindings
     # Note: must be single call to fzf_configure_bindings
     config_set_param ~/.config/fish/config.fish 'fzf_configure_bindings --variables=ctrl-alt-v --history=ctrl-alt-h'
-    config_set_param ~/.config/fish/config.fish 'fzf_preview_dir_cmd ll --color=always'
+    # Adjust preview command and fd options
+    config_set_param ~/.config/fish/config.fish 'set fzf_preview_dir_cmd ll --color=always'
+    config_set_param ~/.config/fish/config.fish 'set fzf_fd_opts --color=always --hidden --follow -E .git -E .env -E .venv -E .cache'
 }
 
 # shellcheck disable=SC2329
