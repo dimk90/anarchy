@@ -35,7 +35,7 @@ set +o errexit # disable exit on non-zero exit code
 #     [x] theme
 #     [ ] test colors in native linux terminal
 # [x] fd
-#     [ ] fix color theme
+#     [x] fix color theme
 # [x] ripgrep -> grep
 # [x] ls -> eza (or lsd)
 #     [x] git support
@@ -92,6 +92,11 @@ fish_enable_zoxide() {
 
 # shellcheck disable=SC2329
 fish_add_help_colorization() {
+    # Note: there is an issue with running bat+less for fish native functions
+    #       like set -h, export -h, etc. The screen scroll doesn't work and
+    #       print keycodes instead. That is unsolved problem:
+    #       - https://github.com/sharkdp/bat/issues/1006
+    # The help() function is a temporary workaround
     config_set_param ~/.config/fish/config.fish \
         "abbr -a --position anywhere -- --help '--help \| bat -plhelp --theme TwoDark'"
 
@@ -142,7 +147,7 @@ fzf_install_fish_aliases() {
         fzf-git-status
     )
 
-    mkdir -p ~/.config/fish/functions
+    mkdir -p ~/.config/fish/functions || return 1
 
     for alias in "${FZF_ALIASES[@]}"; do
         action_install_file "$HOME/.config/fish/functions/${alias}.fish" \
@@ -152,7 +157,7 @@ fzf_install_fish_aliases() {
 
 # shellcheck disable=SC2329
 fzf_install_bash_aliases() {
-    mkdir -p ~/.config/bash
+    mkdir -p ~/.config/bash || return 1
     action_install_file ~/.config/bash/fzf-aliases.bash \
         'https://dimk90.github.io/anarchy/cli/fzf-aliases.bash'
     config_set_param ~/.bashrc 'source ~/\.config/bash/fzf-aliases\.bash'
@@ -234,7 +239,7 @@ install_bat() {
 
 install_fd() {
     printf_section "fd\n"
-    action_require_package 'fd' '' 'fd-find' # TODO: fix empty title
+    action_require_package 'fd' '' 'fd-find'
 
     # Install vivid for LS_COLORS generation
     action_require_package 'vivid'
@@ -263,6 +268,7 @@ install_eza() {
 
     # Install custom theme
     mkdir -p ~/.config/eza
+    assert $? 'Failed to create config directory for eza'
     action_install_file ~/.config/eza/theme.yml \
         'https://dimk90.github.io/anarchy/cli/eza-theme.yml'
 
