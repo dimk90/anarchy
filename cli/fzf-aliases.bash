@@ -15,8 +15,8 @@ fzf-history() {
 }
 
 fzf-env() {
-    env | sort | cut -d= -f1 | \
-        fzf --prompt="Variables> " \
+    env | sort | cut -d= -f1 |      \
+        fzf --prompt="Variables> "  \
             --preview='printenv {}' \
             --preview-window="wrap" \
             --multi;
