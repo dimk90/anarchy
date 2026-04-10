@@ -1,8 +1,11 @@
 # fzf aliases - bash equivalents of fzf.fish hotkey functions
 
 fzf-fd() {
+    # load ll alias directly because bash -c will skip loading of .bashrc
+    ll_cmd=$(alias ll 2>/dev/null | sed -E "s/^alias ll='(.*)'/\1/")
+
     fd --color=always --hidden --follow --exclude .git | \
-        fzf --ansi --multi --prompt="Directory> " --preview="if [ -d {} ]; then ls -A -F {}; else bat --style=numbers --color=always {} 2>/dev/null || cat {}; fi";
+        fzf --ansi --multi --prompt="Directory> " --preview="bash -c 'if [ -d \"\$0\" ]; then ${ll_cmd:-ls} --color=always \"\$0\"; else bat --style=numbers --color=always \"\$0\" 2>/dev/null || cat \"\$0\"; fi' {}";
 }
 
 fzf-ps() {
