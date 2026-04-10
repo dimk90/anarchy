@@ -847,7 +847,7 @@ action_require_package() {
     #   action_require_package 'fd' '' 'fd-find'
     #
     local package="$1"
-    local title_prefix="${2-$(bullet_action) }"
+    local title_prefix="${2:-$(bullet_action) }"
     local package_apt="${3:-$package}"
 
     is_command_available 'gum'
