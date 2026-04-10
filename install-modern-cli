@@ -42,10 +42,6 @@ fish_add_help_colorization() {
     #       which use -h not for help, e.g. ls -h
     config_set_param ~/.config/fish/config.fish \
         "abbr -a --position anywhere -- -h '-h \| bat -plhelp --theme TwoDark'"
-
-    # Add help function for colorization and avoiding issue with native fish functions
-    action_install_file "$HOME/.config/fish/functions/help.fish" \
-        "https://dimk90.github.io/anarchy/cli/help.fish"
 }
 
 # shellcheck disable=SC2329
@@ -170,7 +166,11 @@ install_bat() {
     # Add --help colorization
     if is_command_available 'fish'; then
         export -f fish_add_help_colorization
+        # Add abbr for -h and --help to colorize help output
         action_run 'Add --help colorization' 'fish_add_help_colorization' 'fish shell'
+        # Add help function for colorization and avoiding issue with native fish functions
+        action_install_file "$HOME/.config/fish/functions/help.fish" \
+            "https://dimk90.github.io/anarchy/cli/help.fish"
     fi
 }
 
