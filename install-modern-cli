@@ -17,68 +17,6 @@ set +o errexit # disable exit on non-zero exit code
 
 ## Runtime
 
-#
-# TODO:
-#
-# [x] zoxide
-#     [x] test `ji`  / fzf
-#     [ ] plugin for file manager
-#     [x] add cdi alias for ji
-# [x] less
-#     [x] default pager
-#     [x] keep ANSI color in the input
-# [x] bash-completion
-# [x] bat -> cat
-#     [x] colorized help
-#     [x] colorized man
-#     [x] cat alias
-#     [x] theme
-#     [ ] test colors in native linux terminal
-# [x] fd
-#     [x] fix color theme
-# [x] ripgrep -> grep
-# [x] ls -> eza (or lsd)
-#     [x] git support
-#     [x] icons (bigger than default)
-#     [x] colors / theme
-#     [x] alias: ls, ll
-#     [ ] test colors in native terminal
-# [x] better man: tldr
-# [ ] delta -> diff
-#     [ ] git integration: https://github.com/dandavison/delta?tab=readme-ov-file#a-syntax-highlighting-pager-for-git-diff-and-grep-output
-#     [ ] grep integration
-#     [ ] color theme
-#     [ ] test colors in native terminal
-# [x] fzf
-#     [x] default fzf setting: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#color-themes
-#     [x] custom color theme for fzf and fzf.fish
-#     [x] fzf aliases:
-#         [x] fzf-fd
-#         [x] fzf-ps
-#         [x] fzf-history
-#         [x] fzf-env
-#         [x] fzf-git-log
-#         [x] fzf-git-status
-#         [ ] fzf-grep: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#switching-between-ripgrep-mode-and-fzf-mode
-#         [ ] fzf-pacman: https://wiki.archlinux.org/title/Fzf
-#             [ ] abbr for -Q, -Ss, -R, ... ?
-#     [x] faster search with fd
-#           - search hidden files also
-#           - follow symlink: https://github.com/junegunn/fzf?tab=readme-ov-file#respecting-gitignore
-#     [x] fzf plugin for keybindings:
-#           - Ctrl+Alt+F -> fd | fzf
-#             [ ] include hidden files and folders
-#           - Ctrl+Alt+L -> git log -> delta
-#           - Ctrl+Alt+S -> git status -> delta
-#           - Ctrl+Alt+P -> ps | fzf
-#           - Ctrl+Alt+H -> history
-#           - Ctrl+Alt+V -> env | fzf
-#     [ ] update style to split screen without border, +bat borders: https://github.com/junegunn/fzf/blob/master/ADVANCED.md#switching-to-fzf-only-search-mode
-#     [ ] test colors in native linux terminal
-#
-# [ ] file manager
-#
-
 
 # shellcheck disable=SC2329
 bash_enable_zoxide() {
