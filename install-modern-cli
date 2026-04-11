@@ -108,6 +108,38 @@ fzf_install_bash_aliases() {
 }
 
 
+# shellcheck disable=SC2329
+delta_git_integration() {
+    git config --global core.pager "delta"
+    git config --global interactive.diffFilter "delta --color-only"
+    git config --global merge.conflictStyle zdiff3
+    git config --global delta.navigate true
+    git config --global delta.line-numbers true
+    git config --global delta.hyperlinks true
+    git config --global delta.hyperlinks-file-link-format "vscode://file/{path}:{line}"
+    git config --global delta.side-by-side true
+}
+
+# shellcheck disable=SC2329
+delta_set_color_theme() {
+    git config --global include.path "$HOME/.config/delta/themes.gitconfig"
+    git config --global delta.features "chameleon"
+    git config --global delta.true-color "always"
+}
+
+# shellcheck disable=SC2329
+delta_install_theme() {
+    mkdir -p ~/.config/delta
+    assert $? 'Failed to create config directory for delta'
+
+    action_install_file ~/.config/delta/themes.gitconfig \
+        'https://raw.githubusercontent.com/dandavison/delta/main/themes.gitconfig'
+
+    export -f delta_set_color_theme
+    action_run 'Set color theme: chameleon' 'delta_set_color_theme' 'done'
+}
+
+
 install_zoxide() {
     printf_section "zoxide\n"
     action_require_package 'zoxide'
@@ -269,6 +301,21 @@ install_fzf() {
     if is_command_available 'bash'; then
         fzf_install_bash_aliases
     fi
+}
+
+
+install_delta() {
+    is_command_available 'git' || return
+
+    printf_section "git-delta\n"
+    action_require_package 'git-delta'
+
+    # Configure git to use delta
+    export -f delta_git_integration
+    action_run 'Configure git integration' 'delta_git_integration' 'done'
+
+    # Configure color theme
+    delta_install_theme
 }
 
 
