@@ -11,6 +11,7 @@ function fzf-history --description "Search command history with fzf"
         fzf --scheme=history --prompt="History> " \
             --preview="string replace --regex '$time_prefix_regex' '' -- {} | fish_indent --ansi" \
             --preview-window="bottom:3:wrap" \
+            --preview-border="top" \
             $fzf_history_opts | \
         string replace --regex $time_prefix_regex ''
 end

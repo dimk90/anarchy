@@ -6,5 +6,6 @@ function fzf-ps --description "Search processes with fzf"
             --header-lines=1 \
             --preview="$ps_cmd -o '$ps_preview_fmt' -p {1} || echo 'Process {1} has exited.'" \
             --preview-window="bottom:4:wrap" \
+            --preview-border="top" \
             $fzf_processes_opts
 end
