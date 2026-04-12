@@ -1,0 +1,117 @@
+# To use these themes, first include this file in your own gitconfig file:
+#
+# [include]
+#     path = PATH/TO/delta/themes.gitconfig
+#
+# Then, in your own gitconfig file, activate the chosen theme, e.g.
+#
+# [delta]
+#    features = common lindworm
+#
+# Please add your own themes to this file, and open a PR.
+#
+# Instructions:
+#
+# 1. The name of the theme must be the name of some sort of wild organism:
+#    mammal, bird, plant, mollusk -- whatever. It can be in any language.
+#
+# 2. Use `delta --show-config` to list all the style settings that are active in
+#    your current delta environment, but only include settings in your theme
+#    that are essential to its appearance.
+#
+# 3. Include either `dark = true` or `light = true` according to whether it is
+#    designed for a light or dark terminal background. (This marks a feature as
+#    a "theme", causing it to be picked up by `delta --show-themes`).
+#
+# 4. Feel free to include a comment line indicating who is the author of the
+#    theme. E.g. a link to your github user page.
+
+[delta "lindworm"]
+    # Author: https://github.com/dimk90
+    dark = true
+    true-color = always
+    right-arrow = " -> " # symbol displayed when delta shows a "changed from ΓåÆ to"
+    # Syntax
+    syntax-theme = Catppuccin Macchiato
+    zero-style = dim syntax # dim syntax colors for unchanged lines
+    # Commit
+    commit-decoration-style = green box
+    commit-style = "#FFFFFF" bold
+    # File
+    # file-style = bold "#9090D0"
+    file-style = bold "#11A8CD"
+    file-decoration-style = "#303040" ul
+    file-added-label = [+]
+    file-copied-label = [=]
+    file-modified-label = [M]
+    file-removed-label = [-]
+    file-renamed-label = [R]
+    # Hunk header
+    hunk-header-decoration-style = none
+    hunk-header-style = syntax bold italic 237
+    hunk-header-file-style = green # bullet color
+        # hunk-header-style = omit # remove hunk header
+        # TODO: remove bullet when it will be possible
+    # Line numbers
+    keep-plus-minus-markers = true
+    line-numbers = true
+    line-numbers-left-format = "{nm:>1}Γöè"
+    line-numbers-left-style = red
+    line-numbers-minus-style = red italic black
+    line-numbers-plus-style = green italic black
+    line-numbers-right-format = " {np:>1}Γöè"
+    line-numbers-right-style = green
+    line-numbers-zero-style = "#545474" italic
+    # Diff style
+    plus-style = syntax "#305030"
+    minus-style = syntax "#503030"
+    minus-emph-style = bold "#202020" "#F05050"
+    plus-emph-style = bold "#202020" "#50F070"
+    whitespace-error-style = "#900030" reverse
+    # Blame
+    blame-code-style = syntax
+    blame-format = "{author:<18} ({commit:>9}) Γöè{timestamp:^16}Γöè "
+    blame-palette = "#2E3440" "#3B4252" "#434C5E" "#4C566A"
+    # Merge
+    merge-conflict-begin-symbol = ~
+    merge-conflict-end-symbol = ~
+    merge-conflict-ours-diff-header-style = "#F1FA8C" bold
+    merge-conflict-ours-diff-header-decoration-style = "#434C5E" box
+    merge-conflict-theirs-diff-header-style = "#F1FA8C" bold
+    merge-conflict-theirs-diff-header-decoration-style = "#434C5E" box
+
+[delta "common"]
+    side-by-side = true
+
+[delta "fzf"]
+    # Disable side-by-side to save space in fzf preview pane
+    side-by-side = false
+
+#
+# TODO: native theme
+#
+# [delta "discord"]
+#     commit-style                  = omit
+#     file-style                    = 34 ul
+#     file-decoration-style         = none
+#     hunk-header-style             = omit
+#     minus-style                   = 31
+#     minus-non-emph-style          = 31
+#     minus-emph-style              = 40
+#     minus-empty-line-marker-style = 31
+#     zero-style                    = 30
+#     plus-style                    = 32
+#     plus-non-emph-style           = 32
+#     plus-emph-style               = 40
+#     grep-file-style               = 34
+#     grep-line-number-style        = 34
+#     whitespace-error-style        = 41
+#     blame-code-style              = omit
+#     true-color                    = never # !
+#     file-modified-label           = changed:
+#     right-arrow                   = >
+#     hyperlinks                    = false
+#     keep-plus-minus-markers       = true
+#     diff-stat-align-width         = 10
+#     syntax-theme                  = none
+#     width                         = variable
