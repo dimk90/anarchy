@@ -110,21 +110,29 @@ fzf_install_bash_aliases() {
 
 # shellcheck disable=SC2329
 delta_git_integration() {
+    # Use delta as the default pager for diff, log, show, etc.
     git config --global core.pager "delta"
+    # Syntax-highlight diffs in interactive commands (add -p, stash -p)
     git config --global interactive.diffFilter "delta --color-only"
+    # Show base, ours, and theirs in merge conflict markers
     git config --global merge.conflictStyle zdiff3
+    # Enable n/N keybindings to jump between diff sections
     git config --global delta.navigate true
-    git config --global delta.line-numbers true
+    # Emit OSC 8 terminal hyperlinks for file paths
     git config --global delta.hyperlinks true
+    # Open hyperlinked files directly in VS Code at the specific line
     git config --global delta.hyperlinks-file-link-format "vscode://file/{path}:{line}"
-    git config --global delta.side-by-side true
 }
 
 # shellcheck disable=SC2329
-delta_set_color_theme() {
-    git config --global include.path "$HOME/.config/delta/themes.gitconfig"
-    git config --global delta.features "chameleon"
-    git config --global delta.true-color "always"
+delta_set_theme() {
+    git config --global include.path "$HOME/.config/delta/theme.gitconfig"
+    git config --global delta.features "common lindworm"
+}
+
+# shellcheck disable=SC2329
+delta_fzf_integration() {
+    config_set_param ~/.config/fish/config.fish 'set fzf_diff_highlighter delta --paging=never --features \\"fzf lindworm\\"'
 }
 
 # shellcheck disable=SC2329
@@ -132,11 +140,11 @@ delta_install_theme() {
     mkdir -p ~/.config/delta
     assert $? 'Failed to create config directory for delta'
 
-    action_install_file ~/.config/delta/themes.gitconfig \
-        'https://raw.githubusercontent.com/dandavison/delta/main/themes.gitconfig'
+    action_install_file ~/.config/delta/theme.gitconfig \
+        'https://dimk90.github.io/anarchy/cli/theme.gitconfig'
 
-    export -f delta_set_color_theme
-    action_run 'Set color theme: chameleon' 'delta_set_color_theme' 'done'
+    export -f delta_set_theme
+    action_run 'Set color theme: lindworm' 'delta_set_theme' 'done'
 }
 
 
@@ -316,6 +324,12 @@ install_delta() {
 
     # Configure color theme
     delta_install_theme
+
+    # Configure fzf to use delta as diff highlighter
+    if is_command_available 'fzf' && is_command_available 'fish'; then
+        export -f delta_fzf_integration
+        action_run 'Configure delta for fzf' 'delta_fzf_integration' 'done'
+    fi
 }
 
 
@@ -344,6 +358,7 @@ main() {
     install_eza
     install_tldr
     install_fzf
+    install_delta
 
     return 0
 }
