@@ -5,7 +5,7 @@ fzf-fd() {
     ll_cmd=$(alias ll 2>/dev/null | sed -E "s/^alias ll='(.*)'/\1/")
 
     fd --color=always --hidden --follow -E .git -E .env -E .venv -E .cache | \
-        fzf --prompt="Directory> " --preview="bash -c 'if [ -d \"\$0\" ]; then ${ll_cmd:-ls} --color=always \"\$0\"; else bat --color=always \"\$0\" 2>/dev/null || cat \"\$0\"; fi' {}";
+        fzf --prompt="Directory> " --preview="bash -c 'if [ -d \"\$0\" ]; then ${ll_cmd:-ls} --color=always \"\$0\"; else bat --style=numbers --color=always \"\$0\" 2>/dev/null || cat \"\$0\"; fi' {}";
 }
 
 fzf-ps() {
@@ -27,10 +27,10 @@ fzf-env() {
 
 fzf-git-log() {
     git log --color=always --format=format:'%C(bold blue)%h%C(reset) - %C(cyan)%ad%C(reset) %C(yellow)%d%C(reset) %C(normal)%s%C(reset)  %C(dim normal)[%an]%C(reset)' --date=short | \
-        fzf --scheme=history --prompt="Git Log> " --preview="git show --color=always --stat --patch {1}";
+        fzf --scheme=history --prompt="Git Log> " --preview="git show --color=always --stat --patch {1} | delta --paging=never --features 'fzf lindworm'";
 }
 
 fzf-git-status() {
     git -c color.status=always status --short | \
-        fzf --prompt="Git Status> " --nth="2.." --preview="git diff --color=always -- {2..}";
+        fzf --prompt="Git Status> " --nth="2.." --preview="git diff --color=always -- {2..} | delta --paging=never --features 'fzf lindworm'";
 }
