@@ -55,11 +55,11 @@
     # Line numbers
     keep-plus-minus-markers = true
     line-numbers = true
-    line-numbers-left-format = "{nm:>1}Γöè"
+    line-numbers-left-format = "{nm:>1}┊"
     line-numbers-left-style = red
     line-numbers-minus-style = red italic black
     line-numbers-plus-style = green italic black
-    line-numbers-right-format = " {np:>1}Γöè"
+    line-numbers-right-format = " {np:>1}┊"
     line-numbers-right-style = green
     line-numbers-zero-style = "#545474" italic
     # Diff style
@@ -70,7 +70,7 @@
     whitespace-error-style = "#900030" reverse
     # Blame
     blame-code-style = syntax
-    blame-format = "{author:<18} ({commit:>9}) Γöè{timestamp:^16}Γöè "
+    blame-format = "{author:<18} ({commit:>9}) ┊{timestamp:^16}┊ "
     blame-palette = "#2E3440" "#3B4252" "#434C5E" "#4C566A"
     # Merge
     merge-conflict-begin-symbol = ~
