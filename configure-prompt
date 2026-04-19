@@ -91,12 +91,14 @@ bash_enable_starship() {
     remove_line ~/.bashrc 'starship init bash'
     assert $? 'failed to remove old starship init'
 
-    # Add config selector function to .bashrc
-    if ! grep -q 'select_starship_config' ~/.bashrc; then
-        { echo; echo "${BASH_CONFIG_SELECTOR}"; echo; } >> ~/.bashrc
-        # shellcheck disable=SC2320
-        assert $? 'failed to add starship config selector function'
-    fi
+    # Drop any previous inline selector definition from .bashrc (multi-line block)
+    sed -i '/^select_starship_config() {$/,/^}$/d' ~/.bashrc &>> "$LOG_FILE"
+    assert $? 'failed to remove old starship config selector'
+
+    # Source config selector
+    config_set_param ~/.bashrc \
+        'source ~/.config/starship/select_starship_config.bash'
+    assert $? 'failed to add starship config selector source'
 
     # Add starship init with config selector
     config_set_param ~/.bashrc \
