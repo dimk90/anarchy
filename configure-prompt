@@ -103,7 +103,7 @@ bash_enable_starship() {
 
     # Source config selector
     config_set_param ~/.bashrc \
-        'source ~/.config/starship/select_starship_config.bash'
+        'source ~/\.config/starship/select_starship_config\.bash'
     assert $? 'failed to add starship config selector source'
 
     # Add starship init with config selector
