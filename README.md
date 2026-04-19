@@ -13,14 +13,12 @@ Install and configure keymap, font, and locale for virtual console:
 curl -fsSL https://dimk90.github.io/anarchy/configure-vconsole | bash
 ```
 
-
 ### micro
 
 Install and configure Micro text editor:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/install-micro | bash
 ```
-
 
 ### pacman
 
@@ -29,22 +27,12 @@ Enable colors and install `reflector` for automatic mirror ranking:
 curl -fsSL https://dimk90.github.io/anarchy/configure-pacman | bash
 ```
 
-
 ### yay
 
 Install and configure `yay`:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/install-yay | bash
 ```
-
-
-### zram
-
-Configure zram using `zram-generator`:
-```bash
-curl -fsSL https://dimk90.github.io/anarchy/configure-zram | bash
-```
-
 
 ### alias
 
@@ -53,6 +41,20 @@ Configure alias for common commands:
 curl -fsSL https://dimk90.github.io/anarchy/configure-alias | bash
 ```
 
+### zram
+
+Configure zram using `zram-generator`:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-zram | bash
+```
+
+### prompt
+
+Install and configure `starship` prompt with a TERM-aware fallback for the
+Linux console and a nerd-font variant for modern terminals:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-prompt | bash
+```
 
 ### modern-cli
 
@@ -61,15 +63,6 @@ Install and configure modern CLI replacements (`zoxide`, `bat`, `fd`, `ripgrep`,
 and color themes for bash and fish:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/install-modern-cli | bash
-```
-
-
-### prompt
-
-Install and configure `starship` prompt with a TERM-aware fallback for the
-Linux console and a nerd-font variant for modern terminals:
-```bash
-curl -fsSL https://dimk90.github.io/anarchy/configure-prompt | bash
 ```
 
 
