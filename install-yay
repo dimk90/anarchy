@@ -37,39 +37,38 @@ main() {
 
     printf_section "Installing & Configuring\n"
 
-    # Enable color in the pipe also: e.g. pacman -Ss ... | less -R
+    # Install yay if missing
+    if ! is_command_available yay; then
+        # git
+        action_require_package 'git'
+
+        # Clone yay's PKGBUILD
+        rm -rf '/tmp/anarchy-yay-install' &>> "${LOG_FILE}"
+        action_run "Cloning yay's PKGBUILD" \
+            'git clone https://aur.archlinux.org/yay.git /tmp/anarchy-yay-install' \
+            'done'
+        assert $? "failed to clone yay's PKGBUILD"
+
+        # Build package
+        action_run 'Building' \
+            'makepkg -s --noconfirm -D /tmp/anarchy-yay-install' \
+            'done'
+        assert $? 'failed to build and install yay'
+
+        # Install
+        action_request_permission 'for installing yay'
+        action_run 'Installing yay' \
+            "sudo pacman -U --noconfirm /tmp/anarchy-yay-install/yay-*.pkg.tar.zst" \
+            'done'
+        assert $? 'failed to install yay'
+    else
+        printf_action 'yay is installed already\n'
+    fi
+
+    # Enable color in the pipe also: e.g. yay -Ss ... | less -R
     action_run 'Enabling color in the pipe' \
         "alias_set_permanent 'yay' 'yay --color=always'" \
         'done'
-
-    # Check if installed already
-    if is_command_available yay; then
-        printf_action 'yay is installed already - %b\n\n' "$(gum style --foreground $GUM_ACCENT 'exit')"
-        return 0
-    fi
-
-    # git
-    action_require_package 'git'
-
-    # Clone yay's PKGBUILD
-    rm -rf '/tmp/anarchy-yay-install' &>> "${LOG_FILE}"
-    action_run "Cloning yay's PKGBUILD" \
-        'git clone https://aur.archlinux.org/yay.git /tmp/anarchy-yay-install' \
-        'done'
-    assert $? "failed to clone yay's PKGBUILD"
-
-    # Build package
-    action_run 'Building' \
-        'makepkg -s --noconfirm -D /tmp/anarchy-yay-install' \
-        'done'
-    assert $? 'failed to build and install yay'
-
-    # Install
-    action_request_permission 'for installing yay'
-    action_run 'Installing yay' \
-        "sudo pacman -U --noconfirm /tmp/anarchy-yay-install/yay-*.pkg.tar.zst" \
-        'done'
-    assert $? 'failed to install yay'
 
     return 0
 }
