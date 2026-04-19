@@ -33,6 +33,7 @@ install_font() {
     ## Update /etc/vconsole.conf
 
     # Add new font setting
+    local cmd_set_font
     cmd_set_font=$(printf '%b && %b' \
         "remove_line '/etc/vconsole.conf' '^FONT=' $(check_sudo)" \
         "echo 'FONT=ter-124b' | as_root tee -a /etc/vconsole.conf")
@@ -121,6 +122,7 @@ install_locale() {
     # Backup /etc/locale.gen if it exists
     if [ -f '/etc/locale.gen' ]; then
         action_request_permission 'for backing up /etc/locale.gen'
+        local backup_name
         backup_name=$(backup_file '/etc/locale.gen' "$(check_sudo)")
         assert $? "can't backup /etc/locale.gen"
         action_run "Backup created: ${STYLE_CLR}${backup_name}"
@@ -147,12 +149,14 @@ install_locale() {
     # Backup /etc/locale.conf if it exists
     if [ -f '/etc/locale.conf' ]; then
         action_request_permission 'for backing up /etc/locale.conf'
+        local backup_name
         backup_name=$(backup_file '/etc/locale.conf' "$(check_sudo)")
         assert $? "can't backup /etc/locale.conf"
         action_run "Backup created: ${STYLE_CLR}${backup_name}"
     fi
 
     # Update /etc/locale.conf
+    local cmd_update_locale
     cmd_update_locale=$(printf '%b && %b' \
         "remove_line '/etc/locale.conf' '^LANG=' $(check_sudo)" \
         "echo 'LANG=en_US.UTF-8' | as_root tee -a /etc/locale.conf")
@@ -211,6 +215,7 @@ main() {
         if [ -f '/etc/vconsole.conf' ]; then
             printf_section "Backup\n"
             action_request_permission 'for backing up /etc/vconsole.conf'
+            local backup_name
             backup_name=$(backup_file '/etc/vconsole.conf' "$(check_sudo)")
             assert $? "can't backup /etc/vconsole.conf"
             action_run "$backup_name"
