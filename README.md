@@ -42,7 +42,7 @@ curl -fsSL https://dimk90.github.io/anarchy/install-yay | bash
 
 Configure zram using `zram-generator`:
 ```bash
-curl -fsSL https://dimk90.github.io/anarchy/copnfigure-zram | bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-zram | bash
 ```
 
 
@@ -50,7 +50,26 @@ curl -fsSL https://dimk90.github.io/anarchy/copnfigure-zram | bash
 
 Configure alias for common commands:
 ```bash
-curl -fsSL https://dimk90.github.io/anarchy/copnfigure-alias | bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-alias | bash
+```
+
+
+### modern-cli
+
+Install and configure modern CLI replacements (`zoxide`, `bat`, `fd`, `ripgrep`,
+`eza`, `fzf`, `git-delta`, `tldr`, `less`) with aliases, shell integrations,
+and color themes for bash and fish:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/install-modern-cli | bash
+```
+
+
+### prompt
+
+Install and configure `starship` prompt with a TERM-aware fallback for the
+Linux console and a nerd-font variant for modern terminals:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-prompt | bash
 ```
 
 
