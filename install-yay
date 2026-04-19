@@ -42,23 +42,29 @@ main() {
         # git
         action_require_package 'git'
 
+        # Create unique temp dir for the PKGBUILD clone
+        local tmpdir
+        tmpdir=$(mktemp -d)
+        assert $? "can't create temporary directory"
+        # shellcheck disable=SC2064
+        trap "rm -rf '$tmpdir'" EXIT
+
         # Clone yay's PKGBUILD
-        rm -rf '/tmp/anarchy-yay-install' &>> "${LOG_FILE}"
         action_run "Cloning yay's PKGBUILD" \
-            'git clone https://aur.archlinux.org/yay.git /tmp/anarchy-yay-install' \
+            "git clone https://aur.archlinux.org/yay.git $tmpdir" \
             'done'
         assert $? "failed to clone yay's PKGBUILD"
 
         # Build package
         action_run 'Building' \
-            'makepkg -s --noconfirm -D /tmp/anarchy-yay-install' \
+            "makepkg -s --noconfirm -D $tmpdir" \
             'done'
         assert $? 'failed to build and install yay'
 
         # Install
         action_request_permission 'for installing yay'
         action_run 'Installing yay' \
-            "sudo pacman -U --noconfirm /tmp/anarchy-yay-install/yay-*.pkg.tar.zst" \
+            "sudo pacman -U --noconfirm $tmpdir/yay-*.pkg.tar.zst" \
             'done'
         assert $? 'failed to install yay'
     else
