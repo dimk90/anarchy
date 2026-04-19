@@ -86,7 +86,7 @@ main() {
     fi
 
     # Install keybindings
-    if grep -q 'settings' <<< "$choices"; then
+    if grep -q 'keybindings' <<< "$choices"; then
         action_install_file "${HOME}/.config/micro/bindings.json"  \
                             'https://dimk90.github.io/anarchy/micro/bindings.json'
     fi
