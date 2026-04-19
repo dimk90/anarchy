@@ -94,6 +94,10 @@ fish_configure_highlighting() {
 
 # shellcheck disable=SC2329
 fish_enable_starship() {
+    # Ensure fish functions directory exists
+    mkdir -p ~/.config/fish/functions
+    assert $? 'failed to create fish functions directory'
+
     # Add starship config selector function
     echo "${FISH_CONFIG_SELECTOR}" > ~/.config/fish/functions/select_starship_config.fish
     # shellcheck disable=SC2320
