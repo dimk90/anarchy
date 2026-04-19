@@ -24,39 +24,43 @@ fish_configure_highlighting() {
     # ANSI color codes:
     # https://hexdocs.pm/color_palette/ansi_color_codes.html
 
-    # Hide fish greeting
-    fish -c "set -U fish_greeting ''"
+    # All 'set -U' calls are batched into a single fish invocation to avoid
+    # spawning a separate fish process per variable.
+    fish -c '
+        # Hide fish greeting
+        set -U fish_greeting ""
 
-    # Set the emoji width (iTerm only?)
-    fish -c "set -U fish_emoji_width 2"
+        # Set the emoji width (iTerm only?)
+        set -U fish_emoji_width 2
 
-    # Syntax highlighting
-    # https://fishshell.com/docs/current/interactive.html#syntax-highlighting-variables
-    fish -c "set -U fish_color_normal AAA"
-    fish -c "set -U fish_color_command blue --bold"
-    fish -c "set -U fish_color_operator 0FB"        # ( ), { }, ... # brwhite --bold ?
-    fish -c "set -U fish_color_param normal"        # Disable highlighting
-    fish -c "set -U fish_color_autosuggestion 444"
-    fish -c "set -U fish_color_comment 464 --italic"
-    fish -c "set -U fish_color_quote BE7"           # "Text"
-    fish -c "set -U fish_color_escape 9EC"          # "...\n"
-    fish -c "set -U fish_color_valid_path --underline"
-    fish -c "set -U fish_color_error D55"
-    fish -c "set -U fish_color_end FD6"             # Separators like ; and &
-    fish -c "set -U fish_color_redirection FD6"     # Like >/dev/null
-    fish -c "set -U fish_color_history_current --bold"
-    fish -c "set -U fish_color_search_match normal" # Disable highlighting
+        # Syntax highlighting
+        # https://fishshell.com/docs/current/interactive.html#syntax-highlighting-variables
+        set -U fish_color_normal AAA
+        set -U fish_color_command blue --bold
+        set -U fish_color_operator 0FB              # ( ), { }, ... # brwhite --bold ?
+        set -U fish_color_param normal              # Disable highlighting
+        set -U fish_color_autosuggestion 444
+        set -U fish_color_comment 464 --italic
+        set -U fish_color_quote BE7                 # "Text"
+        set -U fish_color_escape 9EC                # "...\n"
+        set -U fish_color_valid_path --underline
+        set -U fish_color_error D55
+        set -U fish_color_end FD6                   # Separators like ; and &
+        set -U fish_color_redirection FD6           # Like >/dev/null
+        set -U fish_color_history_current --bold
+        set -U fish_color_search_match normal       # Disable highlighting
 
-    # Pager
-    # https://fishshell.com/docs/current/interactive.html#pager-color-variables
-    fish -c "set -U fish_pager_color_prefix brwhite --bold"
-    fish -c "set -U fish_pager_color_selected_prefix black"
-    fish -c "set -U fish_pager_color_completion normal"
-    fish -c "set -U fish_pager_color_selected_completion black"
-    fish -c "set -U fish_pager_color_description 555"
-    fish -c "set -U fish_pager_color_selected_description black"
-    fish -c "set -U fish_pager_color_selected_background --background=AFA"
-    fish -c "set -U fish_pager_color_progress black --background=7FF"
+        # Pager
+        # https://fishshell.com/docs/current/interactive.html#pager-color-variables
+        set -U fish_pager_color_prefix brwhite --bold
+        set -U fish_pager_color_selected_prefix black
+        set -U fish_pager_color_completion normal
+        set -U fish_pager_color_selected_completion black
+        set -U fish_pager_color_description 555
+        set -U fish_pager_color_selected_description black
+        set -U fish_pager_color_selected_background --background=AFA
+        set -U fish_pager_color_progress black --background=7FF
+    '
 }
 
 
