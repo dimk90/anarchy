@@ -21,6 +21,13 @@ set +o errexit # disable exit on non-zero exit code
 
 main() {
 
+    ## Refuse to run as root
+    # makepkg cannot (and must not) be run as root; yay is for a real user.
+    if [ "$EUID" -eq 0 ]; then
+        printf_error "%b\n" 'this script must be run as a non-root user'
+        exit 1
+    fi
+
     ## Get gum
 
     request_gum
@@ -39,8 +46,9 @@ main() {
 
     # Install yay if missing
     if ! is_command_available yay; then
-        # git
+        # build deps: git for cloning, base-devel for makepkg
         action_require_package 'git'
+        action_require_package 'base-devel'
 
         # Create unique temp dir for the PKGBUILD clone
         local tmpdir
