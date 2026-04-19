@@ -361,7 +361,7 @@ main() {
     install_fzf
     install_delta
 
-    printf_warning "Restart your shell to apply the new configuration\n"
+    printf_warning "\nRestart your shell to apply the new configuration\n"
 
     return 0
 }
