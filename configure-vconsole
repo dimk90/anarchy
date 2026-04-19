@@ -69,33 +69,12 @@ install_keymap() {
 
     action_require_package 'kbd'
 
-    ## Download keymap file
+    ## Download & install keymap file
 
-    # Get unique temp file name
-    local tmpfile
-    tmpfile="$(mktemp)"
-    assert $? "can't create temporary file"
-
-    # Register cleanup trap
-    # shellcheck disable=SC2064
-    trap "rm -f $tmpfile" EXIT
-
-    # Download keymap file
-    action_run 'Download keymap file' \
-        "curl -fsSL https://dimk90.github.io/anarchy/vconsole/us-extra.map -o ${tmpfile}" \
-        'done'
-    assert $? "can't download keymap file"
-
-    # Move the downloaded config to the target location
-
-    action_request_permission 'for installing keymap file'
-    action_run "$(printf "%b %b %b" \
-                         "$(gum style --faint 'Install')" \
-                         "$(gum style --foreground $GUM_YELLOW 'us-extra')" \
-                         "$(gum style --faint 'to /usr/share/kbd/keymaps')${STYLE_DIM}")" \
-        "as_root mv $tmpfile /usr/share/kbd/keymaps/us-extra.map" \
-        'done'
-    assert $? "can't move keymap file to /usr/share/kbd/keymaps/"
+    action_request_permission 'to install us-extra.map'
+    action_install_file '/usr/share/kbd/keymaps/us-extra.map' \
+                        'https://dimk90.github.io/anarchy/vconsole/us-extra.map' \
+                        "$(check_sudo)"
 
     ## Load keymap
 
