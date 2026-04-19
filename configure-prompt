@@ -75,6 +75,8 @@ fish_enable_starship() {
         "https://dimk90.github.io/anarchy/starship/select_starship_config.fish"
 
     # Remove old starship init to guarantee select_starship_config call before init
+    # NOTE: 'remove_line' and 'config_set_param' use '|' as the sed delimiter,
+    # so any literal '|' in the pattern must be escaped as '\|'.
     remove_line ~/.config/fish/config.fish 'starship init fish \| source'
     assert $? 'failed to remove old starship init'
 
