@@ -18,5 +18,11 @@
 	"\u001B[1;3A": "MoveLinesUp",
 
     "AltDown": "MoveLinesDown",
-	"\u001B[1;3B": "MoveLinesDown"
+	"\u001B[1;3B": "MoveLinesDown",
+
+    "ShiftUp": "SelectUp",
+    "\u001B[1;2A": "SelectUp",
+
+    "ShiftDown": "SelectDown",
+    "\u001B[1;2B": "SelectDown"
 }
