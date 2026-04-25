@@ -1,6 +1,12 @@
 # Custom keymap based on US ANSI layout with additional Ctrl combinations
 # Load with: loadkeys custom.map
 
+# Note:
+#   - Show keycode via (raw, before mapping):
+#          showkey -k
+#   - Show key symbols (after mapping):
+#          showkey -a
+
 # The base US keymap
 include "/usr/share/kbd/keymaps/i386/qwerty/us.map.gz"
 
@@ -26,3 +32,11 @@ string F103 = "\033d"
 # Shift+Delete (keycode 111 is Delete)
 shift keycode 111 = F104
 string F104 = "\033[3;2~"
+
+# Alt+Up
+alt keycode 103 = F105
+string F105 = "\033[1;3A"
+
+# Alt+Down
+alt keycode 108 = F106
+string F106 = "\033[1;3B"
