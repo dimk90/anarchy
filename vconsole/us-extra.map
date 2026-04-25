@@ -40,3 +40,11 @@ string F105 = "\033[1;3A"
 # Alt+Down
 alt keycode 108 = F106
 string F106 = "\033[1;3B"
+
+# Shift+Up
+shift keycode 103 = F107
+string F107 = "\033[1;2A"
+
+# Shift+Down
+shift keycode 108 = F108
+string F108 = "\033[1;2B"
