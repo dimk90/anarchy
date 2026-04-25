@@ -168,7 +168,7 @@ main() {
     if choices=$(gum choose --no-limit --selected='*' --cursor="   > "  \
                      --header "${section}"                              \
                      'Locale - Set console locale to en_US.UTF-8'       \
-                     'Keymap - US/ANSI keyboard with extra bindings for CTRL and SHIFT' \
+                     'Keymap - US/ANSI keyboard with extra bindings for CTRL,SHIFT,ALT' \
                      'Font - Terminus font + size configuration for console'); then
         choices=${choices,,} # convert to lowercase for easier matching
     else

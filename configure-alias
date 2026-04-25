@@ -18,11 +18,7 @@ set +o errexit # disable exit on non-zero exit code
 
 ## Routines
 
-
-# TODO: override default tools to modern version if exists
-# alias cat='bat -p ' # need to install bat
-# alias ls=exa
-# alias unset 'set --erase'
+# TODO: alias unset 'set --erase'
 
 ALIASES=(
     # ls
