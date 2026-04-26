@@ -24,5 +24,11 @@
     "\u001B[1;2A": "SelectUp",
 
     "ShiftDown": "SelectDown",
-    "\u001B[1;2B": "SelectDown"
+    "\u001B[1;2B": "SelectDown",
+
+    "ShiftLeft": "SelectLeft",
+    "\u001B[1;2D": "SelectLeft",
+
+    "ShiftRight": "SelectRight",
+    "\u001B[1;2C": "SelectRight"
 }
