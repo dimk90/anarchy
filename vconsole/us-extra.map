@@ -13,11 +13,11 @@ include "/usr/share/kbd/keymaps/i386/qwerty/us.map.gz"
 # Define custom function key codes
 # F100-F103 typically unused
 
-# Ctrl+Left Arrow (keycode 105 is Left arrow)
+# Ctrl+Left (keycode 105 is Left arrow)
 control keycode 105 = F100
 string F100 = "\033[1;5D"
 
-# Ctrl+Right Arrow (keycode 106 is Right arrow)
+# Ctrl+Right (keycode 106 is Right arrow)
 control keycode 106 = F101
 string F101 = "\033[1;5C"
 
@@ -48,3 +48,11 @@ string F107 = "\033[1;2A"
 # Shift+Down
 shift keycode 108 = F108
 string F108 = "\033[1;2B"
+
+# Shift+Left
+shift keycode 105 = F109
+string F109 = "\033[1;2D"
+
+# Shift+Right
+shift keycode 106 = F110
+string F110 = "\033[1;2C"
