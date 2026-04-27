@@ -191,25 +191,29 @@ partition_disk() {
 encrypt_root() {
     #
     # Initialize LUKS2 on the root partition and open it as cryptroot.
-    # cryptsetup is interactive (asks for confirmation + passphrase),
-    # so it runs outside the gum spinner UI.
+    # Passphrase is collected up-front via action_set_password and fed to
+    # cryptsetup over stdin in batch mode, so the commands run unattended
+    # and can sit inside the standard action UI.
     #
     local part="$1"
 
     printf_section "Encrypting root partition\n"
 
-    printf_action "Run %b on %b\n"                                          \
-        "$(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat')"   \
-        "$(gum style --foreground "$GUM_YELLOW" "$part")"
+    # Retry until success: aborting here would leave the disk partitioned
+    # but unencrypted, breaking the rest of the install flow.
+    local passphrase
+    while :; do
+        passphrase=$(action_set_password 'LUKS passphrase') && break
+    done
 
-    as_root cryptsetup luksFormat --type luks2 "$part" </dev/tty
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat') on $(gum style --foreground "$GUM_YELLOW" "$part")"  \
+        "printf '%s' '$passphrase' | as_root cryptsetup luksFormat --type luks2 --batch-mode --key-file=- '$part'"                       \
+        'done'
     assert $? 'luksFormat failed'
 
-    printf_action "Open %b as %b\n"                                  \
-        "$(gum style --foreground "$GUM_YELLOW" "$part")"            \
-        "$(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")"
-
-    as_root cryptsetup open "$part" "$CRYPT_NAME" </dev/tty
+    action_run "Open $(gum style --foreground "$GUM_YELLOW" "$part") as $(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")"  \
+        "printf '%s' '$passphrase' | as_root cryptsetup open --batch-mode --key-file=- '$part' '$CRYPT_NAME'"                   \
+        'done'
     assert $? "can't open $part"
 }
 
