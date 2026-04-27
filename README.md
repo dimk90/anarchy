@@ -6,6 +6,33 @@ Highly disorganized personal configs and install scripts for Arch Linux.
 ## Configs
 
 
+### disk
+
+Partition the target disk and prepare mount points for an Arch install
+(GPT + LUKS2 + btrfs subvolumes). Must be run as root from the live USB.
+The script scans available disks, asks the user to pick one, refuses to
+proceed unless the disk is empty, and optionally runs `genfstab` at the end:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-disk | bash
+```
+
+Resulting layout:
+
+| Part | Size     | Encryption | Filesystem | Label    | Subvolume         | Mount point        |
+| :--: | :------- | :--------- | :--------- | :------- | :---------------- | :----------------- |
+|  p1  | 512 MiB  | —          | FAT32      | —        | —                 | `/efi`             |
+|  p2  | 2 GiB    | —          | btrfs      | `boot`   | `@boot`           | `/boot`            |
+|  p2  | (shared) | —          | btrfs      | `boot`   | `@boot-snapshots` | `/boot/.snapshots` |
+|  p3  | rest     | LUKS2      | btrfs      | `rootfs` | `@`               | `/`                |
+|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home`           | `/home`            |
+|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@log`            | `/var/log`         |
+|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
+|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
+
+The encrypted partition is opened as `/dev/mapper/cryptroot`.
+Btrfs is mounted with `noatime,ssd,compress=zstd:1,space_cache=v2`
+(and `commit=120` on non-root subvolumes).
+
 ### vconsole
 
 Install and configure keymap, font, and locale for virtual console:

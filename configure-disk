@@ -37,6 +37,22 @@ BTRFS_OPTS_OTHER='noatime,ssd,commit=120,compress=zstd:1,space_cache=v2'
 EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=winnt,nofail'
 
 
+#
+# Resulting layout (GPT + LUKS2 + btrfs subvolumes):
+#
+# | Part | Size     | Encryption | Filesystem | Label    | Subvolume         | Mount point        |
+# | :--: | :------- | :--------- | :--------- | :------- | :---------------- | :----------------- |
+# |  p1  | 512 MiB  | —         | FAT32      | —       | —                | `/efi`             |
+# |  p2  | 2 GiB    | —         | btrfs      | `boot`   | `@boot`           | `/boot`            |
+# |  p2  | (shared) | —         | btrfs      | `boot`   | `@boot-snapshots` | `/boot/.snapshots` |
+# |  p3  | rest     | LUKS2      | btrfs      | `rootfs` | `@`               | `/`                |
+# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home`           | `/home`            |
+# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@log`            | `/var/log`         |
+# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
+# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
+#
+
+
 ## Routines
 
 
