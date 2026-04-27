@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.5'
+export COMMON_VERSION='2.6'
 
 
 ## Colors
@@ -1041,6 +1041,52 @@ action_request_permission() {
 }
 
 
+action_set_password() {
+    #
+    # Request a password from the user with confirmation via gum UI.
+    # On match, prints the password to stdout and returns 0.
+    # Returns 1 on mismatch or input cancellation.
+    # UI status messages are written to stderr so stdout carries only the password.
+    #
+    # Parameters:
+    #   $1 - title - (optional) - action title (default: 'Set password').
+    #
+    # Example:
+    #   password=$(action_set_password 'New user password')
+    #   assert $? 'password setup failed'
+    #
+    local title="${1:-Set password}"
+
+    request_title=$(printf_action "%b" "$title")
+
+    password=$(gum input --password --char-limit=30                   \
+                         --no-show-help                               \
+                         --placeholder 'enter password'               \
+                         --prompt "${request_title} $(gum style --foreground "$GUM_WHITE" '>') ")
+    [ $? -ne 0 ] && return 1
+
+    confirm=$(gum input --password --char-limit=30                    \
+                        --no-show-help                                \
+                        --placeholder 'confirm password'              \
+                        --prompt "${request_title} $(gum style --foreground "$GUM_WHITE" '>') ")
+    [ $? -ne 0 ] && return 1
+
+    if [ "$password" != "$confirm" ]; then
+        printf_action "%b - %b\n"                           \
+            "$title"                                        \
+            "$(gum style --foreground $GUM_RED 'mismatch')" >&2
+        return 1
+    fi
+
+    printf_action "%b - %b\n"                               \
+        "$title"                                            \
+        "$(gum style --foreground $GUM_ACCENT 'done')" >&2
+
+    echo "$password"
+    return 0
+}
+
+
 ## Export Functions
 
 
@@ -1092,3 +1138,4 @@ export -f action_require_package
 export -f action_install_file
 export -f action_run
 export -f action_request_permission
+export -f action_set_password
