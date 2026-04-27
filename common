@@ -261,6 +261,24 @@ bullet_error() {
 }
 
 
+bullet_info() {
+    #
+    # Output info bullet with applied style.
+    #
+    if is_command_available 'gum'; then
+        printf "%b%b%b"                                         \
+            "$(gum style --faint '[')"                          \
+            "$(gum style --bold --foreground $GUM_BLUE 'INFO')" \
+            "$(gum style --faint ']')"
+    else
+        printf "%b%b%b"                               \
+            "${STYLE_DIM}[${STYLE_CLR}"               \
+            "${STYLE_BOLD}${FG_BLUE}INFO${STYLE_CLR}" \
+            "${STYLE_DIM}]${STYLE_CLR}"
+    fi
+}
+
+
 prefix_printf() {
     local prefix="$1"
     local title="$2"
@@ -321,6 +339,18 @@ printf_error() {
     #
     local title="$1"
     prefix_printf "$(bullet_error)" "${title}" "${@:2}"
+}
+
+
+printf_info() {
+    #
+    # Print a info message with the info prefix.
+    #
+    # Example:
+    #   printf_info "clear backup if after configuring"
+    #
+    local title="$1"
+    prefix_printf "$(bullet_info)" "${title}" "${@:2}"
 }
 
 
@@ -1110,6 +1140,7 @@ export -f printf_section
 export -f printf_action
 export -f printf_warning
 export -f printf_error
+export -f printf_info
 
 # Input
 export -f ask_yn

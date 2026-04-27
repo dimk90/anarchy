@@ -443,7 +443,7 @@ main() {
         printf "%bExisting layout:%b\n" "${STYLE_DIM}" "${STYLE_CLEAR}"
         as_root lsblk "$disk"
         echo
-        printf_warning "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
+        printf_info "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
         exit 1
     fi
 
