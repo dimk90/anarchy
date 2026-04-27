@@ -108,12 +108,9 @@ select_disk() {
         labels+=("$label")
     done
 
-    local section
-    section=$(prefix_printf "$(bullet_section)" 'Select Disk')
-
     local selected
     selected=$(gum choose --cursor='   > '   \
-                          --header "$section" \
+                          --header ' '        \
                           "${labels[@]}") || return 1
 
     # Extract path (first whitespace-separated field)
@@ -429,30 +426,26 @@ main() {
 
     ## Select disk
 
-    printf_section "Select target disk\n"
+    printf_section "Select disk\n"
     local disk
     disk=$(select_disk)
     if [ -z "$disk" ]; then
-        echo
-        printf_warning 'no disk selected\n'
         return 0
     fi
-    printf_action "Selected disk: ${STYLE_CLR}%b\n" \
+    printf_action "Selected: ${STYLE_CLR}%b\n" \
         "$(gum style --foreground "$GUM_YELLOW" "$disk")"
 
-    ## Verify disk is empty
-
-    printf_section "Checking disk\n"
-    if ! is_disk_empty "$disk"; then
-        printf_warning "disk %b is not empty\n\n"  \
+    # Verify disk is empty
+    if ! action_run 'Checking disk' "is_disk_empty ${disk}" 'empty disk'; then
+        echo
+        printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not empty\n\n"  \
             "$(gum style --foreground "$GUM_YELLOW" "$disk")"
-        echo 'Existing layout:'
+        printf "%bExisting layout:%b\n" "${STYLE_DIM}" "${STYLE_CLEAR}"
         as_root lsblk "$disk"
         echo
-        printf_error "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
+        printf_warning "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
         exit 1
     fi
-    printf_action 'Disk is empty\n'
 
     ## Confirm destructive operation
 
