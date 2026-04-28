@@ -142,6 +142,19 @@ is_disk_empty() {
 }
 
 
+is_disk_ssd() {
+    #
+    # Check if a disk is non-rotational (SSD/NVMe).
+    # Returns 0 if SSD, 1 otherwise.
+    #
+    local disk="$1"
+
+    local rota
+    rota=$(lsblk -dno ROTA "$disk" 2>>"$LOG_FILE")
+    [ "$rota" = '0' ]
+}
+
+
 partition_path() {
     #
     # Build the partition device path for a disk and partition index.
@@ -437,8 +450,15 @@ main() {
     printf_action "Selected: ${STYLE_CLR}%b\n" \
         "$(gum style --foreground "$GUM_YELLOW" "$disk")"
 
-    # Verify that disk is SSD
-    # TODO: ...
+    # Verify that disk is SSD (mount options below are tuned for non-rotational media)
+    export -f is_disk_ssd
+    if ! action_run 'Checking media type' "is_disk_ssd ${disk}" 'SSD'; then
+        echo
+        printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not an SSD\n"  \
+            "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+        printf_info "%b\n" 'btrfs mount options (ssd, commit=120) are tuned for non-rotational media'
+        exit 1
+    fi
 
     # Verify disk is empty
     export -f is_disk_empty
