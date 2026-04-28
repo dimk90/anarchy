@@ -30,7 +30,6 @@ CRYPT_NAME='cryptroot'
 MNT='/mnt'
 
 # Btrfs mount options
-# TODO: check for ssd
 BTRFS_OPTS='noatime,ssd,commit=120,compress=zstd:1,space_cache=v2'
 
 # Tightened /efi (vfat) mount options for fstab (genfstab leaves "defaults")
@@ -386,6 +385,37 @@ mount_targets() {
 }
 
 
+# shellcheck disable=SC2059
+print_summary() {
+    #
+    # Print the resulting partition / subvolume layout as a table.
+    #
+    local esp_part="$1"
+    local boot_part="$2"
+    local root_part="$3"
+
+    printf_section "Resulting layout\n"
+
+    # Columns: Partition Size Crypt FS Label Subvolume Mount
+    local fmt='   %-16s %-9s %-7s %-6s %-7s %-17s %s\n'
+
+    # Header (dimmed)
+    printf "%b" "${STYLE_DIM}"
+    printf "$fmt" 'Partition' 'Size' 'Crypt' 'FS' 'Label' 'Subvolume' 'Mount'
+    printf "%b" "${STYLE_CLR}"
+
+    # Rows
+    printf "$fmt" "$esp_part"  '512 MiB'  '-'     'fat32' '-'      '-'                '/efi'
+    printf "$fmt" "$boot_part" '2 GiB'    '-'     'btrfs' 'boot'   '@boot'            '/boot'
+    printf "$fmt" ''           '(shared)' '-'     'btrfs' 'boot'   '@boot-snapshots'  '/boot/.snapshots'
+    printf "$fmt" "$root_part" 'rest'     'LUKS2' 'btrfs' 'rootfs' '@'                '/'
+    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@home'            '/home'
+    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@log'             '/var/log'
+    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@cache'           '/var/cache'
+    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@snapshots'       '/.snapshots'
+}
+
+
 generate_fstab() {
     #
     # Run genfstab and tighten /efi mount options.
@@ -501,7 +531,9 @@ main() {
 
     # generate_fstab
 
-    # TODO: print summary table
+    ## Summary
+
+    print_summary "$esp_part" "$boot_part" "$root_part"
 
     echo
     return 0
