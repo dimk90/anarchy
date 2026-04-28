@@ -436,6 +436,7 @@ main() {
         "$(gum style --foreground "$GUM_YELLOW" "$disk")"
 
     # Verify disk is empty
+    export -f is_disk_empty
     if ! action_run 'Checking disk' "is_disk_empty ${disk}" 'empty disk'; then
         echo
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not empty\n\n"  \
@@ -447,16 +448,9 @@ main() {
         exit 1
     fi
 
-    ## Confirm destructive operation
-
-    echo
-    printf_warning 'About to partition %b: ALL DATA WILL BE LOST.\n' \
-        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+    # Confirm destructive operation
     printf_action 'Proceed? '
-    if ! ask_yn; then
-        echo
-        return 0
-    fi
+    ask_yn || return 0
 
     ## Build partition paths
 
