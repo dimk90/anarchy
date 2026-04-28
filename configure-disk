@@ -164,7 +164,7 @@ partition_disk() {
     #
     local disk="$1"
 
-    printf_section "Partitioning %b\n" \
+    printf_section "Partitioning ${STYLE_CLEAR}%b\n" \
         "$(gum style --foreground "$GUM_YELLOW" "$disk")"
 
     action_request_permission 'to write a new GPT label'
@@ -385,6 +385,8 @@ generate_fstab() {
         'done'
     assert $? "can't create $MNT/etc"
 
+    # TODO: add standard fstab header/comment
+
     action_run 'Run genfstab -U /mnt >> /mnt/etc/fstab'         \
         "as_root bash -c 'genfstab -U $MNT >> $MNT/etc/fstab'"  \
         'done'
@@ -402,8 +404,9 @@ generate_fstab() {
 main() {
 
     ## Refuse to run as non-root
-    # Partitioning, mkfs, mount, cryptsetup all require root.
+
     if [ "$EUID" -ne 0 ]; then
+        # Partitioning, mkfs, mount, cryptsetup all require root.
         printf_error "%b\n" 'this script must be run as root'
         exit 1
     fi
@@ -433,6 +436,9 @@ main() {
 
     printf_action "Selected: ${STYLE_CLR}%b\n" \
         "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+
+    # Verify that disk is SSD
+    # TODO: ...
 
     # Verify disk is empty
     export -f is_disk_empty
@@ -471,16 +477,11 @@ main() {
     # create_subvolumes  "$boot_part"
     # mount_targets      "$esp_part" "$boot_part"
 
-    ## genfstab (optional)
+    ## genfstab
 
-    # printf_section "Generate fstab?\n"
-    # printf_action "Run %b now? " \
-    #     "$(gum style --foreground "$GUM_YELLOW" 'genfstab -U /mnt >> /mnt/etc/fstab')"
-    # if ask_yn; then
-    #     generate_fstab
-    # else
-    #     printf_action 'Skipped\n'
-    # fi
+    # generate_fstab
+
+    # TODO: print summary table
 
     echo
     return 0
