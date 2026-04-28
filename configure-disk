@@ -428,7 +428,16 @@ generate_fstab() {
         'done'
     assert $? "can't create $MNT/etc"
 
-    # TODO: add standard fstab header/comment
+    # Write standard fstab header (genfstab does not emit one)
+    local cmd_write_header
+    cmd_write_header="printf '%s\n'                                  \
+        '# Static information about the filesystems.'                \
+        '# See fstab(5) for details.'                                \
+        '#'                                                          \
+        '# <file system> <dir> <type> <options> <dump> <pass>'       \
+        '' | as_root tee '$MNT/etc/fstab' > /dev/null"
+    action_run 'Write fstab header' "$cmd_write_header" 'done'
+    assert $? "can't write fstab header"
 
     action_run 'Run genfstab -U /mnt >> /mnt/etc/fstab'         \
         "as_root bash -c 'genfstab -U $MNT >> $MNT/etc/fstab'"  \
