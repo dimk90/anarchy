@@ -429,9 +429,8 @@ main() {
     printf_section "Select disk\n"
     local disk
     disk=$(select_disk)
-    if [ -z "$disk" ]; then
-        return 0
-    fi
+    [ -z "$disk" ] && return 0
+
     printf_action "Selected: ${STYLE_CLR}%b\n" \
         "$(gum style --foreground "$GUM_YELLOW" "$disk")"
 
