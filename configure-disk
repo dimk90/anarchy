@@ -30,8 +30,8 @@ CRYPT_NAME='cryptroot'
 MNT='/mnt'
 
 # Btrfs mount options
-BTRFS_OPTS_ROOT='noatime,ssd,compress=zstd:1,space_cache=v2'
-BTRFS_OPTS_OTHER='noatime,ssd,commit=120,compress=zstd:1,space_cache=v2'
+# TODO: check for ssd
+BTRFS_OPTS='noatime,ssd,commit=120,compress=zstd:1,space_cache=v2'
 
 # Tightened /efi (vfat) mount options for fstab (genfstab leaves "defaults")
 EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=winnt,nofail'
@@ -317,7 +317,7 @@ mount_targets() {
 
     # Root @
     action_run "Mount @ at $MNT"                                            \
-        "as_root mount -o subvol=@,${BTRFS_OPTS_ROOT} '$cryptdev' '$MNT'"   \
+        "as_root mount -o subvol=@,${BTRFS_OPTS} '$cryptdev' '$MNT'"   \
         'done'
     assert $? "can't mount @"
 
@@ -330,28 +330,28 @@ mount_targets() {
 
     # Remaining root subvolumes
     action_run "Mount @home at $MNT/home"                                                       \
-        "as_root mount -o subvol=@home,${BTRFS_OPTS_OTHER} '$cryptdev' '$MNT/home'"             \
+        "as_root mount -o subvol=@home,${BTRFS_OPTS} '$cryptdev' '$MNT/home'"             \
         'done'
     assert $? "can't mount @home"
 
     action_run "Mount @log at $MNT/var/log"                                                     \
-        "as_root mount -o subvol=@log,${BTRFS_OPTS_OTHER} '$cryptdev' '$MNT/var/log'"           \
+        "as_root mount -o subvol=@log,${BTRFS_OPTS} '$cryptdev' '$MNT/var/log'"           \
         'done'
     assert $? "can't mount @log"
 
     action_run "Mount @cache at $MNT/var/cache"                                                 \
-        "as_root mount -o subvol=@cache,${BTRFS_OPTS_OTHER} '$cryptdev' '$MNT/var/cache'"       \
+        "as_root mount -o subvol=@cache,${BTRFS_OPTS} '$cryptdev' '$MNT/var/cache'"       \
         'done'
     assert $? "can't mount @cache"
 
     action_run "Mount @snapshots at $MNT/.snapshots"                                            \
-        "as_root mount -o subvol=@snapshots,${BTRFS_OPTS_OTHER} '$cryptdev' '$MNT/.snapshots'"  \
+        "as_root mount -o subvol=@snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/.snapshots'"  \
         'done'
     assert $? "can't mount @snapshots"
 
     # Boot subvolumes
     action_run "Mount @boot at $MNT/boot"                                                  \
-        "as_root mount -o subvol=@boot,${BTRFS_OPTS_ROOT} '$boot_part' '$MNT/boot'"        \
+        "as_root mount -o subvol=@boot,${BTRFS_OPTS} '$boot_part' '$MNT/boot'"        \
         'done'
     assert $? "can't mount @boot"
 
@@ -361,7 +361,7 @@ mount_targets() {
     assert $? "can't create $MNT/boot/.snapshots"
 
     action_run "Mount @boot-snapshots at $MNT/boot/.snapshots"                                            \
-        "as_root mount -o subvol=@boot-snapshots,${BTRFS_OPTS_ROOT} '$boot_part' '$MNT/boot/.snapshots'"  \
+        "as_root mount -o subvol=@boot-snapshots,${BTRFS_OPTS} '$boot_part' '$MNT/boot/.snapshots'"  \
         'done'
     assert $? "can't mount @boot-snapshots"
 
