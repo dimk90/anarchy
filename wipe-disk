@@ -1,0 +1,363 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+# source <(echo "$COMMON")
+source common
+
+
+set +o errexit # disable exit on non-zero exit code
+
+
+#
+# Pre-install cleanup: erase an existing install on the target disk.
+# Procedure (per doc/Wipe Device.md):
+#   1. Close stale device-mapper / unmount stale mounts on the target.
+#   2. wipefs -a on partitions, then on the whole disk (order matters:
+#      once the GPT is gone, partition nodes disappear).
+#   3. sgdisk --zap-all to clear primary/backup GPT and protective MBR.
+#   4. blkdiscard -f for a fast whole-device TRIM (clean wear-leveling).
+#   5. Verify: lsblk shows no children, wipefs finds no signatures.
+#
+
+
+## Routines
+
+
+require_tools() {
+    #
+    # Ensure all required tools are installed.
+    # wipefs, blkdiscard, dmsetup, findmnt, lsblk all ship in util-linux,
+    # which is always present on Arch live ISO and base systems.
+    #
+    printf_section "Checking tools\n"
+
+    action_require_package 'gptfdisk'      # sgdisk
+    action_require_package 'cryptsetup'    # close stale LUKS mappers
+}
+
+
+list_disks() {
+    #
+    # Print available disks (one per line) as: <NAME>|<SIZE>|<MODEL>.
+    # PAIRS format escapes spaces in MODEL safely for eval.
+    #
+    local NAME SIZE MODEL TYPE
+    while IFS= read -r line; do
+        eval "$line"
+        # shellcheck disable=SC2154
+        if [ "$TYPE" = 'disk' ]; then
+            echo "${NAME}|${SIZE}|${MODEL}"
+        fi
+    done < <(lsblk -dpnP -o NAME,SIZE,MODEL,TYPE)
+}
+
+
+select_disk() {
+    #
+    # Show available disks and let the user choose one.
+    # On success: prints selected disk path on stdout, returns 0.
+    # On cancel or empty list: returns 1.
+    #
+    local disks_info=()
+    mapfile -t disks_info < <(list_disks)
+
+    if [ "${#disks_info[@]}" -eq 0 ]; then
+        return 1
+    fi
+
+    # Build aligned labels: "/dev/sda          500G   WD_BLACK"
+    local labels=()
+    local entry name size model label
+    for entry in "${disks_info[@]}"; do
+        IFS='|' read -r name size model <<< "$entry"
+        label=$(printf "%-18s %8s   %s" "$name" "$size" "${model:-(unknown)}")
+        labels+=("$label")
+    done
+
+    local selected
+    selected=$(gum choose --cursor='   > '   \
+                          --header ' '        \
+                          "${labels[@]}") || return 1
+
+    # Extract path (first whitespace-separated field)
+    awk '{print $1}' <<< "$selected"
+}
+
+
+list_partitions() {
+    #
+    # Print the partition device paths of a disk, one per line.
+    #
+    local disk="$1"
+    lsblk -nlpo NAME,TYPE "$disk" 2>>"$LOG_FILE" |
+        awk '$2 == "part" {print $1}'
+}
+
+
+list_crypt_mappers() {
+    #
+    # Print the crypt mapper device paths backed by a disk, one per line.
+    # Picks up leftover LUKS mappings (e.g. cryptroot) from a previous boot.
+    #
+    local disk="$1"
+    lsblk -nlpo NAME,TYPE "$disk" 2>>"$LOG_FILE" |
+        awk '$2 == "crypt" {print $1}'
+}
+
+
+list_mounted_sources() {
+    #
+    # Print mounted source devices of a disk (and its partitions/mappers).
+    # Empty output means nothing is mounted off the disk.
+    #
+    local disk="$1"
+    lsblk -nlpo NAME,MOUNTPOINT "$disk" 2>>"$LOG_FILE" |
+        awk 'NF == 2 {print $1}'
+}
+
+
+close_mappers() {
+    #
+    # Close any open LUKS mappers backed by partitions of the target disk.
+    #
+    local disk="$1"
+
+    printf_section "Closing stale device-mapper entries\n"
+
+    local mappers=()
+    mapfile -t mappers < <(list_crypt_mappers "$disk")
+
+    if [ "${#mappers[@]}" -eq 0 ]; then
+        printf_action "%b\n" "$(gum style --faint 'none open')"
+        return 0
+    fi
+
+    action_request_permission 'to close stale device-mapper entries'
+
+    local mapper name
+    for mapper in "${mappers[@]}"; do
+        name="${mapper##*/}"
+        action_run "Close $(gum style --foreground "$GUM_YELLOW" "$name")"  \
+            "as_root cryptsetup close '$name'"                              \
+            'done'
+        assert $? "can't close mapper $name"
+    done
+}
+
+
+unmount_sources() {
+    #
+    # Unmount anything currently mounted off the target disk.
+    # Reverse order so child mounts (e.g. /boot/.snapshots) come first.
+    #
+    local disk="$1"
+
+    printf_section "Unmounting stale mounts\n"
+
+    local sources=()
+    mapfile -t sources < <(list_mounted_sources "$disk")
+
+    if [ "${#sources[@]}" -eq 0 ]; then
+        printf_action "%b\n" "$(gum style --faint 'nothing mounted')"
+        return 0
+    fi
+
+    action_request_permission 'to unmount stale mounts'
+
+    # Unmount in reverse order to peel children before parents.
+    local i src
+    for ((i = ${#sources[@]} - 1; i >= 0; i--)); do
+        src="${sources[i]}"
+        action_run "Unmount $(gum style --foreground "$GUM_YELLOW" "$src")"  \
+            "as_root umount -R '$src'"                                      \
+            'done'
+        assert $? "can't unmount $src"
+    done
+}
+
+
+wipe_signatures() {
+    #
+    # Wipe filesystem and LUKS signatures from partitions, then the whole disk.
+    # Order matters: once the GPT is gone, partition nodes disappear and
+    # wipefs cannot find them.
+    #
+    local disk="$1"
+
+    printf_section "Wiping signatures on %b\n" \
+        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+
+    local parts=()
+    mapfile -t parts < <(list_partitions "$disk")
+
+    # Build the wipefs target list (quoted) — partitions first, disk last.
+    local targets="" p
+    for p in "${parts[@]}"; do
+        targets+=" '$p'"
+    done
+    targets+=" '$disk'"
+
+    action_request_permission 'to wipe filesystem signatures'
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'wipefs -a') on ${#parts[@]} partition(s) and disk"  \
+        "as_root wipefs -a${targets}"                                                                          \
+        'done'
+    assert $? 'wipefs failed'
+}
+
+
+zap_partition_table() {
+    #
+    # Clear primary GPT, backup GPT (end of disk) and the protective MBR.
+    # After this the disk has no partition table at all.
+    #
+    local disk="$1"
+
+    printf_section "Zapping partition table\n"
+
+    action_request_permission 'to zap partition table'
+
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'sgdisk --zap-all') on $(gum style --foreground "$GUM_YELLOW" "$disk")"  \
+        "as_root sgdisk --zap-all '$disk'"                                                                                         \
+        'done'
+    assert $? 'sgdisk --zap-all failed'
+
+    # Let the kernel re-read the (now empty) partition table.
+    action_run 'Settle partition table'                          \
+        "as_root partprobe '$disk' && as_root udevadm settle"    \
+        'done'
+}
+
+
+discard_device() {
+    #
+    # Issue whole-device TRIM via blkdiscard. Clean wear-leveling state and
+    # finishes in seconds rather than minutes. Some controllers refuse it;
+    # if so we fall back to a hint about dd if=/dev/zero (per doc).
+    #
+    local disk="$1"
+
+    printf_section "Discarding device blocks\n"
+
+    action_request_permission 'to discard device blocks'
+
+    if action_run "Run $(gum style --foreground "$GUM_YELLOW" 'blkdiscard -f') on $(gum style --foreground "$GUM_YELLOW" "$disk")"  \
+        "as_root blkdiscard -f '$disk'"                                                                                            \
+        'done'; then
+        return 0
+    fi
+
+    # blkdiscard failed — likely controller doesn't support whole-device TRIM.
+    echo
+    printf_warning "%b\n" "blkdiscard not supported on this device"
+    printf_info "%b %b\n" \
+        "fallback (slow):" \
+        "$(gum style --foreground "$GUM_YELLOW" "dd if=/dev/zero of=$disk bs=1M status=progress")"
+    echo
+}
+
+
+verify_clean() {
+    #
+    # Verify the disk is clean: no partitions, no signatures.
+    #
+    local disk="$1"
+
+    printf_section "Verifying clean state\n"
+
+    local children_clean sigs_clean
+
+    action_run "Check leftover partitions"                              \
+        "[ -z \"\$(lsblk -lno NAME '$disk' | tail -n +2)\" ]"           \
+        'none found'
+    children_clean=$?
+
+    action_request_permission 'to check filesystem signatures'
+
+    action_run "Check filesystem signatures"                            \
+        "[ -z \"\$(as_root wipefs --no-act '$disk' | tail -n +2)\" ]"   \
+        'none found'
+    sigs_clean=$?
+
+    if [ $children_clean -eq 0 ] && [ $sigs_clean -eq 0 ]; then
+        printf_action "%b\n" "$(gum style --foreground "$GUM_ACCENT" 'disk is clean')"
+        return 0
+    fi
+
+    echo
+    printf_error "%b\n" "disk still has residue:"
+    as_root lsblk "$disk"
+
+    return 1
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Required tools
+
+    require_tools
+
+    ## Select disk
+
+    printf_section "Select disk\n"
+    local disk
+    disk=$(select_disk)
+    [ -z "$disk" ] && return 0
+
+    printf_action "Selected: ${STYLE_CLR}%b\n" \
+        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+
+    # Show current layout so the user can double-check the target
+    action_request_permission 'to read disk layout'
+    local FSTYPE="" FSVER="" LABEL="" MOUNTPOINTS=""
+    eval "$(as_root lsblk -dnP -o FSTYPE,FSVER,LABEL,MOUNTPOINTS "$disk")"
+    printf_action "disk layout: fs:%s, fsver:%s, label:%s, mount:%s\n" \
+        "$FSTYPE" "$FSVER" "$LABEL" "$MOUNTPOINTS"
+
+    # Confirm destructive operation. wipefs / sgdisk --zap-all / blkdiscard
+    # cannot be undone — make the user type 'y' explicitly.
+    printf_action "%b ${STYLE_DIM}this will${STYLE_CLR} %b ${STYLE_DIM}on${STYLE_CLR} %b${STYLE_DIM}. Proceed? ${STYLE_CLR}" \
+        "$(bullet_warning)"                                              \
+        "$(gum style --bold --foreground "$GUM_RED" 'destroy all data')" \
+        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+    ask_yn || return 0
+
+    ## Wipe procedure
+
+    close_mappers   "$disk"
+    unmount_sources "$disk"
+    wipe_signatures "$disk"
+    zap_partition_table "$disk"
+    discard_device  "$disk"
+
+    ## Verify
+
+    verify_clean "$disk"
+
+    return 0
+}
+
+
+main "$@"
