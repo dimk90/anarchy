@@ -282,14 +282,16 @@ verify_clean() {
 
     action_run "Check leftover partitions"                              \
         "[ -z \"\$(lsblk -lno NAME '$disk' | tail -n +2)\" ]"           \
-        'none found'
+        'none found'                                                    \
+        'residue found'
     children_clean=$?
 
     action_request_permission 'to check filesystem signatures'
 
     action_run "Check filesystem signatures"                            \
         "[ -z \"\$(as_root wipefs --no-act '$disk' | tail -n +2)\" ]"   \
-        'none found'
+        'none found'                                                    \
+        'residue found'
     sigs_clean=$?
 
     if [ $children_clean -eq 0 ] && [ $sigs_clean -eq 0 ]; then
