@@ -1,0 +1,193 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Routines
+
+
+is_intel_cpu() {
+    #
+    # Check whether the running CPU is from Intel.
+    #
+    grep -q 'GenuineIntel' /proc/cpuinfo
+}
+
+
+install_video() {
+    #
+    # Install open-source GPU user-space drivers (mesa) and Intel-specific
+    # Vulkan/VA-API drivers when an Intel CPU is detected.
+    #
+    printf_section "Installing video drivers\n"
+
+    action_require_package 'mesa'
+
+    if is_intel_cpu; then
+        action_require_package 'vulkan-intel'
+        action_require_package 'intel-media-driver'
+        action_require_package 'libva-intel-driver'
+        action_require_package 'intel-gpu-tools'
+    else
+        printf_warning "Non-Intel CPU detected - skipping vendor-specific GPU drivers\n"
+    fi
+}
+
+
+install_input() {
+    #
+    # Install input-device drivers: libinput for X11 and IIO sensor proxy
+    # for orientation/brightness events.
+    #
+    printf_section "Installing input drivers\n"
+
+    action_require_package 'xf86-input-libinput'
+    action_require_package 'iio-sensor-proxy'
+}
+
+
+install_power() {
+    #
+    # Install tuned daemon and helpers for power management,
+    # then enable the tuned service.
+    #
+    printf_section "Installing power management\n"
+
+    action_require_package 'tuned'
+    action_require_package 'tuned-ppd'
+    action_require_package 'wireless_tools'
+
+    action_request_permission 'to enable tuned service'
+    action_run 'Enable tuned service' \
+        "$(check_sudo) systemctl enable tuned" \
+        'done'
+}
+
+
+install_audio() {
+    #
+    # Install PipeWire-based audio stack with ALSA/PulseAudio/JACK
+    # compatibility layers and required firmware.
+    #
+    printf_section "Installing audio drivers\n"
+
+    action_require_package 'pipewire'
+    action_require_package 'pipewire-alsa'
+    action_require_package 'pipewire-pulse'
+    action_require_package 'pipewire-jack'
+    action_require_package 'wireplumber'
+    action_require_package 'sof-firmware'
+    action_require_package 'alsa-utils'
+    action_require_package 'alsa-firmware'
+}
+
+
+install_bluetooth() {
+    #
+    # Install BlueZ Bluetooth stack and iwd Wi-Fi daemon,
+    # then enable the bluetooth service.
+    #
+    printf_section "Installing bluetooth drivers\n"
+
+    action_require_package 'bluez'
+    action_require_package 'bluez-utils'
+    action_require_package 'iwd'
+
+    action_request_permission 'to enable bluetooth service'
+    action_run 'Enable bluetooth service' \
+        "$(check_sudo) systemctl enable bluetooth" \
+        'done'
+}
+
+
+install_expansion() {
+    #
+    # Install drivers and helpers for webcams, removable drives,
+    # MTP (Android) and PTP/gphoto2 (cameras).
+    #
+    printf_section "Installing expansion cards & webcam drivers\n"
+
+    action_require_package 'v4l-utils'
+    action_require_package 'udisks2'
+    action_require_package 'gvfs-mtp'
+    action_require_package 'gvfs-gphoto2'
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Ask user for driver categories to install
+
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm Driver Categories')
+
+    # TODO: Add separate categories (+check -> pre select relevant)
+    #   - Intel GPU
+    #   - AMD GPU
+    #   - NVIDIA GPU
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' --cursor="   > "    \
+                     --header "${section}"                                \
+                     'Video - Mesa + Intel GPU drivers'                   \
+                     'Input - libinput + IIO sensor proxy'                \
+                     'Power - tuned profiles + wireless tools'            \
+                     'Audio - PipeWire + ALSA stack'                      \
+                     'Bluetooth - BlueZ + iwd Wi-Fi daemon'               \
+                     'Expansion - webcam, removable drives, MTP/PTP'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    # Print number of selected items
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected categories: ${STYLE_CLR}${num_choice}\n"
+
+    # Empty choice means nothing to do -> exit
+    if [ "$num_choice" -eq 0 ]; then
+        echo
+        return 0
+    fi
+
+    ## Install selected categories
+
+    grep -q 'video'     <<< "$choices" && install_video
+    grep -q 'input'     <<< "$choices" && install_input
+    grep -q 'power'     <<< "$choices" && install_power
+    grep -q 'audio'     <<< "$choices" && install_audio
+    grep -q 'bluetooth' <<< "$choices" && install_bluetooth
+    grep -q 'expansion' <<< "$choices" && install_expansion
+
+    return 0
+}
+
+
+main "$@"
