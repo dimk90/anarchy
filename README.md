@@ -6,6 +6,21 @@ Highly disorganized personal configs and install scripts for Arch Linux.
 ## Configs
 
 
+### wipe-disk
+
+Pre-install cleanup: erase an existing install on the target disk before
+running `configure-disk`. Must be run as root from the live USB. The script
+scans available disks, asks the user to pick one, closes any leftover LUKS
+mappers and stale mounts, then wipes signatures (`wipefs -a`), zaps the
+partition table (`sgdisk --zap-all`), and issues a whole-device TRIM
+(`blkdiscard -f`):
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/wipe-disk | bash
+```
+
+This is destructive and irreversible — `wipefs`, `sgdisk --zap-all`, and
+`blkdiscard` cannot be undone. Double-check the target disk before confirming.
+
 ### disk
 
 Partition the target disk and prepare mount points for an Arch install
