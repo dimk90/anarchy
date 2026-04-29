@@ -252,6 +252,10 @@ discard_device() {
     if action_run "Run $(gum style --foreground "$GUM_YELLOW" 'blkdiscard -f') on $(gum style --foreground "$GUM_YELLOW" "$disk")"  \
         "as_root blkdiscard -f '$disk'"                                                                                            \
         'done'; then
+        # Drain uevents from the TRIM so verify_clean reads fresh /sys.
+        action_run 'Settle device state'   \
+            'as_root udevadm settle'       \
+            'done'
         return 0
     fi
 
