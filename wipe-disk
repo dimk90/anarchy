@@ -11,8 +11,7 @@ set -o errexit # exit on non-zero exit code
 
 COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
 # shellcheck source=common
-# source <(echo "$COMMON")
-source common
+source <(echo "$COMMON")
 
 
 set +o errexit # disable exit on non-zero exit code
@@ -263,6 +262,7 @@ discard_device() {
         "fallback (slow):" \
         "$(gum style --foreground "$GUM_YELLOW" "dd if=/dev/zero of=$disk bs=1M status=progress")"
     echo
+    return 1
 }
 
 
@@ -355,8 +355,6 @@ main() {
     ## Verify
 
     verify_clean "$disk"
-
-    return 0
 }
 
 
