@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.6'
+export COMMON_VERSION='2.7'
 
 
 ## Colors
@@ -1003,11 +1003,13 @@ action_run() {
     # Parameters:
     #   $1 - title - the action title to show.
     #   $2 - command - a command to run. The 'sleep' will be used if not provided.
-    #   $3 - status - (optional) - text to show when the command successfully finished.
+    #   $3 - success_status - (optional) - text to show when the command successfully finished.
+    #   $4 - fail_status - (optional) - text to show when the command failed (default: 'failed').
     #
     local title="$1"
     local command="${2-}"
-    local status="${3-}"
+    local success_status="${3-}"
+    local fail_status="${4-failed}"
 
     is_command_available 'gum'
     assert $? 'gum is required'
@@ -1025,16 +1027,16 @@ action_run() {
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
         printf_action "%b - %b\n" "$title" \
-                      "$(gum style --foreground $GUM_RED 'failed')"
+                      "$(gum style --foreground $GUM_RED "$fail_status")"
         return $exit_code
     fi
 
     # Show status if provided and command finished without an error
-    if [ -z "$status" ]; then
+    if [ -z "$success_status" ]; then
         printf_action "%b\n" "$title"
     else
         printf_action "%b - %b\n" "$title" \
-                      "$(gum style --foreground $GUM_ACCENT "$status")"
+                      "$(gum style --foreground $GUM_ACCENT "$success_status")"
     fi
 }
 
