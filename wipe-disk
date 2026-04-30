@@ -207,7 +207,7 @@ wipe_signatures() {
     targets+=" '$disk'"
 
     action_request_permission 'to wipe filesystem signatures'
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'wipefs -a') on ${#parts[@]} partition(s) and disk"  \
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'wipefs -a')$(gum style --faint " on ${#parts[@]} partition(s) and disk")"  \
         "as_root wipefs -a${targets}"                                                                          \
         'done'
     assert $? 'wipefs failed'
@@ -225,7 +225,7 @@ zap_partition_table() {
 
     action_request_permission 'to zap partition table'
 
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'sgdisk --zap-all') on $(gum style --foreground "$GUM_YELLOW" "$disk")"  \
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'sgdisk --zap-all')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$disk")"  \
         "as_root sgdisk --zap-all '$disk'"                                                                                         \
         'done'
     assert $? 'sgdisk --zap-all failed'
@@ -249,7 +249,7 @@ discard_device() {
 
     action_request_permission 'to discard device blocks'
 
-    if action_run "Run $(gum style --foreground "$GUM_YELLOW" 'blkdiscard -f') on $(gum style --foreground "$GUM_YELLOW" "$disk")"  \
+    if action_run "Run $(gum style --foreground "$GUM_YELLOW" 'blkdiscard -f')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$disk")"  \
         "as_root blkdiscard -f '$disk'"                                                                                            \
         'done'; then
         # Drain uevents from the TRIM so verify_clean reads fresh /sys.
