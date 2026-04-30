@@ -1019,8 +1019,8 @@ action_run() {
         command="sleep $UI_INTERACTION_DELAY"
     fi
 
-    # Run command and show spinner
-    gum spin --align='right' --title "$(printf_action "${title} -")" \
+    # Run command and show spinner.
+    gum spin --align='right' --title "$(printf_action '%b -' "${title}")" \
         -- bash -c "${command} &>> ${LOG_FILE}"
 
     # Return exit code and skip status if non-zero
