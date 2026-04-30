@@ -394,7 +394,7 @@ print_summary() {
     local boot_part="$2"
     local root_part="$3"
 
-    printf_section "Resulting layout\n"
+    printf_section "Resulting layout\n\n"
 
     # Columns: Partition Size Crypt FS Label Subvolume Mount
     local fmt='   %-16s %-9s %-7s %-6s %-7s %-17s %s\n'
@@ -525,13 +525,8 @@ main() {
 
     ## Partition / encrypt / format / subvolumes / mount
 
-    echo
-    echo "$esp_part"
-    echo "$boot_part"
-    echo "$root_part"
-
-    # partition_disk     "$disk"
-    # encrypt_root       "$root_part"
+    partition_disk     "$disk"
+    encrypt_root       "$root_part"
     # format_partitions  "$esp_part" "$boot_part"
     # create_subvolumes  "$boot_part"
     # mount_targets      "$esp_part" "$boot_part"
@@ -544,7 +539,6 @@ main() {
 
     print_summary "$esp_part" "$boot_part" "$root_part"
 
-    echo
     return 0
 }
 
