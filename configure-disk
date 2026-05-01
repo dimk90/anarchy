@@ -208,7 +208,8 @@ partition_disk() {
     # Wait for the kernel to pick up the new partition table
     action_run 'Settle partition table'                              \
         "as_root partprobe '$disk' && as_root udevadm settle"        \
-        'done'
+        'done'                                                       \
+        'timeout'
     assert $? 'partition table did not settle'
 }
 
@@ -291,7 +292,8 @@ create_subvolumes() {
 
     action_run 'Unmount boot top-level'              \
         "as_root umount '$MNT'"                      \
-        'done'
+        'done'                                       \
+        'busy'
     assert $? "can't unmount $MNT"
 
     # Root subvolumes ---------------------------------------------------------
@@ -311,7 +313,8 @@ create_subvolumes() {
 
     action_run 'Unmount root top-level'              \
         "as_root umount '$MNT'"                      \
-        'done'
+        'done'                                       \
+        'busy'
     assert $? "can't unmount $MNT"
 }
 
@@ -491,7 +494,7 @@ main() {
 
     # Verify that disk is SSD (mount options below are tuned for non-rotational media)
     export -f is_disk_ssd
-    if ! action_run 'Checking media type' "is_disk_ssd ${disk}" 'SSD'; then
+    if ! action_run 'Checking media type' "is_disk_ssd ${disk}" 'SSD' 'HDD'; then
         echo
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not an SSD\n"  \
             "$(gum style --foreground "$GUM_YELLOW" "$disk")"
@@ -501,7 +504,7 @@ main() {
 
     # Verify disk is empty
     export -f is_disk_empty
-    if ! action_run 'Checking disk' "is_disk_empty ${disk}" 'empty disk'; then
+    if ! action_run 'Checking disk' "is_disk_empty ${disk}" 'empty disk' 'not empty'; then
         echo
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not empty\n\n"  \
             "$(gum style --foreground "$GUM_YELLOW" "$disk")"
