@@ -30,7 +30,7 @@ CRYPT_NAME='cryptroot'
 MNT='/mnt'
 
 # Btrfs mount options
-BTRFS_OPTS='noatime,ssd,commit=120,compress=zstd:1,space_cache=v2'
+BTRFS_OPTS='noatime,ssd,discard=async,commit=120,compress=zstd:1,space_cache=v2'
 
 # Tightened /efi (vfat) mount options for fstab (genfstab leaves "defaults")
 EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=winnt,nofail'
@@ -241,6 +241,13 @@ encrypt_root() {
         "printf '%s' '$passphrase' | as_root cryptsetup open --batch-mode --key-file=- '$part' '$CRYPT_NAME'"                   \
         'done'
     assert $? "can't open $part"
+
+    # Persist allow-discards on the LUKS header so TRIMs from btrfs
+    # (discard=async) reach the SSD across every future open.
+    action_run "Persist $(gum style --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')"  \
+        "as_root cryptsetup --persistent refresh --allow-discards '$CRYPT_NAME'"                                         \
+        'done'
+    assert $? "can't persist allow-discards"
 }
 
 
@@ -530,13 +537,13 @@ main() {
 
     partition_disk     "$disk"
     encrypt_root       "$root_part"
-    # format_partitions  "$esp_part" "$boot_part"
-    # create_subvolumes  "$boot_part"
-    # mount_targets      "$esp_part" "$boot_part"
+    format_partitions  "$esp_part" "$boot_part"
+    create_subvolumes  "$boot_part"
+    mount_targets      "$esp_part" "$boot_part"
 
     ## genfstab
 
-    # generate_fstab
+    generate_fstab
 
     ## Summary
 
