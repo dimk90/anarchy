@@ -244,8 +244,8 @@ encrypt_root() {
 
     # Persist allow-discards on the LUKS header so TRIMs from btrfs
     # (discard=async) reach the SSD across every future open.
-    action_run "Persist $(gum style --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')"  \
-        "as_root cryptsetup --persistent refresh --allow-discards '$CRYPT_NAME'"                                         \
+    action_run "Persist $(gum style --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')"               \
+        "printf '%s' '$passphrase' | as_root cryptsetup --persistent refresh --allow-discards --key-file=- '$CRYPT_NAME'"  \
         'done'
     assert $? "can't persist allow-discards"
 }
