@@ -59,6 +59,12 @@ install_font() {
 }
 
 
+set_keymap() {
+    remove_line '/etc/vconsole.conf' '^KEYMAP=' "$(check_sudo)" || return 1
+    echo 'KEYMAP=us-extra' | as_root tee -a /etc/vconsole.conf
+}
+
+
 install_keymap() {
     #
     # Install and set custom keymap for console
@@ -83,10 +89,9 @@ install_keymap() {
     ## Update /etc/vconsole.conf
 
     action_request_permission 'for updating /etc/vconsole.conf'
-    action_run 'Update keymap in /etc/vconsole.conf' \
-        'as_root localectl set-keymap us-extra' \
-        'done'
-    assert $? "can't set keymap with localectl"
+    export -f set_keymap
+    action_run 'Update keymap in /etc/vconsole.conf' 'set_keymap' 'done'
+    assert $? "can't modify /etc/vconsole.conf"
 }
 
 
