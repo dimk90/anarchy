@@ -47,11 +47,10 @@ install_font() {
 
     if is_command_available 'mkinitcpio'; then
         action_request_permission 'for updating initramfs'
+        # mkinitcpio exits 1 on warnings; treat only exit >=2 as failure
         action_run 'Update initramfs to include new font' \
-            "$(check_sudo) mkinitcpio -P"  \
+            "$(check_sudo) mkinitcpio -P; rc=\$?; [ \$rc -le 1 ]"  \
             'done'
-        # mkinitcpio exits 1 on warnings; fail only on hard errors
-        [ $? -le 1 ]
         assert $? 'mkinitcpio failed'
     fi
 
