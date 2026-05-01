@@ -231,12 +231,12 @@ encrypt_root() {
         passphrase=$(action_set_password 'LUKS passphrase') && break
     done
 
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat') on $(gum style --foreground "$GUM_YELLOW" "$part")"  \
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$part")"  \
         "printf '%s' '$passphrase' | as_root cryptsetup luksFormat --type luks2 --batch-mode --key-file=- '$part'"                       \
         'done'
     assert $? 'luksFormat failed'
 
-    action_run "Open $(gum style --foreground "$GUM_YELLOW" "$part") as $(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")"  \
+    action_run "Open $(gum style --foreground "$GUM_YELLOW" "$part")$(gum style --faint ' as ')$(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")"  \
         "printf '%s' '$passphrase' | as_root cryptsetup open --batch-mode --key-file=- '$part' '$CRYPT_NAME'"                   \
         'done'
     assert $? "can't open $part"
