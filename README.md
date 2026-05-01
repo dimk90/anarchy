@@ -48,6 +48,20 @@ The encrypted partition is opened as `/dev/mapper/cryptroot`.
 Btrfs is mounted with `noatime,ssd,compress=zstd:1,space_cache=v2`
 (and `commit=120` on non-root subvolumes).
 
+### drivers
+
+Install hardware drivers grouped by category — Video (mesa + Intel GPU),
+Input (libinput + IIO sensors), Power (tuned), Audio (PipeWire + ALSA),
+Bluetooth (BlueZ + iwd), and Expansion (webcam, removable drives, MTP/PTP).
+The script asks which categories to install (all selected by default) and
+enables the relevant systemd services (`tuned`, `bluetooth`):
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/install-drivers | bash
+```
+
+Vendor-specific GPU packages are installed only on Intel CPUs; AMD/NVIDIA
+hosts get `mesa` plus a warning to install vendor drivers manually.
+
 ### vconsole
 
 Install and configure keymap, font, and locale for virtual console:
