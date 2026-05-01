@@ -1019,14 +1019,19 @@ action_run() {
         command="sleep $UI_INTERACTION_DELAY"
     fi
 
+    # Pre-style the separator so faint survives any \e[0m reset from
+    # inline highlights inside the title.
+    local separator
+    separator="$(gum style --faint ' - ')"
+
     # Run command and show spinner.
-    gum spin --align='right' --title "$(printf_action '%b -' "${title}")" \
+    gum spin --align='right' --title "$(printf_action '%b%b' "${title}" "${separator}")" \
         -- bash -c "${command} &>> ${LOG_FILE}"
 
     # Return exit code and skip status if non-zero
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        printf_action "%b - %b\n" "$title" \
+        printf_action "%b%b%b\n" "$title" "$separator" \
                       "$(gum style --foreground $GUM_RED "$fail_status")"
         return $exit_code
     fi
@@ -1035,7 +1040,7 @@ action_run() {
     if [ -z "$success_status" ]; then
         printf_action "%b\n" "$title"
     else
-        printf_action "%b - %b\n" "$title" \
+        printf_action "%b%b%b\n" "$title" "$separator" \
                       "$(gum style --foreground $GUM_ACCENT "$success_status")"
     fi
 }
