@@ -50,6 +50,8 @@ install_font() {
         action_run 'Update initramfs to include new font' \
             "$(check_sudo) mkinitcpio -P"  \
             'done'
+        # mkinitcpio exits 1 on warnings; fail only on hard errors
+        [ $? -le 1 ]
         assert $? 'mkinitcpio failed'
     fi
 
