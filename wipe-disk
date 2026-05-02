@@ -20,12 +20,13 @@ set +o errexit # disable exit on non-zero exit code
 #
 # Pre-install cleanup: erase an existing install on the target disk.
 # Procedure (per doc/Wipe Device.md):
-#   1. Close stale device-mapper / unmount stale mounts on the target.
-#   2. wipefs -a on partitions, then on the whole disk (order matters:
+#   1. Unmount stale mounts on the target.
+#   2. Close stale device-mapper.
+#   3. wipefs -a on partitions, then on the whole disk (order matters:
 #      once the GPT is gone, partition nodes disappear).
-#   3. sgdisk --zap-all to clear primary/backup GPT and protective MBR.
-#   4. blkdiscard -f for a fast whole-device TRIM (clean wear-leveling).
-#   5. Verify: lsblk shows no children, wipefs finds no signatures.
+#   4. sgdisk --zap-all to clear primary/backup GPT and protective MBR.
+#   5. blkdiscard -f for a fast whole-device TRIM (clean wear-leveling).
+#   6. Verify: lsblk shows no children, wipefs finds no signatures.
 #
 
 
@@ -352,8 +353,8 @@ main() {
 
     ## Wipe procedure
 
-    close_mappers   "$disk"
     unmount_sources "$disk"
+    close_mappers   "$disk"
     wipe_signatures "$disk"
     zap_partition_table "$disk"
     discard_device  "$disk"
