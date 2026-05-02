@@ -46,12 +46,9 @@ install_font() {
     ## Update initramfs to include new font
 
     if is_command_available 'mkinitcpio'; then
-        action_request_permission 'for updating initramfs'
-        # mkinitcpio exits 1 on warnings; treat only exit >=2 as failure
-        action_run 'Update initramfs to include new font' \
-            "$(check_sudo) mkinitcpio -P; rc=\$?; [ \$rc -le 1 ]"  \
-            'done'
-        assert $? 'mkinitcpio failed'
+        printf_action "%b ${STYLE_DIM}run${STYLE_CLR} %b ${STYLE_DIM}manually to embed the font in the system image${STYLE_CLR}\n" \
+            "$(bullet_info)" \
+            "$(gum style --foreground "$GUM_YELLOW" 'mkinitcpio -P')"
     fi
 
     ## Change current font
