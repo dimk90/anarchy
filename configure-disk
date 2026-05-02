@@ -20,8 +20,7 @@ set +o errexit # disable exit on non-zero exit code
 
 
 # Partition layout (sizes from doc/-0- Minimal.md)
-ESP_END='512MiB'
-BOOT_END='2.5GiB'
+ESP_END='6GiB'
 
 # Cryptsetup mapper name for the encrypted root partition
 CRYPT_NAME='cryptroot'
@@ -32,7 +31,7 @@ MNT='/mnt'
 # Btrfs mount options
 BTRFS_OPTS='noatime,ssd,discard=async,commit=120,compress=zstd:1,space_cache=v2'
 
-# Tightened /efi (vfat) mount options for fstab (genfstab leaves "defaults")
+# Tightened /boot (vfat) mount options for fstab (genfstab leaves "defaults")
 EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=winnt,nofail'
 
 
@@ -41,14 +40,13 @@ EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=
 #
 # | Part | Size     | Encryption | Filesystem | Label    | Subvolume         | Mount point        |
 # | :--: | :------- | :--------- | :--------- | :------- | :---------------- | :----------------- |
-# |  p1  | 512 MiB  | —         | FAT32      | —       | —                | `/efi`             |
-# |  p2  | 2 GiB    | —         | btrfs      | `boot`   | `@boot`           | `/boot`            |
-# |  p2  | (shared) | —         | btrfs      | `boot`   | `@boot-snapshots` | `/boot/.snapshots` |
-# |  p3  | rest     | LUKS2      | btrfs      | `rootfs` | `@`               | `/`                |
-# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home`           | `/home`            |
-# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@log`            | `/var/log`         |
-# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
-# |  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
+# |  p1  | 6 GiB    | —         | FAT32      | —       | —                | `/boot`            |
+# |  p2  | rest     | LUKS2      | btrfs      | `rootfs` | `@`               | `/`                |
+# |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home`           | `/home`            |
+# |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home-snapshots` | `/home/.snapshots` |
+# |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@log`            | `/var/log`         |
+# |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
+# |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
 #
 
 
@@ -172,7 +170,7 @@ partition_path() {
 
 partition_disk() {
     #
-    # Create the GPT layout: ESP, /boot, rootfs (per doc/-0- Minimal.md).
+    # Create the GPT layout: ESP, rootfs.
     #
     local disk="$1"
 
@@ -195,13 +193,8 @@ partition_disk() {
         'done'
     assert $? "can't set ESP flag"
 
-    action_run "Create p2: boot (${ESP_END} .. ${BOOT_END})"            \
-        "as_root parted -s '$disk' mkpart boot ${ESP_END} ${BOOT_END}"  \
-        'done'
-    assert $? "can't create boot partition"
-
-    action_run "Create p3: rootfs (${BOOT_END} .. 100%)"              \
-        "as_root parted -s '$disk' mkpart rootfs ${BOOT_END} 100%"    \
+    action_run "Create p2: rootfs (${ESP_END} .. 100%)"              \
+        "as_root parted -s '$disk' mkpart rootfs ${ESP_END} 100%"    \
         'done'
     assert $? "can't create rootfs partition"
 
@@ -253,10 +246,9 @@ encrypt_root() {
 
 format_partitions() {
     #
-    # Format ESP (FAT32), boot (btrfs) and root (btrfs over LUKS).
+    # Format ESP (FAT32) and root (btrfs over LUKS).
     #
     local esp_part="$1"
-    local boot_part="$2"
 
     printf_section "Formatting filesystems\n"
 
@@ -264,11 +256,6 @@ format_partitions() {
         "as_root mkfs.fat -F32 '$esp_part'"                                    \
         'done'
     assert $? "can't format ESP partition"
-
-    action_run "Format boot -> $(gum style --foreground "$GUM_YELLOW" 'btrfs')" \
-        "as_root mkfs.btrfs -f -L boot '$boot_part'"                            \
-        'done'
-    assert $? "can't format boot partition"
 
     action_run "Format rootfs -> $(gum style --foreground "$GUM_YELLOW" 'btrfs')" \
         "as_root mkfs.btrfs -f -L rootfs '/dev/mapper/${CRYPT_NAME}'"             \
@@ -279,42 +266,27 @@ format_partitions() {
 
 create_subvolumes() {
     #
-    # Create btrfs subvolumes on boot and root partitions.
+    # Create btrfs subvolumes on the root partition.
     #
-    local boot_part="$1"
-
     printf_section "Creating subvolumes\n"
 
-    # Boot subvolumes ---------------------------------------------------------
-    action_run 'Mount top-level of boot partition'   \
-        "as_root mount '$boot_part' '$MNT'"          \
-        'done'
-    assert $? "can't mount $boot_part"
-
-    action_run 'Create @boot, @boot-snapshots'                   \
-        "as_root btrfs subvolume create '$MNT/@boot' &&          \
-         as_root btrfs subvolume create '$MNT/@boot-snapshots'"  \
-        'done'
-    assert $? "can't create boot subvolumes"
-
-    action_run 'Unmount boot top-level'              \
-        "as_root umount '$MNT'"                      \
-        'done'                                       \
-        'busy'
-    assert $? "can't unmount $MNT"
-
-    # Root subvolumes ---------------------------------------------------------
     action_run 'Mount top-level of root partition'                \
         "as_root mount '/dev/mapper/${CRYPT_NAME}' '$MNT'"        \
         'done'
     assert $? "can't mount cryptroot"
 
-    action_run 'Create @, @home, @log, @cache, @snapshots'         \
-        "as_root btrfs subvolume create '$MNT/@' &&                \
-         as_root btrfs subvolume create '$MNT/@home' &&            \
-         as_root btrfs subvolume create '$MNT/@log' &&             \
-         as_root btrfs subvolume create '$MNT/@cache' &&           \
-         as_root btrfs subvolume create '$MNT/@snapshots'"         \
+    create_root_subvolumes() {
+        as_root btrfs subvolume create "$MNT/@"               &&
+        as_root btrfs subvolume create "$MNT/@home"           &&
+        as_root btrfs subvolume create "$MNT/@home-snapshots" &&
+        as_root btrfs subvolume create "$MNT/@log"            &&
+        as_root btrfs subvolume create "$MNT/@cache"          &&
+        as_root btrfs subvolume create "$MNT/@snapshots"
+    }
+    export -f create_root_subvolumes
+
+    action_run 'Create @, @home, @home-snapshots, @log, @cache, @snapshots' \
+        'create_root_subvolumes'                                            \
         'done'
     assert $? "can't create root subvolumes"
 
@@ -332,37 +304,46 @@ mount_targets() {
     # creating mount-point directories as needed.
     #
     local esp_part="$1"
-    local boot_part="$2"
     local cryptdev="/dev/mapper/${CRYPT_NAME}"
 
     printf_section "Mounting subvolumes\n"
 
     # Root @
-    action_run "Mount @ at $MNT"                                            \
+    action_run "Mount @ at $MNT"                                       \
         "as_root mount -o subvol=@,${BTRFS_OPTS} '$cryptdev' '$MNT'"   \
         'done'
     assert $? "can't mount @"
 
     # Mount-point directories for the rest
-    action_run 'Create /home /var/log /var/cache /.snapshots /boot /efi'    \
-        "as_root mkdir -p '$MNT/home' '$MNT/var/log' '$MNT/var/cache'       \
-                          '$MNT/.snapshots' '$MNT/boot' '$MNT/efi'"         \
+    action_run 'Create /home /var/log /var/cache /.snapshots /boot'    \
+        "as_root mkdir -p '$MNT/home' '$MNT/var/log' '$MNT/var/cache'  \
+                          '$MNT/.snapshots' '$MNT/boot'"               \
         'done'
     assert $? "can't create mount-point directories"
 
     # Remaining root subvolumes
-    action_run "Mount @home at $MNT/home"                                                       \
-        "as_root mount -o subvol=@home,${BTRFS_OPTS} '$cryptdev' '$MNT/home'"             \
+    action_run "Mount @home at $MNT/home"                                          \
+        "as_root mount -o subvol=@home,${BTRFS_OPTS} '$cryptdev' '$MNT/home'"      \
         'done'
     assert $? "can't mount @home"
 
-    action_run "Mount @log at $MNT/var/log"                                                     \
-        "as_root mount -o subvol=@log,${BTRFS_OPTS} '$cryptdev' '$MNT/var/log'"           \
+    action_run "Create $MNT/home/.snapshots"            \
+        "as_root mkdir -p '$MNT/home/.snapshots'"       \
+        'done'
+    assert $? "can't create $MNT/home/.snapshots"
+
+    action_run "Mount @home-snapshots at $MNT/home/.snapshots"                                            \
+        "as_root mount -o subvol=@home-snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/home/.snapshots'"  \
+        'done'
+    assert $? "can't mount @home-snapshots"
+
+    action_run "Mount @log at $MNT/var/log"                                        \
+        "as_root mount -o subvol=@log,${BTRFS_OPTS} '$cryptdev' '$MNT/var/log'"    \
         'done'
     assert $? "can't mount @log"
 
-    action_run "Mount @cache at $MNT/var/cache"                                                 \
-        "as_root mount -o subvol=@cache,${BTRFS_OPTS} '$cryptdev' '$MNT/var/cache'"       \
+    action_run "Mount @cache at $MNT/var/cache"                                          \
+        "as_root mount -o subvol=@cache,${BTRFS_OPTS} '$cryptdev' '$MNT/var/cache'"      \
         'done'
     assert $? "can't mount @cache"
 
@@ -371,25 +352,9 @@ mount_targets() {
         'done'
     assert $? "can't mount @snapshots"
 
-    # Boot subvolumes
-    action_run "Mount @boot at $MNT/boot"                                                  \
-        "as_root mount -o subvol=@boot,${BTRFS_OPTS} '$boot_part' '$MNT/boot'"        \
-        'done'
-    assert $? "can't mount @boot"
-
-    action_run "Create $MNT/boot/.snapshots"            \
-        "as_root mkdir -p '$MNT/boot/.snapshots'"       \
-        'done'
-    assert $? "can't create $MNT/boot/.snapshots"
-
-    action_run "Mount @boot-snapshots at $MNT/boot/.snapshots"                                            \
-        "as_root mount -o subvol=@boot-snapshots,${BTRFS_OPTS} '$boot_part' '$MNT/boot/.snapshots'"  \
-        'done'
-    assert $? "can't mount @boot-snapshots"
-
     # ESP
-    action_run "Mount ESP at $MNT/efi"            \
-        "as_root mount '$esp_part' '$MNT/efi'"    \
+    action_run "Mount ESP at $MNT/boot"            \
+        "as_root mount '$esp_part' '$MNT/boot'"    \
         'done'
     assert $? "can't mount ESP"
 }
@@ -401,8 +366,7 @@ print_summary() {
     # Print the resulting partition / subvolume layout as a table.
     #
     local esp_part="$1"
-    local boot_part="$2"
-    local root_part="$3"
+    local root_part="$2"
 
     printf_section "Resulting layout\n\n"
 
@@ -415,11 +379,10 @@ print_summary() {
     printf "%b" "${STYLE_CLR}"
 
     # Rows
-    printf "$fmt" "$esp_part"  '512 MiB'  '-'     'fat32' '-'      '-'                '/efi'
-    printf "$fmt" "$boot_part" '2 GiB'    '-'     'btrfs' 'boot'   '@boot'            '/boot'
-    printf "$fmt" ''           '(shared)' '-'     'btrfs' 'boot'   '@boot-snapshots'  '/boot/.snapshots'
+    printf "$fmt" "$esp_part"  '6 GiB'    '-'     'fat32' '-'      '-'                '/boot'
     printf "$fmt" "$root_part" 'rest'     'LUKS2' 'btrfs' 'rootfs' '@'                '/'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@home'            '/home'
+    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@home-snapshots'  '/home/.snapshots'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@log'             '/var/log'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@cache'           '/var/cache'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@snapshots'       '/.snapshots'
@@ -428,8 +391,7 @@ print_summary() {
 
 generate_fstab() {
     #
-    # Run genfstab and tighten /efi mount options.
-    # genfstab handles /boot and /boot/.snapshots correctly already.
+    # Run genfstab and tighten /boot (ESP) mount options.
     #
     printf_section "Generating fstab\n"
 
@@ -454,12 +416,12 @@ generate_fstab() {
         'done'
     assert $? 'genfstab failed'
 
-    # Tighten /efi: replace the auto-generated options token with EFI_OPTS.
-    # Match: <device><spaces>/efi<spaces>vfat<spaces><opts-token>
+    # Tighten /boot (ESP): replace the auto-generated options token with EFI_OPTS.
+    # Match: <device><spaces>/boot<spaces>vfat<spaces><opts-token>
     local cmd_fix_efi
-    cmd_fix_efi="as_root sed -i -E 's|(^[^[:space:]#]+[[:space:]]+/efi[[:space:]]+vfat[[:space:]]+)[^[:space:]]+|\\1${EFI_OPTS}|' '$MNT/etc/fstab'"
-    action_run 'Tighten /efi mount options' "$cmd_fix_efi" 'done'
-    assert $? "can't tighten /efi options"
+    cmd_fix_efi="as_root sed -i -E 's|(^[^[:space:]#]+[[:space:]]+/boot[[:space:]]+vfat[[:space:]]+)[^[:space:]]+|\\1${EFI_OPTS}|' '$MNT/etc/fstab'"
+    action_run 'Tighten /boot mount options' "$cmd_fix_efi" 'done'
+    assert $? "can't tighten /boot options"
 }
 
 
@@ -528,18 +490,17 @@ main() {
 
     ## Build partition paths
 
-    local esp_part boot_part root_part
+    local esp_part root_part
     esp_part=$(partition_path "$disk" 1)
-    boot_part=$(partition_path "$disk" 2)
-    root_part=$(partition_path "$disk" 3)
+    root_part=$(partition_path "$disk" 2)
 
     ## Partition / encrypt / format / subvolumes / mount
 
     partition_disk     "$disk"
     encrypt_root       "$root_part"
-    format_partitions  "$esp_part" "$boot_part"
-    create_subvolumes  "$boot_part"
-    mount_targets      "$esp_part" "$boot_part"
+    format_partitions  "$esp_part"
+    create_subvolumes
+    mount_targets      "$esp_part"
 
     ## genfstab
 
@@ -547,7 +508,7 @@ main() {
 
     ## Summary
 
-    print_summary "$esp_part" "$boot_part" "$root_part"
+    print_summary "$esp_part" "$root_part"
 
     return 0
 }
