@@ -275,18 +275,12 @@ create_subvolumes() {
         'done'
     assert $? "can't mount cryptroot"
 
-    create_root_subvolumes() {
-        as_root btrfs subvolume create "$MNT/@"               &&
-        as_root btrfs subvolume create "$MNT/@home"           &&
-        as_root btrfs subvolume create "$MNT/@home-snapshots" &&
-        as_root btrfs subvolume create "$MNT/@log"            &&
-        as_root btrfs subvolume create "$MNT/@cache"          &&
-        as_root btrfs subvolume create "$MNT/@snapshots"
-    }
-    export -f create_root_subvolumes
-
-    action_run 'Create @, @home, @home-snapshots, @log, @cache, @snapshots' \
-        'create_root_subvolumes'                                            \
+    action_run 'Create @, @home, @log, @cache, @snapshots'         \
+        "as_root btrfs subvolume create '$MNT/@' &&                \
+         as_root btrfs subvolume create '$MNT/@home' &&            \
+         as_root btrfs subvolume create '$MNT/@log' &&             \
+         as_root btrfs subvolume create '$MNT/@cache' &&           \
+         as_root btrfs subvolume create '$MNT/@snapshots'"         \
         'done'
     assert $? "can't create root subvolumes"
 
