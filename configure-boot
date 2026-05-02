@@ -1,0 +1,403 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Constants
+
+
+# Cryptsetup mapper name (must match configure-disk)
+CRYPT_NAME='cryptroot'
+
+# mkinitcpio HOOKS line — systemd-flavor for sd-encrypt + TPM later.
+# Replaces the Arch default: udev->systemd, keymap+consolefont->sd-vconsole,
+# encrypt->sd-encrypt, fsck removed (useless for btrfs).
+MKINITCPIO_HOOKS='HOOKS=(base systemd autodetect microcode modconf kms keyboard sd-vconsole block sd-encrypt filesystems)'
+
+# UKI output path (matches /etc/mkinitcpio.d/linux.preset)
+UKI_PATH='/boot/EFI/Linux/arch-linux.efi'
+UKI_LOADER='\EFI\Linux\arch-linux.efi'
+UKI_LABEL='Arch Linux (UKI)'
+
+# EDK2 UEFI Shell paths and label
+EDK2_SHELL_SRC='/usr/share/edk2-shell/x64/Shell_Full.efi'
+EDK2_SHELL_DST='/boot/EFI/shellx64.efi'
+EDK2_SHELL_LOADER='\EFI\shellx64.efi'
+EDK2_SHELL_LABEL='UEFI Shell'
+
+
+## Routines
+
+
+is_intel_cpu() {
+    #
+    # Check whether the running CPU is from Intel.
+    #
+    grep -q 'GenuineIntel' /proc/cpuinfo
+}
+
+
+detect_luks_partition() {
+    #
+    # Print the LUKS partition device path on stdout.
+    # Prefers the partition backing /dev/mapper/<CRYPT_NAME> when open;
+    # otherwise falls back to a single crypto_LUKS partition from blkid.
+    # Returns 1 if no unique candidate is found.
+    #
+    local part
+    if [ -e "/dev/mapper/${CRYPT_NAME}" ]; then
+        part=$(as_root cryptsetup status "${CRYPT_NAME}" 2>>"$LOG_FILE" \
+                 | awk '/device:/ {print $2}')
+        if [ -n "$part" ]; then
+            echo "$part"
+            return 0
+        fi
+    fi
+
+    local parts=()
+    mapfile -t parts < <(as_root blkid -t TYPE=crypto_LUKS -o device 2>>"$LOG_FILE")
+    if [ "${#parts[@]}" -eq 1 ]; then
+        echo "${parts[0]}"
+        return 0
+    fi
+
+    return 1
+}
+
+
+detect_esp_mount() {
+    #
+    # Print partition device path mounted at /boot.
+    #
+    findmnt -n -o SOURCE /boot 2>>"$LOG_FILE"
+}
+
+
+parse_disk_part() {
+    #
+    # Convert a partition device path to "<disk>|<index>".
+    #   /dev/nvme0n1p1 -> /dev/nvme0n1|1
+    #   /dev/sda1      -> /dev/sda|1
+    # NVMe-style needs the 'p' separator (digit before 'p' before idx).
+    #
+    local part="$1"
+    local disk='' idx=''
+
+    if [[ "$part" =~ ^(.*[0-9])p([0-9]+)$ ]]; then
+        disk="${BASH_REMATCH[1]}"
+        idx="${BASH_REMATCH[2]}"
+    elif [[ "$part" =~ ^(.*[^0-9])([0-9]+)$ ]]; then
+        disk="${BASH_REMATCH[1]}"
+        idx="${BASH_REMATCH[2]}"
+    fi
+
+    echo "${disk}|${idx}"
+}
+
+
+install_microcode() {
+    #
+    # Install CPU microcode. Bundled into the UKI by mkinitcpio's
+    # `microcode` hook — no separate file or module_path needed.
+    #
+    printf_section "Installing CPU microcode\n"
+
+    if is_intel_cpu; then
+        action_require_package 'intel-ucode'
+    else
+        printf_warning "%b\n" 'Non-Intel CPU - install vendor microcode (e.g. amd-ucode) manually'
+    fi
+}
+
+
+update_mkinitcpio_hooks() {
+    #
+    # Switch /etc/mkinitcpio.conf HOOKS to systemd flavor.
+    # Required for sd-encrypt (LUKS unlock) and TPM2 unsealing later.
+    #
+    printf_section "Configuring mkinitcpio hooks\n"
+
+    if [ -f '/etc/mkinitcpio.conf' ]; then
+        action_request_permission 'for backing up /etc/mkinitcpio.conf'
+        local backup_name
+        backup_name=$(backup_file '/etc/mkinitcpio.conf' "$(check_sudo)")
+        assert $? "can't backup /etc/mkinitcpio.conf"
+        [ -n "$backup_name" ] && action_run "Backup created: ${STYLE_CLR}${backup_name}"
+    fi
+
+    action_request_permission 'to set systemd HOOKS in /etc/mkinitcpio.conf'
+    action_run 'Switch HOOKS to systemd flavor'                                                  \
+        "replace_line '/etc/mkinitcpio.conf' '^HOOKS=' '${MKINITCPIO_HOOKS}' $(check_sudo)"      \
+        'done'
+    assert $? "can't update HOOKS in /etc/mkinitcpio.conf"
+}
+
+
+write_cmdline() {
+    #
+    # Generate /etc/kernel/cmdline with the LUKS UUID baked in.
+    # mkinitcpio embeds it into the UKI's .cmdline PE section.
+    #
+    local part="$1"
+
+    printf_section "Writing kernel cmdline\n"
+
+    local part_uuid
+    part_uuid=$(as_root blkid -s UUID -o value "$part" 2>>"$LOG_FILE")
+    assert $? "can't read UUID for $part"
+    [ -z "$part_uuid" ] && assert 1 "no UUID found for $part"
+
+    local cmdline="rd.luks.name=${part_uuid}=${CRYPT_NAME} root=/dev/mapper/${CRYPT_NAME} rootflags=subvol=@ rw"
+
+    action_request_permission 'for writing /etc/kernel/cmdline'
+
+    action_run 'Create /etc/kernel directory'   \
+        'as_root mkdir -p /etc/kernel'          \
+        'done'
+    assert $? "can't create /etc/kernel"
+
+    action_run "Write $(gum style --foreground "$GUM_YELLOW" '/etc/kernel/cmdline')"  \
+        "echo '${cmdline}' | as_root tee /etc/kernel/cmdline > /dev/null"             \
+        'done'
+    assert $? "can't write /etc/kernel/cmdline"
+}
+
+
+write_crypttab() {
+    #
+    # Generate /etc/crypttab.initramfs read by sd-encrypt at boot.
+    # Format: <name> <source> <keyfile> <options>
+    #
+    local part="$1"
+
+    printf_section "Writing crypttab.initramfs\n"
+
+    local part_uuid
+    part_uuid=$(as_root blkid -s UUID -o value "$part" 2>>"$LOG_FILE")
+    assert $? "can't read UUID for $part"
+    [ -z "$part_uuid" ] && assert 1 "no UUID found for $part"
+
+    local line="${CRYPT_NAME}  UUID=${part_uuid}  none  luks"
+
+    action_request_permission 'for writing /etc/crypttab.initramfs'
+    action_run "Write $(gum style --foreground "$GUM_YELLOW" '/etc/crypttab.initramfs')"  \
+        "echo '${line}' | as_root tee /etc/crypttab.initramfs > /dev/null"                \
+        'done'
+    assert $? "can't write /etc/crypttab.initramfs"
+}
+
+
+install_preset() {
+    #
+    # Install /etc/mkinitcpio.d/linux.preset that emits a UKI with
+    # the cmdline baked in, and create the UKI output directory.
+    #
+    printf_section "Installing mkinitcpio preset\n"
+
+    action_request_permission 'to install linux.preset'
+    action_install_file '/etc/mkinitcpio.d/linux.preset'                  \
+                        'https://dimk90.github.io/anarchy/boot/linux.preset' \
+                        "$(check_sudo)"
+
+    action_request_permission 'to create /boot/EFI/Linux'
+    action_run 'Create /boot/EFI/Linux'     \
+        'as_root mkdir -p /boot/EFI/Linux'  \
+        'done'
+    assert $? "can't create /boot/EFI/Linux"
+}
+
+
+build_uki() {
+    #
+    # Run mkinitcpio -P to bundle stub + kernel + initramfs + microcode +
+    # cmdline into a single PE binary. Verify the output exists.
+    #
+    printf_section "Building UKI\n"
+
+    action_require_package 'mkinitcpio'
+
+    action_request_permission 'to run mkinitcpio'
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
+        'as_root mkinitcpio -P'                                                \
+        'done'
+    assert $? 'mkinitcpio failed'
+
+    if [ ! -f "$UKI_PATH" ]; then
+        printf_error "UKI not found at %s\n" "$UKI_PATH"
+        exit 1
+    fi
+
+    printf_action "UKI built: ${STYLE_CLR}%b\n" \
+        "$(gum style --foreground "$GUM_YELLOW" "$UKI_PATH")"
+}
+
+
+register_uki() {
+    #
+    # Register the UKI as a UEFI boot entry in NVRAM.
+    #
+    local disk="$1"
+    local part_idx="$2"
+
+    printf_section "Registering UKI in NVRAM\n"
+
+    action_require_package 'efibootmgr'
+
+    action_request_permission 'to add UKI entry to NVRAM'
+    action_run "Register $(gum style --foreground "$GUM_YELLOW" "${UKI_LABEL}")"  \
+        "as_root efibootmgr --create --disk '${disk}' --part ${part_idx}          \
+                            --label '${UKI_LABEL}'                                \
+                            --loader '${UKI_LOADER}' --unicode"                   \
+        'done'
+    assert $? "can't register UKI in NVRAM"
+}
+
+
+install_edk2_shell() {
+    #
+    # Install EDK2 UEFI Shell to the ESP and register it in NVRAM as a
+    # separate boot entry. Useful for low-level diagnostics.
+    #
+    local disk="$1"
+    local part_idx="$2"
+
+    printf_section "Installing EDK2 UEFI Shell\n"
+
+    action_require_package 'edk2-shell'
+
+    action_request_permission "to copy ${EDK2_SHELL_SRC##*/} to ESP"
+    action_run "$(printf '%b%b%b'                                              \
+        "$(gum style --faint 'Copy ')"                                         \
+        "$(gum style --foreground "$GUM_YELLOW" "${EDK2_SHELL_SRC##*/}")"      \
+        "$(gum style --faint " to ${EDK2_SHELL_DST}")")"                       \
+        "as_root cp '${EDK2_SHELL_SRC}' '${EDK2_SHELL_DST}' && as_root sync"   \
+        'done'
+    assert $? "can't install ${EDK2_SHELL_DST}"
+
+    action_require_package 'efibootmgr'
+
+    action_request_permission 'to add UEFI Shell entry to NVRAM'
+    action_run "Register $(gum style --foreground "$GUM_YELLOW" "${EDK2_SHELL_LABEL}")"  \
+        "as_root efibootmgr --create --disk '${disk}' --part ${part_idx}                 \
+                            --label '${EDK2_SHELL_LABEL}'                                \
+                            --loader '${EDK2_SHELL_LOADER}' --unicode"                   \
+        'done'
+    assert $? "can't register UEFI Shell in NVRAM"
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Ask user for boot targets to generate
+
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm EFI Boot Targets')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' --cursor='   > '              \
+                     --header "${section}"                                          \
+                     'UKI - Unified Kernel Image (kernel + initramfs + microcode)'  \
+                     'EDK2 Shell - UEFI shell entry for low-level diagnostics'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    # Print number of selected items
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
+
+    # Empty choice means nothing to do -> exit
+    if [ "$num_choice" -eq 0 ]; then
+        echo
+        return 0
+    fi
+
+    ## Detect ESP partition (shared by all targets)
+
+    printf_section "Detect ESP\n"
+
+    local esp_part
+    esp_part=$(detect_esp_mount)
+    if [ -z "$esp_part" ]; then
+        printf_error "%b\n" 'ESP not mounted at /boot - mount the ESP and re-run'
+        exit 1
+    fi
+
+    local disk_part esp_disk esp_idx
+    disk_part=$(parse_disk_part "$esp_part")
+    esp_disk="${disk_part%|*}"
+    esp_idx="${disk_part##*|}"
+    if [ -z "$esp_disk" ] || [ -z "$esp_idx" ]; then
+        printf_error "can't parse ESP partition path: %s\n" "$esp_part"
+        exit 1
+    fi
+
+    printf_action "ESP: ${STYLE_CLR}%b ${STYLE_DIM}(disk: ${STYLE_CLR}%b${STYLE_DIM}, part: ${STYLE_CLR}%b${STYLE_DIM})\n" \
+        "$(gum style --foreground "$GUM_YELLOW" "$esp_part")"   \
+        "$(gum style --foreground "$GUM_YELLOW" "$esp_disk")"   \
+        "$(gum style --foreground "$GUM_YELLOW" "$esp_idx")"
+
+    ## UKI
+
+    if grep -q 'uki' <<< "$choices"; then
+        # LUKS partition is needed for cmdline + crypttab.initramfs
+        printf_section "Detect LUKS partition\n"
+        local crypt_part
+        crypt_part=$(detect_luks_partition)
+        if [ -z "$crypt_part" ]; then
+            printf_error "%b\n" "can't detect LUKS partition (open ${CRYPT_NAME} or ensure a single crypto_LUKS partition exists)"
+            exit 1
+        fi
+
+        printf_action "LUKS: ${STYLE_CLR}%b\n" \
+            "$(gum style --foreground "$GUM_YELLOW" "$crypt_part")"
+
+        install_microcode
+        update_mkinitcpio_hooks
+        write_cmdline           "$crypt_part"
+        write_crypttab          "$crypt_part"
+        install_preset
+        build_uki
+        register_uki            "$esp_disk" "$esp_idx"
+    fi
+
+    ## EDK2 Shell
+
+    if grep -q 'edk2' <<< "$choices"; then
+        install_edk2_shell      "$esp_disk" "$esp_idx"
+    fi
+
+    return 0
+}
+
+
+main "$@"
