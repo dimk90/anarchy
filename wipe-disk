@@ -115,14 +115,14 @@ list_crypt_mappers() {
 }
 
 
-list_mounted_sources() {
+list_mountpoints() {
     #
-    # Print mounted source devices of a disk (and its partitions/mappers).
+    # Print mountpoints currently in use off a disk (and its partitions/mappers).
     # Empty output means nothing is mounted off the disk.
     #
     local disk="$1"
     lsblk -nlpo NAME,MOUNTPOINT "$disk" 2>>"$LOG_FILE" |
-        awk 'NF == 2 {print $1}'
+        awk 'NF == 2 {print $2}'
 }
 
 
@@ -164,10 +164,10 @@ unmount_sources() {
 
     printf_section "Unmounting stale mounts\n"
 
-    local sources=()
-    mapfile -t sources < <(list_mounted_sources "$disk")
+    local mountpoints=()
+    mapfile -t mountpoints < <(list_mountpoints "$disk")
 
-    if [ "${#sources[@]}" -eq 0 ]; then
+    if [ "${#mountpoints[@]}" -eq 0 ]; then
         printf_action "%b\n" "$(gum style --faint 'nothing mounted')"
         return 0
     fi
@@ -175,13 +175,13 @@ unmount_sources() {
     action_request_permission 'to unmount stale mounts'
 
     # Unmount in reverse order to peel children before parents.
-    local i src
-    for ((i = ${#sources[@]} - 1; i >= 0; i--)); do
-        src="${sources[i]}"
-        action_run "Unmount $(gum style --foreground "$GUM_YELLOW" "$src")"  \
-            "as_root umount -R '$src'"                                      \
+    local i mp
+    for ((i = ${#mountpoints[@]} - 1; i >= 0; i--)); do
+        mp="${mountpoints[i]}"
+        action_run "Unmount $(gum style --foreground "$GUM_YELLOW" "$mp")"  \
+            "as_root umount -R '$mp'"                                      \
             'done'
-        assert $? "can't unmount $src"
+        assert $? "can't unmount $mp"
     done
 }
 
