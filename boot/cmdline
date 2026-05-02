@@ -1,0 +1,1 @@
+rd.luks.name=${CRYPT_PART_UUID}=cryptroot root=/dev/mapper/cryptroot rootflags=subvol=@ rw
