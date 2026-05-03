@@ -24,10 +24,6 @@ ALIASES=(
     # ls
     'll' 'ls -lah --group-directories-first --color=auto'
     'lh' 'll -d .*'
-    # history
-    'h'  'history | grep -i '
-    # process
-    'p'  'ps aux | grep -i '
     # io
     'less' 'less -x4' # tabs are 4 wide
     # disks
