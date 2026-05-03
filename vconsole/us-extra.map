@@ -1,14 +1,15 @@
-# Custom keymap based on US ANSI layout with additional Ctrl combinations
-# Load with: loadkeys custom.map
-
+# Custom keymap based on US ANSI layout with Ctrl+, Shift+, Alt+ combinations
+# Load with: loadkeys us-extra.map
+#
 # Note:
 #   - Show keycode via (raw, before mapping):
 #          showkey -k
 #   - Show key symbols (after mapping):
 #          showkey -a
+#
 
 # The base US keymap
-include "/usr/share/kbd/keymaps/i386/qwerty/us.map.gz"
+include "us.map"
 
 # Define custom function key codes
 # F100-F103 typically unused

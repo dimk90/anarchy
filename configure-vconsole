@@ -76,7 +76,7 @@ install_keymap() {
     ## Download & install keymap file
 
     action_request_permission 'to install us-extra.map'
-    action_install_file '/usr/share/kbd/keymaps/us-extra.map' \
+    action_install_file '/usr/share/kbd/keymaps/i386/qwerty/us-extra.map' \
                         'https://dimk90.github.io/anarchy/vconsole/us-extra.map' \
                         "$(check_sudo)"
 
