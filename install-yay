@@ -64,6 +64,7 @@ main() {
         assert $? "failed to clone yay's PKGBUILD"
 
         # Build package
+        action_request_permission 'to install yay dependencies'
         action_run 'Building' \
             "makepkg -s --noconfirm -D $tmpdir" \
             'done'
