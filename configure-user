@@ -1,0 +1,333 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Constants
+
+
+# Default groups for the new user
+DEFAULT_GROUPS='wheel,input'
+
+# Default login shell
+DEFAULT_SHELL='/bin/bash'
+
+# Mount point used for top-level btrfs access (matches configure-disk)
+MNT='/mnt'
+
+# Btrfs mount options for the cache subvolume (kept identical to configure-disk
+# so subvolume mount options stay consistent across the filesystem).
+BTRFS_OPTS='noatime,ssd,discard=async,commit=120,compress=zstd:1,space_cache=v2'
+
+
+## Routines
+
+
+user_exists() {
+    #
+    # Return 0 if the given user is present in /etc/passwd.
+    #
+    id -u "$1" &>> "$LOG_FILE"
+}
+
+
+prompt_username() {
+    #
+    # Read a username from the user via gum input. Echoes the value to stdout
+    # so callers can `user=$(prompt_username)`. UI lines stay on stderr.
+    #
+    local title
+    title=$(printf_action 'Username')
+
+    gum input --char-limit=32                              \
+              --no-show-help                               \
+              --placeholder='e.g. dimk'                    \
+              --prompt="${title} $(gum style --foreground "$GUM_WHITE" '>') " \
+              </dev/tty
+}
+
+
+# shellcheck disable=SC2329
+btrfs_create_cache_subvol() {
+    #
+    # Mount the btrfs top-level (subvolid=5) at $MNT, create @<user>-cache
+    # if absent, set the no-CoW attribute on its root, then unmount.
+    #
+    # subvolid=5 is required because the running system has its default
+    # subvolume set to '@'; without it, we'd land inside @ and create a
+    # nested subvolume instead of a toplevel sibling.
+    #
+    # The +C attribute on the empty subvolume root is inherited by every
+    # file created beneath it, which is the only supported way to disable
+    # CoW per-subvolume on btrfs.
+    #
+    local subvol="$1"
+    local btrfs_dev="$2"
+
+    as_root mount -o subvolid=5 "$btrfs_dev" "$MNT" || return 1
+
+    if ! as_root btrfs subvolume show "${MNT}/${subvol}" &>> "$LOG_FILE"; then
+        if ! as_root btrfs subvolume create "${MNT}/${subvol}"; then
+            as_root umount "$MNT"
+            return 1
+        fi
+    fi
+
+    if ! as_root chattr +C "${MNT}/${subvol}"; then
+        as_root umount "$MNT"
+        return 1
+    fi
+
+    as_root umount "$MNT"
+}
+
+
+# shellcheck disable=SC2329
+chpasswd_from_file() {
+    #
+    # Apply a "user:password" line from a file via chpasswd, then shred the
+    # file. Keeping the secret out of the command line (file is read via
+    # stdin redirection inside as_root) avoids leaking it via
+    # /proc/<pid>/cmdline of the spinner's bash -c.
+    # The shred runs unconditionally so a chpasswd failure cannot leave the
+    # password on disk.
+    #
+    local pwfile="$1"
+    as_root chpasswd < "$pwfile"
+    local rc=$?
+    shred -u "$pwfile" 2>/dev/null
+    return $rc
+}
+
+
+configure_user_account() {
+    local user="$1"
+
+    printf_section "User account\n"
+
+    if user_exists "$user"; then
+        printf_action "User exists: ${STYLE_CLR}${user}\n"
+        return 0
+    fi
+
+    # Create the user
+    action_request_permission "to create user ${user}"
+    action_run "$(printf '%b %b %b'                              \
+        "$(gum style --faint 'Create user')"                     \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$user")" \
+        "$(gum style --faint "(groups: ${DEFAULT_GROUPS})")"     \
+    )" "$(check_sudo) useradd -m -G ${DEFAULT_GROUPS} -s ${DEFAULT_SHELL} ${user}" \
+       'created'
+    assert $? "failed to create user ${user}"
+
+    # Read password (with confirmation) and apply it via chpasswd
+    local password
+    password=$(action_set_password "Password for ${user}")
+    assert $? 'password setup cancelled'
+
+    local pwfile
+    pwfile=$(mktemp)
+    assert $? "can't create temp password file"
+    chmod 600 "$pwfile"
+    printf '%s:%s\n' "$user" "$password" > "$pwfile"
+    unset password
+
+    action_request_permission "to set password for ${user}"
+    export -f chpasswd_from_file
+    action_run "Set password for ${STYLE_CLR}${STYLE_BOLD}${user}" \
+        "chpasswd_from_file ${pwfile}"                             \
+        'done'
+    assert $? "failed to set password for ${user}"
+}
+
+
+configure_opt_dir() {
+    local user="$1"
+    local opt_dir="/opt/${user}"
+
+    printf_section "Workspace ${STYLE_CLR}${opt_dir}\n"
+
+    action_request_permission "to set up ${opt_dir}"
+
+    if [ ! -d "$opt_dir" ]; then
+        action_run "Create ${STYLE_CLR}${opt_dir}" \
+            "$(check_sudo) mkdir -p ${opt_dir}"    \
+            'done'
+        assert $? "failed to create ${opt_dir}"
+    else
+        printf_action "Directory exists: ${STYLE_CLR}${opt_dir}\n"
+    fi
+
+    action_run "Set owner ${STYLE_CLR}${user}:${user}"        \
+        "$(check_sudo) chown ${user}:${user} ${opt_dir}"      \
+        'done'
+    assert $? "failed to chown ${opt_dir}"
+}
+
+
+configure_cache_subvolume() {
+    local user="$1"
+    local cache_dir="/home/${user}/.cache"
+    local subvol="@${user}-cache"
+
+    printf_section "Cache subvolume ${STYLE_CLR}${subvol}\n"
+
+    # Detect filesystem backing /home — skip the carve-out if not btrfs
+    local fstype
+    fstype=$(findmnt -no FSTYPE --target /home 2>> "$LOG_FILE")
+
+    if [ "$fstype" != 'btrfs' ]; then
+        printf_info "/home is %b%s%b - %bskipping subvolume carve-out%b\n" \
+            "${STYLE_BOLD}${FG_BLUE}" "${fstype:-unknown}" "${STYLE_CLR}"  \
+            "${STYLE_DIM}" "${STYLE_CLR}"
+
+        # Still ensure the cache directory exists and is owned by the user;
+        # apps will populate it under whatever filesystem /home lives on.
+        action_request_permission "to create ${cache_dir}"
+        action_run "Create ${STYLE_CLR}${cache_dir}"                              \
+            "$(check_sudo) mkdir -p ${cache_dir} &&                               \
+             $(check_sudo) chown ${user}:${user} ${cache_dir}"                    \
+            'done'
+        return 0
+    fi
+
+    # Resolve the underlying device. findmnt SOURCE for a subvolume looks like
+    # '/dev/mapper/cryptroot[/@home]' — strip the '[...]' to get just the device.
+    local btrfs_dev
+    btrfs_dev=$(findmnt -no SOURCE --target /home 2>> "$LOG_FILE")
+    btrfs_dev=${btrfs_dev%%\[*}
+
+    if [ -z "$btrfs_dev" ]; then
+        printf_warning "could not determine btrfs device for /home - skipping carve-out\n"
+        return 0
+    fi
+    printf_action "Btrfs device: ${STYLE_CLR}${btrfs_dev}\n"
+
+    # Create the subvolume + disable CoW (one privileged step, single spinner)
+    action_request_permission "to create subvolume ${subvol}"
+    export -f btrfs_create_cache_subvol
+    action_run "Create subvolume ${STYLE_CLR}${STYLE_BOLD}${subvol}"  \
+        "btrfs_create_cache_subvol ${subvol} ${btrfs_dev}"            \
+        'done'
+    assert $? "failed to carve subvolume ${subvol}"
+
+    # Look up the device UUID for the fstab entry
+    local uuid
+    uuid=$($(check_sudo) blkid -s UUID -o value "$btrfs_dev" 2>> "$LOG_FILE")
+    assert $? "failed to read UUID for ${btrfs_dev}"
+    [ -z "$uuid" ] && assert 1 "empty UUID for ${btrfs_dev}"
+    printf_action "Device UUID: ${STYLE_CLR}${uuid}\n"
+
+    # Add fstab entry. Idempotent: skip if a line already mounts $cache_dir.
+    action_request_permission 'to add /etc/fstab entry'
+    if $(check_sudo) grep -qE "[[:space:]]${cache_dir//./\\.}[[:space:]]" /etc/fstab &>> "$LOG_FILE"; then
+        printf_action "fstab already mounts ${STYLE_CLR}${cache_dir}\n"
+    else
+        local fstab_line="UUID=${uuid}  ${cache_dir}  btrfs  subvol=${subvol},${BTRFS_OPTS}  0 0"
+        action_run "Append fstab entry for ${STYLE_CLR}${cache_dir}"   \
+            "echo '${fstab_line}' | $(check_sudo) tee -a /etc/fstab"   \
+            'done'
+        assert $? 'failed to append /etc/fstab entry'
+    fi
+
+    # Reload systemd's view, create the mount point, mount, hand to user
+    action_request_permission 'to reload fstab and mount the subvolume'
+    action_run 'Reload systemd daemon'                  \
+        "$(check_sudo) systemctl daemon-reload"         \
+        'done'
+    assert $? 'systemctl daemon-reload failed'
+
+    action_run "Create mount point ${STYLE_CLR}${cache_dir}"  \
+        "$(check_sudo) mkdir -p ${cache_dir}"                 \
+        'done'
+    assert $? "failed to create ${cache_dir}"
+
+    action_run 'Mount via fstab'                        \
+        "$(check_sudo) mount -a"                        \
+        'done'
+    assert $? 'mount -a failed'
+
+    action_run "Set owner ${STYLE_CLR}${user}:${user}"          \
+        "$(check_sudo) chown ${user}:${user} ${cache_dir}"      \
+        'done'
+    assert $? "failed to chown ${cache_dir}"
+
+    printf_info "Run %bbefore%b %s's first login - apps populate ~/.cache on startup\n" \
+        "${STYLE_BOLD}${FG_BLUE}" "${STYLE_CLR}${STYLE_DIM}" "${user}"
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Username
+
+    printf_section "Configure new user\n"
+
+    local user
+    user=$(prompt_username)
+    if [ -z "$user" ]; then
+        printf_error 'username is required\n'
+        return 1
+    fi
+    printf_action "Username: ${STYLE_CLR}${STYLE_BOLD}${user}\n"
+
+    ## Pick steps
+
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm Steps')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*'                  \
+                            --cursor="   > "                           \
+                            --header "${section}"                      \
+                            'Account - useradd + password'             \
+                            'Workspace - /opt/<user>'                  \
+                            'Cache subvolume - btrfs @<user>-cache'); then
+        choices=${choices,,} # lowercase for matching
+    else
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected steps: ${STYLE_CLR}${num_choice}\n"
+    [ "$num_choice" -eq 0 ] && return 0
+
+    ## Run selected steps
+
+    grep -q 'account'         <<< "$choices" && configure_user_account     "$user"
+    grep -q 'workspace'       <<< "$choices" && configure_opt_dir          "$user"
+    grep -q 'cache subvolume' <<< "$choices" && configure_cache_subvolume  "$user"
+
+    return 0
+}
+
+
+main "$@"
