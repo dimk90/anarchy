@@ -118,7 +118,8 @@ install_microcode() {
     if is_intel_cpu; then
         action_require_package 'intel-ucode'
     else
-        printf_warning "%b\n" 'Non-Intel CPU - install vendor microcode (e.g. amd-ucode) manually'
+        printf_action "%b ${STYLE_DIM}non-Intel CPU - install vendor microcode (e.g. amd-ucode) manually${STYLE_CLR}\n" \
+            "$(bullet_warning)"
     fi
 }
 
@@ -300,6 +301,10 @@ install_edk2_shell() {
 
 
 main() {
+
+    # TODO:
+    # - ask for proceed after boot found and cryptroot detected
+    # - ask to select disk?
 
     ## Get gum
 
