@@ -185,15 +185,17 @@ configure_cache_subvolume() {
 
     printf_section "Cache subvolume ${STYLE_CLR}${subvol}\n"
 
-    # Detect filesystem backing /home — skip the carve-out if not btrfs
+    # Detect filesystem backing /home — skip the carve-out if not btrfs.
+    # Lifted into action_run so the section is non-empty on every path:
+    # success status is 'btrfs', failure status is the actual fstype.
     local fstype
     fstype=$(findmnt -no FSTYPE --target /home 2>> "$LOG_FILE")
+    action_run 'Detect /home filesystem'      \
+        "[ '${fstype}' = 'btrfs' ]"           \
+        'btrfs'                               \
+        "${fstype:-unknown}"
 
     if [ "$fstype" != 'btrfs' ]; then
-        printf_info "/home is %b%s%b - %bskipping subvolume carve-out%b\n" \
-            "${STYLE_BOLD}${FG_BLUE}" "${fstype:-unknown}" "${STYLE_CLR}"  \
-            "${STYLE_DIM}" "${STYLE_CLR}"
-
         # Still ensure the cache directory exists and is owned by the user;
         # apps will populate it under whatever filesystem /home lives on.
         action_request_permission "to create ${cache_dir}"
