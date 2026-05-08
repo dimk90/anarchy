@@ -226,14 +226,14 @@ configure_cache_subvolume() {
 
     # Look up the device UUID for the fstab entry
     local uuid
-    uuid=$($(check_sudo) blkid -s UUID -o value "$btrfs_dev" 2>> "$LOG_FILE")
+    uuid=$(as_root blkid -s UUID -o value "$btrfs_dev" 2>> "$LOG_FILE")
     assert $? "failed to read UUID for ${btrfs_dev}"
     [ -z "$uuid" ] && assert 1 "empty UUID for ${btrfs_dev}"
     printf_action "Device UUID: ${STYLE_CLR}${uuid}\n"
 
     # Add fstab entry. Idempotent: skip if a line already mounts $cache_dir.
     action_request_permission 'to add /etc/fstab entry'
-    if $(check_sudo) grep -qE "[[:space:]]${cache_dir//./\\.}[[:space:]]" /etc/fstab &>> "$LOG_FILE"; then
+    if as_root grep -qE "[[:space:]]${cache_dir//./\\.}[[:space:]]" /etc/fstab &>> "$LOG_FILE"; then
         printf_action "fstab already mounts ${STYLE_CLR}${cache_dir}\n"
     else
         local fstab_line="UUID=${uuid}  ${cache_dir}  btrfs  subvol=${subvol},${BTRFS_OPTS}  0 0"
