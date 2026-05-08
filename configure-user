@@ -195,16 +195,9 @@ configure_cache_subvolume() {
         'btrfs'                               \
         "${fstype:-unknown}"
 
-    if [ "$fstype" != 'btrfs' ]; then
-        # Still ensure the cache directory exists and is owned by the user;
-        # apps will populate it under whatever filesystem /home lives on.
-        action_request_permission "to create ${cache_dir}"
-        action_run "Create ${STYLE_CLR}${cache_dir}"                              \
-            "$(check_sudo) mkdir -p ${cache_dir} &&                               \
-             $(check_sudo) chown ${user}:${user} ${cache_dir}"                    \
-            'done'
-        return 0
-    fi
+    # Non-btrfs: nothing to carve out. Apps will create ~/.cache on demand
+    # under whatever filesystem /home lives on.
+    [ "$fstype" != 'btrfs' ] && return 0
 
     # Resolve the underlying device. findmnt SOURCE for a subvolume looks like
     # '/dev/mapper/cryptroot[/@home]' — strip the '[...]' to get just the device.
@@ -271,6 +264,7 @@ configure_cache_subvolume() {
         "${STYLE_BOLD}${FG_BLUE}" "${STYLE_CLR}${STYLE_DIM}" "${user}"
 }
 
+# TODO: remove set password via file?
 
 main() {
 
