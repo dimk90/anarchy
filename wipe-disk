@@ -261,7 +261,6 @@ discard_device() {
     fi
 
     # blkdiscard failed — likely controller doesn't support whole-device TRIM.
-    echo
     printf_warning "%b\n" "blkdiscard not supported on this device"
     printf_info "%b %b\n" \
         "fallback (slow):" \
@@ -300,7 +299,6 @@ verify_clean() {
         return 0
     fi
 
-    echo
     printf_error "%b\n" "disk still has residue:"
     as_root lsblk "$disk"
 

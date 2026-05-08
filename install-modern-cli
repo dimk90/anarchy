@@ -361,7 +361,6 @@ main() {
     install_fzf
     install_delta
 
-    echo
     printf_info "Restart your shell to apply the new configuration\n"
 
     return 0

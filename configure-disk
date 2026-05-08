@@ -459,7 +459,6 @@ main() {
     # Verify that disk is SSD (mount options below are tuned for non-rotational media)
     export -f is_disk_ssd
     if ! action_run 'Checking media type' "is_disk_ssd ${disk}" 'SSD' 'HDD'; then
-        echo
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not an SSD\n"  \
             "$(gum style --foreground "$GUM_YELLOW" "$disk")"
         printf_info "%b\n" 'btrfs mount options (ssd, commit=120) are tuned for non-rotational media'
@@ -469,12 +468,10 @@ main() {
     # Verify disk is empty
     export -f is_disk_empty
     if ! action_run 'Checking disk' "is_disk_empty ${disk}" 'empty disk' 'not empty'; then
-        echo
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not empty\n\n"  \
             "$(gum style --foreground "$GUM_YELLOW" "$disk")"
         printf "%bExisting layout:%b\n" "${STYLE_DIM}" "${STYLE_CLEAR}"
         as_root lsblk "$disk"
-        echo
         printf_info "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
         exit 1
     fi

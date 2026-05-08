@@ -182,19 +182,23 @@ regex_sanitize() {
 ## Print
 
 
-# The output structure:
+# The output flow:
 #
 # :: <section_title>
 #    -> <action_title> [- <status>]
 #    -> <action_title> [- <status>]
 #    -> <action_title> [- <status>]
+#    -> [INFO] <info_message>
 # :: <section_title>
 #    -> <action_title> [- <status>]
-# [WARNING] <message>
+#    -> [WARNING] <warning_message>
 # :: <section_title>
 #    -> <action_title> [- <status>]
 #    -> <action_title> [- <status>]
+#
 # [ERROR] <message>
+# [WARNING] <message>
+# [INFO] <message>
 
 
 bullet_section() {
@@ -320,36 +324,45 @@ printf_action() {
 
 printf_warning() {
     #
-    # Print a warning message with the warning prefix.
+    # Print a warning message with the warning prefix. A leading blank line
+    # is emitted to separate the dedented [WARNING] from the section/action
+    # flow above — these helpers are meant for script terminus only.
     #
     # Example:
     #   printf_warning "Config file already exists"
     #
     local title="$1"
+    echo
     prefix_printf "$(bullet_warning)" "${title}" "${@:2}"
 }
 
 
 printf_error() {
     #
-    # Print a error message with the error prefix.
+    # Print a error message with the error prefix. A leading blank line
+    # is emitted to separate the dedented [ERROR] from the section/action
+    # flow above — these helpers are meant for script terminus only.
     #
     # Example:
     #   printf_error "Can't install package"
     #
     local title="$1"
+    echo
     prefix_printf "$(bullet_error)" "${title}" "${@:2}"
 }
 
 
 printf_info() {
     #
-    # Print a info message with the info prefix.
+    # Print a info message with the info prefix. A leading blank line is
+    # emitted to separate the dedented [INFO] from the section/action
+    # flow above — these helpers are meant for script terminus only.
     #
     # Example:
     #   printf_info "clear backup if after configuring"
     #
     local title="$1"
+    echo
     prefix_printf "$(bullet_info)" "${title}" "${@:2}"
 }
 
