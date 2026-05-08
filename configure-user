@@ -95,24 +95,6 @@ btrfs_create_cache_subvol() {
 }
 
 
-# shellcheck disable=SC2329
-chpasswd_from_file() {
-    #
-    # Apply a "user:password" line from a file via chpasswd, then shred the
-    # file. Keeping the secret out of the command line (file is read via
-    # stdin redirection inside as_root) avoids leaking it via
-    # /proc/<pid>/cmdline of the spinner's bash -c.
-    # The shred runs unconditionally so a chpasswd failure cannot leave the
-    # password on disk.
-    #
-    local pwfile="$1"
-    as_root chpasswd < "$pwfile"
-    local rc=$?
-    shred -u "$pwfile" 2>/dev/null
-    return $rc
-}
-
-
 configure_user_account() {
     local user="$1"
 
@@ -133,24 +115,20 @@ configure_user_account() {
        'created'
     assert $? "failed to create user ${user}"
 
-    # Read password (with confirmation) and apply it via chpasswd
+    # Read password (with confirmation) and apply via chpasswd. Pipe through
+    # the bash printf builtin so the secret never lands in any child's
+    # /proc/<pid>/cmdline, nor on disk.
     local password
     password=$(action_set_password "Password for ${user}")
     assert $? 'password setup cancelled'
 
-    local pwfile
-    pwfile=$(mktemp)
-    assert $? "can't create temp password file"
-    chmod 600 "$pwfile"
-    printf '%s:%s\n' "$user" "$password" > "$pwfile"
-    unset password
-
     action_request_permission "to set password for ${user}"
-    export -f chpasswd_from_file
-    action_run "Set password for ${STYLE_CLR}${STYLE_BOLD}${user}" \
-        "chpasswd_from_file ${pwfile}"                             \
-        'done'
-    assert $? "failed to set password for ${user}"
+    printf '%s:%s\n' "$user" "$password" | as_root chpasswd 2>> "$LOG_FILE"
+    local rc=$?
+    unset password
+    assert $rc "failed to set password for ${user}"
+
+    action_run "Set password for ${STYLE_CLR}${STYLE_BOLD}${user}" '' 'done'
 }
 
 
@@ -264,7 +242,6 @@ configure_cache_subvolume() {
         "${STYLE_BOLD}${FG_BLUE}" "${STYLE_CLR}${STYLE_DIM}" "${user}"
 }
 
-# TODO: remove set password via file?
 
 main() {
 
