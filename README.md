@@ -48,6 +48,36 @@ The encrypted partition is opened as `/dev/mapper/cryptroot`.
 Btrfs is mounted with `noatime,ssd,compress=zstd:1,space_cache=v2`
 (and `commit=120` on non-root subvolumes).
 
+### boot
+
+Set up UEFI boot for an encrypted Arch install — Unified Kernel Image
+(UKI) with the LUKS UUID baked into `/etc/kernel/cmdline`, plus an
+optional EDK2 UEFI Shell entry for low-level diagnostics. Must be run
+from inside the chroot with the ESP mounted at `/boot`. The script
+switches `mkinitcpio` to systemd-flavor HOOKS, writes
+`/etc/kernel/cmdline` and `/etc/crypttab.initramfs`, builds the UKI via
+`mkinitcpio -P`, and registers entries in NVRAM via `efibootmgr`:
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-boot | bash
+```
+
+CPU microcode is bundled into the UKI by mkinitcpio's `microcode` hook
+(`intel-ucode` on Intel; AMD/other vendors must install microcode
+manually).
+
+### user
+
+Create a new user with home dir, optional `/opt/<user>` workspace, and
+an optional btrfs `@<user>-cache` subvolume mounted at `~/.cache` (no-CoW
+via inherited `+C` attribute). Prompts for username and password and
+asks which steps to run (all selected by default):
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-user | bash
+```
+
+Run **before** the user's first login — apps populate `~/.cache` on
+startup, and switching to a subvolume after that requires moving files.
+
 ### drivers
 
 Install hardware drivers grouped by category — Video (mesa + Intel GPU),
@@ -103,6 +133,21 @@ Configure zram using `zram-generator`:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-zram | bash
 ```
+
+### swap
+
+Create a btrfs `@swap` subvolume at `/swap`, allocate a RAM-sized swap
+file via `btrfs filesystem mkswapfile`, and optionally configure
+hibernation (`resume=UUID=… resume_offset=…` appended to the UKI cmdline
++ `mkinitcpio -P` rebuild):
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-swap | bash
+```
+
+Disk swap is registered with `pri=10` so it sits below zram (`pri=100`
+from `zram-generator.conf`) and only takes overflow plus the hibernation
+image. Requires an open `/dev/mapper/cryptroot` btrfs filesystem;
+hibernation also requires `/etc/kernel/cmdline` from `configure-boot`.
 
 ### prompt
 
