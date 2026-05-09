@@ -912,7 +912,7 @@ action_require_package() {
     if is_package_installed "$package" "$package_apt"; then
         printf "%b %b %b\n" "${action_title}"          \
                             "$(gum style --faint '-')" \
-                            "$(gum style --faint --foreground $GUM_ACCENT 'exists')"
+                            "$(gum style --foreground $GUM_ACCENT 'exists')"
         return 0
     fi
 
@@ -948,7 +948,7 @@ action_require_package() {
 
     printf "%b %b %b\n" "${action_title}"          \
                         "$(gum style --faint '-')" \
-                        "$(gum style --faint --foreground $GUM_ACCENT 'installed')"
+                        "$(gum style --foreground $GUM_ACCENT 'installed')"
 }
 
 
@@ -1035,16 +1035,16 @@ action_run() {
     # Pre-style the separator so faint survives any \e[0m reset from
     # inline highlights inside the title.
     local separator
-    separator="$(gum style --faint ' - ')"
+    separator="$(gum style --faint '-')"
 
     # Run command and show spinner.
-    gum spin --align='right' --title "$(printf_action '%b%b' "${title}" "${separator}")" \
+    gum spin --align='right' --title "$(printf_action '%b %b' "${title}" "${separator}")" \
         -- bash -c "${command} &>> ${LOG_FILE}"
 
     # Return exit code and skip status if non-zero
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
-        printf_action "%b%b%b\n" "$title" "$separator" \
+        printf_action "%b %b %b\n" "$title" "$separator" \
                       "$(gum style --foreground $GUM_RED "$fail_status")"
         return $exit_code
     fi
@@ -1053,7 +1053,7 @@ action_run() {
     if [ -z "$success_status" ]; then
         printf_action "%b\n" "$title"
     else
-        printf_action "%b%b%b\n" "$title" "$separator" \
+        printf_action "%b %b %b\n" "$title" "$separator" \
                       "$(gum style --foreground $GUM_ACCENT "$success_status")"
     fi
 }
