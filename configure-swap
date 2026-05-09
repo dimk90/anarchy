@@ -28,9 +28,6 @@ SWAP_SUBVOL='@swap'
 SWAP_DIR='/swap'
 SWAP_FILE="${SWAP_DIR}/swapfile"
 
-# RAM-sized covers hibernation with margin (modern kernels compress the image)
-SWAP_SIZE='16g'
-
 # btrfs mount options for @swap — no compress=, no commit=,
 # both have caused 'swapon: Invalid argument'.
 SWAP_BTRFS_OPTS='subvol=@swap,noatime,ssd,discard=async'
@@ -46,6 +43,18 @@ MNT='/mnt'
 CMDLINE_FILE='/etc/kernel/cmdline'
 
 
+## Globals
+
+
+# Populated by verify_prerequisites; consumed by mount_swap_subvolume
+# and configure_hibernation.
+CRYPT_UUID=''
+
+# Populated by verify_prerequisites; mkswapfile size suffix (e.g. '16g').
+# RAM-sized covers a compressed hibernation image with margin.
+SWAP_SIZE=''
+
+
 ## Routines
 
 
@@ -55,14 +64,67 @@ require_tools() {
 }
 
 
-detect_cryptroot_uuid() {
+verify_prerequisites() {
     #
-    # Echo the UUID of the cryptroot mapper device. Empty if not open.
+    # Run pre-flight checks. Each step is an action_run so the section is
+    # never empty: failure renders a red status, the trailing exit gives
+    # the diagnostic. Sets the global CRYPT_UUID on success.
     #
-    if [ ! -e "$CRYPT_DEV" ]; then
-        return 1
+    printf_section "Verifying prerequisites\n"
+
+    # blkid on /dev/mapper/* needs root; lift the prompt out of the bare
+    # as_root calls below so it lands inside the styled UI.
+    action_request_permission 'to inspect cryptroot'
+
+    # 1. /dev/mapper/cryptroot present (LUKS volume open)
+    if ! action_run "Cryptroot mapper ${STYLE_CLR}${CRYPT_DEV}"  \
+                    "[ -e '$CRYPT_DEV' ]"                        \
+                    'present'                                    \
+                    'missing'; then
+        printf_error "open the LUKS volume first (e.g. cryptsetup open <part> ${CRYPT_NAME})\n"
+        exit 1
     fi
-    as_root blkid -s UUID -o value "$CRYPT_DEV" 2>>"$LOG_FILE"
+
+    # 2. cryptroot is btrfs (required for subvolumes and mkswapfile)
+    local fstype
+    fstype=$(as_root blkid -s TYPE -o value "$CRYPT_DEV" 2>>"$LOG_FILE")
+    if ! action_run 'Cryptroot filesystem type' \
+                    "[ '$fstype' = 'btrfs' ]"   \
+                    'btrfs'                     \
+                    "${fstype:-unknown}"; then
+        printf_error "cryptroot is not btrfs - swap subvolume + mkswapfile require btrfs\n"
+        exit 1
+    fi
+
+    # 3. /etc/fstab present (we append entries to it)
+    if ! action_run "${STYLE_CLR}/etc/fstab"  \
+                    '[ -f /etc/fstab ]'       \
+                    'present'                 \
+                    'missing'; then
+        printf_error "/etc/fstab is missing - cannot add mount entries\n"
+        exit 1
+    fi
+
+    # 4. /swap not already a mountpoint (re-run guard)
+    if ! action_run "${STYLE_CLR}${SWAP_DIR}${STYLE_DIM} not already mounted"  \
+                    "! mountpoint -q '$SWAP_DIR'"                              \
+                    'free'                                                     \
+                    'mounted'; then
+        printf_error "${SWAP_DIR} is already a mountpoint - inspect and remove existing setup before re-running\n"
+        exit 1
+    fi
+
+    # Cryptroot UUID for fstab entries + resume= cmdline
+    CRYPT_UUID=$(as_root blkid -s UUID -o value "$CRYPT_DEV" 2>>"$LOG_FILE")
+    [ -z "$CRYPT_UUID" ] && assert 1 "can't read UUID for ${CRYPT_DEV}"
+    printf_action "Cryptroot UUID: ${STYLE_CLR}${CRYPT_UUID}\n"
+
+    # RAM-sized swap. MemTotal is in KiB; ceil-divide to GiB for mkswapfile.
+    local mem_kb
+    mem_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>>"$LOG_FILE")
+    [ -z "$mem_kb" ] && assert 1 "can't read MemTotal from /proc/meminfo"
+    SWAP_SIZE="$(( (mem_kb + 1024*1024 - 1) / (1024*1024) ))g"
+    printf_action "Swap size (RAM-sized): ${STYLE_CLR}${SWAP_SIZE}\n"
 }
 
 
@@ -241,21 +303,14 @@ main() {
 
     require_tools
 
-    ## Detect cryptroot
+    ## Pre-flight checks (sets CRYPT_UUID)
 
-    printf_section "Detecting cryptroot\n"
-    local crypt_uuid
-    crypt_uuid=$(detect_cryptroot_uuid)
-    if [ -z "$crypt_uuid" ]; then
-        printf_error "%b\n" "cryptroot is not open at ${CRYPT_DEV}"
-        exit 1
-    fi
-    printf_action "Cryptroot UUID: ${STYLE_CLR}${crypt_uuid}\n"
+    verify_prerequisites
 
     ## Swap setup
 
     create_swap_subvolume
-    mount_swap_subvolume "$crypt_uuid"
+    mount_swap_subvolume "$CRYPT_UUID"
     create_swap_file
 
     ## Hibernation
@@ -263,9 +318,7 @@ main() {
     printf_section "Hibernation\n"
     printf_action 'Configure hibernation? '
     if ask_yn; then
-        configure_hibernation "$crypt_uuid"
-        local rc=$?
-        if [ "$rc" -eq 0 ]; then
+        if configure_hibernation "$CRYPT_UUID"; then
             printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
         fi
     fi
