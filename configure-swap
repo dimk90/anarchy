@@ -1,0 +1,277 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Constants
+
+
+# Cryptsetup mapper name (must match configure-disk)
+CRYPT_NAME='cryptroot'
+CRYPT_DEV="/dev/mapper/${CRYPT_NAME}"
+
+# @swap subvolume + mount point + swap file path
+SWAP_SUBVOL='@swap'
+SWAP_DIR='/swap'
+SWAP_FILE="${SWAP_DIR}/swapfile"
+
+# RAM-sized covers hibernation with margin (modern kernels compress the image)
+SWAP_SIZE='16g'
+
+# btrfs mount options for @swap — no compress=, no commit=,
+# both have caused 'swapon: Invalid argument'.
+SWAP_BTRFS_OPTS='subvol=@swap,noatime,ssd,discard=async'
+
+# pri=10 keeps disk swap below zram (pri=100 from zram-generator.conf);
+# only takes overflow + hibernation, which is the point.
+SWAP_FILE_OPTS='defaults,pri=10'
+
+# Top-level mount target for creating @swap
+MNT='/mnt'
+
+# Kernel cmdline file (written by configure-boot)
+CMDLINE_FILE='/etc/kernel/cmdline'
+
+
+## Routines
+
+
+require_tools() {
+    printf_section "Checking required tools\n"
+    action_require_package 'btrfs-progs'
+}
+
+
+detect_cryptroot_uuid() {
+    #
+    # Echo the UUID of the cryptroot mapper device. Empty if not open.
+    #
+    if [ ! -e "$CRYPT_DEV" ]; then
+        return 1
+    fi
+    as_root blkid -s UUID -o value "$CRYPT_DEV" 2>>"$LOG_FILE"
+}
+
+
+create_swap_subvolume() {
+    #
+    # Mount cryptroot top-level (subvolid=5), create @swap, unmount.
+    #
+    printf_section "Creating ${STYLE_CLR}%b${STYLE_DIM} subvolume\n" \
+        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"
+
+    action_request_permission "to create ${SWAP_SUBVOL} subvolume"
+
+    action_run "Mount cryptroot top-level at ${STYLE_CLR}${MNT}"  \
+        "as_root mount -o subvolid=5 '$CRYPT_DEV' '$MNT'"          \
+        'done'
+    assert $? "can't mount cryptroot top-level"
+
+    action_run "Create $(gum style --foreground "$GUM_YELLOW" "$MNT/$SWAP_SUBVOL")"  \
+        "as_root btrfs subvolume create '$MNT/$SWAP_SUBVOL'"                          \
+        'done'
+    assert $? "can't create $SWAP_SUBVOL subvolume"
+
+    action_run "Unmount ${STYLE_CLR}${MNT}"   \
+        "as_root umount '$MNT'"               \
+        'done'                                \
+        'busy'
+    assert $? "can't unmount $MNT"
+}
+
+
+mount_swap_subvolume() {
+    #
+    # Add fstab entry, daemon-reload, mkdir, mount /swap, chmod 700.
+    #
+    local crypt_uuid="$1"
+
+    printf_section "Mounting ${STYLE_CLR}%b${STYLE_DIM} at ${STYLE_CLR}%b\n"  \
+        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"              \
+        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_DIR")"
+
+    # config_set_param uses regex; our literals contain no regex meta-chars,
+    # so the pattern (after sanitize-strip of ^ and $) equals the appended line.
+    local fstab_pattern="^UUID=${crypt_uuid}  ${SWAP_DIR}  btrfs  ${SWAP_BTRFS_OPTS}  0 0\$"
+
+    action_request_permission "to add fstab entry for ${SWAP_DIR}"
+    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_DIR}"               \
+        "config_set_param '/etc/fstab' '${fstab_pattern}' '' $(check_sudo)"  \
+        'done'
+    assert $? "can't add fstab entry for $SWAP_DIR"
+
+    action_run 'Reload systemd unit cache'        \
+        "$(check_sudo) systemctl daemon-reload"   \
+        'done'
+    assert $? 'daemon-reload failed'
+
+    action_run "Create ${STYLE_CLR}${SWAP_DIR}"  \
+        "as_root mkdir -p '$SWAP_DIR'"           \
+        'done'
+    assert $? "can't create $SWAP_DIR"
+
+    action_run "Mount ${STYLE_CLR}${SWAP_DIR}"  \
+        "as_root mount '$SWAP_DIR'"             \
+        'done'
+    assert $? "can't mount $SWAP_DIR"
+
+    action_run "Lock ${STYLE_CLR}${SWAP_DIR}${STYLE_DIM} to ${STYLE_CLR}0700"  \
+        "as_root chmod 700 '$SWAP_DIR'"                                        \
+        'done'
+    assert $? "can't chmod $SWAP_DIR"
+}
+
+
+create_swap_file() {
+    #
+    # Create the swap file via mkswapfile, swapon, add fstab entry.
+    #
+    printf_section "Creating swap file ${STYLE_CLR}%b${STYLE_DIM} (${STYLE_CLR}%b${STYLE_DIM})\n"  \
+        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_FILE")"   \
+        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SIZE")"
+
+    action_request_permission 'to create swap file'
+
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'btrfs filesystem mkswapfile')"        \
+        "as_root btrfs filesystem mkswapfile --size '$SWAP_SIZE' --uuid clear '$SWAP_FILE'"       \
+        'done'
+    assert $? "can't create swap file"
+
+    action_run "Activate ${STYLE_CLR}${SWAP_FILE}"  \
+        "as_root swapon '$SWAP_FILE'"               \
+        'done'
+    assert $? "can't swapon $SWAP_FILE"
+
+    local fstab_pattern="^${SWAP_FILE}  none  swap  ${SWAP_FILE_OPTS}  0 0\$"
+
+    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_FILE}"               \
+        "config_set_param '/etc/fstab' '${fstab_pattern}' '' $(check_sudo)"   \
+        'done'
+    assert $? "can't add fstab entry for $SWAP_FILE"
+}
+
+
+# shellcheck disable=SC2329
+append_resume_to_cmdline() {
+    #
+    # Append `resume=UUID=... resume_offset=...` to the cmdline line.
+    # Idempotent: bail if a resume= token already exists.
+    #
+    local file="$1"
+    local crypt_uuid="$2"
+    local offset="$3"
+
+    if as_root grep -q 'resume=' "$file"; then
+        return 0
+    fi
+
+    local existing
+    existing=$(as_root cat "$file")
+    [ -z "$existing" ] && return 1
+
+    echo "${existing} resume=UUID=${crypt_uuid} resume_offset=${offset}"  \
+        | as_root tee "$file" > /dev/null
+}
+
+
+configure_hibernation() {
+    #
+    # Append resume= cmdline params, rebuild UKI.
+    #
+    local crypt_uuid="$1"
+
+    printf_section "Configuring hibernation\n"
+
+    if [ ! -f "$CMDLINE_FILE" ]; then
+        printf_action "%b ${STYLE_DIM}${CMDLINE_FILE} not found - run configure-boot first${STYLE_CLR}\n"  \
+            "$(bullet_warning)"
+        return 1
+    fi
+
+    local offset
+    offset=$(as_root btrfs inspect-internal map-swapfile -r "$SWAP_FILE" 2>>"$LOG_FILE"  \
+                | awk '/Resume offset/ {print $3}')
+    [ -z "$offset" ] && assert 1 "can't read resume offset for $SWAP_FILE"
+
+    printf_action "Resume offset: ${STYLE_CLR}${offset}\n"
+
+    action_request_permission "to append resume= to ${CMDLINE_FILE}"
+    export -f append_resume_to_cmdline
+    action_run "Append resume= to $(gum style --foreground "$GUM_YELLOW" "$CMDLINE_FILE")"  \
+        "append_resume_to_cmdline '$CMDLINE_FILE' '$crypt_uuid' '$offset'"                  \
+        'done'
+    assert $? "can't update $CMDLINE_FILE"
+
+    action_request_permission 'to rebuild UKI'
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
+        'as_root mkinitcpio -P'                                                \
+        'done'
+    assert $? 'mkinitcpio failed'
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Required tools
+
+    require_tools
+
+    ## Detect cryptroot
+
+    printf_section "Detecting cryptroot\n"
+    local crypt_uuid
+    crypt_uuid=$(detect_cryptroot_uuid)
+    if [ -z "$crypt_uuid" ]; then
+        printf_error "%b\n" "cryptroot is not open at ${CRYPT_DEV}"
+        exit 1
+    fi
+    printf_action "Cryptroot UUID: ${STYLE_CLR}${crypt_uuid}\n"
+
+    ## Swap setup
+
+    create_swap_subvolume
+    mount_swap_subvolume "$crypt_uuid"
+    create_swap_file
+
+    ## Hibernation
+
+    printf_section "Hibernation\n"
+    printf_action 'Configure hibernation? '
+    if ask_yn; then
+        configure_hibernation "$crypt_uuid"
+        local rc=$?
+        if [ "$rc" -eq 0 ]; then
+            printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
+        fi
+    fi
+
+    return 0
+}
+
+
+main "$@"
