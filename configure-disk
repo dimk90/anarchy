@@ -210,9 +210,10 @@ partition_disk() {
 encrypt_root() {
     #
     # Initialize LUKS2 on the root partition and open it as cryptroot.
-    # Passphrase is collected up-front via action_set_password and fed to
-    # cryptsetup over stdin in batch mode, so the commands run unattended
-    # and can sit inside the standard action UI.
+    # The passphrase is piped to cryptsetup via the bash printf builtin so it
+    # never enters any child's /proc/<pid>/cmdline (and a passphrase
+    # containing single quotes can't break out of a shell-quoted string).
+    # action_run is used UI-only after each step.
     #
     local part="$1"
 
@@ -225,22 +226,28 @@ encrypt_root() {
         passphrase=$(action_set_password 'LUKS passphrase') && break
     done
 
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$part")"  \
-        "printf '%s' '$passphrase' | as_root cryptsetup luksFormat --type luks2 --batch-mode --key-file=- '$part'"                       \
-        'done'
+    printf '%s' "$passphrase" \
+        | as_root cryptsetup luksFormat --type luks2 --batch-mode --key-file=- "$part" 2>> "$LOG_FILE"
     assert $? 'luksFormat failed'
+    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$part")" \
+        '' 'done'
 
-    action_run "Open $(gum style --foreground "$GUM_YELLOW" "$part")$(gum style --faint ' as ')$(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")"  \
-        "printf '%s' '$passphrase' | as_root cryptsetup open --batch-mode --key-file=- '$part' '$CRYPT_NAME'"                   \
-        'done'
+    printf '%s' "$passphrase" \
+        | as_root cryptsetup open --batch-mode --key-file=- "$part" "$CRYPT_NAME" 2>> "$LOG_FILE"
     assert $? "can't open $part"
+    action_run "Open $(gum style --foreground "$GUM_YELLOW" "$part")$(gum style --faint ' as ')$(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")" \
+        '' 'done'
 
     # Persist allow-discards on the LUKS header so TRIMs from btrfs
-    # (discard=async) reach the SSD across every future open.
-    action_run "Persist $(gum style --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')"               \
-        "printf '%s' '$passphrase' | as_root cryptsetup --persistent refresh --allow-discards --key-file=- '$CRYPT_NAME'"  \
-        'done'
-    assert $? "can't persist allow-discards"
+    # (discard=async) reach the SSD across every future open. unset between
+    # the pipe and assert clobbers $?, so capture rc first.
+    printf '%s' "$passphrase" \
+        | as_root cryptsetup --persistent refresh --allow-discards --key-file=- "$CRYPT_NAME" 2>> "$LOG_FILE"
+    local rc=$?
+    unset passphrase
+    assert $rc "can't persist allow-discards"
+    action_run "Persist $(gum style --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')" \
+        '' 'done'
 }
 
 
