@@ -224,8 +224,8 @@ configure_cache_subvolume() {
         printf_action "fstab already mounts ${STYLE_CLR}${cache_dir}\n"
     else
         local fstab_line="UUID=${uuid}  ${cache_dir}  btrfs  subvol=${subvol},${BTRFS_OPTS}  0 0"
-        action_run "Append fstab entry for ${STYLE_CLR}${cache_dir}"   \
-            "echo '${fstab_line}' | $(check_sudo) tee -a /etc/fstab"   \
+        action_run "Append fstab entry for ${STYLE_CLR}${cache_dir}"              \
+            "printf '\\n%s\\n' '${fstab_line}' | $(check_sudo) tee -a /etc/fstab" \
             'done'
         assert $? 'failed to append /etc/fstab entry'
     fi
