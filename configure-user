@@ -54,7 +54,7 @@ prompt_username() {
 
     gum input --char-limit=32                              \
               --no-show-help                               \
-              --placeholder='e.g. dimk'                    \
+              --placeholder='<user name>'                  \
               --prompt="${title} $(gum style --foreground "$GUM_WHITE" '>') " \
               </dev/tty
 }
@@ -177,6 +177,22 @@ configure_cache_subvolume() {
     # under whatever filesystem /home lives on.
     [ "$fstype" != 'btrfs' ] && return 0
 
+    # Existing cache must be empty/absent — we won't migrate or clobber data.
+    local cache_state='empty'
+    if [ -d "$cache_dir" ] && [ -n "$(ls -A "$cache_dir" 2>> "$LOG_FILE")" ]; then
+        cache_state='populated'
+    fi
+    action_run "Inspect ${STYLE_CLR}${cache_dir}"  \
+        "[ '${cache_state}' = 'empty' ]"           \
+        'empty or absent'                          \
+        'populated'
+
+    if [ "$cache_state" = 'populated' ]; then
+        printf_action "%b ${STYLE_DIM}preserving existing data - skipping subvolume creation${STYLE_CLR}\n" \
+            "$(bullet_warning)"
+        return 0
+    fi
+
     # Resolve the underlying device. findmnt SOURCE for a subvolume looks like
     # '/dev/mapper/cryptroot[/@home]' — strip the '[...]' to get just the device.
     local btrfs_dev
@@ -278,7 +294,6 @@ main() {
     if choices=$(gum choose --no-limit --selected='*'                  \
                             --cursor="   > "                           \
                             --header "${section}"                      \
-                            'Account - useradd + password'             \
                             'Workspace - /opt/<user>'                  \
                             'Cache subvolume - btrfs @<user>-cache'); then
         choices=${choices,,} # lowercase for matching
@@ -290,12 +305,11 @@ main() {
 
     local num_choice
     num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected steps: ${STYLE_CLR}${num_choice}\n"
-    [ "$num_choice" -eq 0 ] && return 0
+    printf_action "Selected optional steps: ${STYLE_CLR}${num_choice}\n"
 
-    ## Run selected steps
+    ## Run steps
 
-    grep -q 'account'         <<< "$choices" && configure_user_account     "$user"
+    configure_user_account "$user"
     grep -q 'workspace'       <<< "$choices" && configure_opt_dir          "$user"
     grep -q 'cache subvolume' <<< "$choices" && configure_cache_subvolume  "$user"
 
