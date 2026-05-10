@@ -60,41 +60,6 @@ prompt_username() {
 }
 
 
-# shellcheck disable=SC2329
-btrfs_create_cache_subvol() {
-    #
-    # Mount the btrfs top-level (subvolid=5) at $MNT, create @<user>-cache
-    # if absent, set the no-CoW attribute on its root, then unmount.
-    #
-    # subvolid=5 is required because the running system has its default
-    # subvolume set to '@'; without it, we'd land inside @ and create a
-    # nested subvolume instead of a toplevel sibling.
-    #
-    # The +C attribute on the empty subvolume root is inherited by every
-    # file created beneath it, which is the only supported way to disable
-    # CoW per-subvolume on btrfs.
-    #
-    local subvol="$1"
-    local btrfs_dev="$2"
-
-    as_root mount -o subvolid=5 "$btrfs_dev" "$MNT" || return 1
-
-    if ! as_root btrfs subvolume show "${MNT}/${subvol}" &>> "$LOG_FILE"; then
-        if ! as_root btrfs subvolume create "${MNT}/${subvol}"; then
-            as_root umount "$MNT"
-            return 1
-        fi
-    fi
-
-    if ! as_root chattr +C "${MNT}/${subvol}"; then
-        as_root umount "$MNT"
-        return 1
-    fi
-
-    as_root umount "$MNT"
-}
-
-
 configure_user_account() {
     local user="$1"
 
@@ -205,13 +170,46 @@ configure_cache_subvolume() {
     fi
     printf_action "Btrfs device: ${STYLE_CLR}${btrfs_dev}\n"
 
-    # Create the subvolume + disable CoW (one privileged step, single spinner)
+    # Mount the btrfs top-level, carve the subvolume, set +C, then unmount.
+    # Each step is its own action_run so the failing step is visible in the UI
+    # and its stderr lands in $LOG_FILE under its own labeled spinner.
     action_request_permission "to create subvolume ${subvol}"
-    export -f btrfs_create_cache_subvol
-    action_run "Create subvolume ${STYLE_CLR}${STYLE_BOLD}${subvol}"  \
-        "btrfs_create_cache_subvol ${subvol} ${btrfs_dev}"            \
+
+    # subvolid=5 lands us on the btrfs top level. The running system's default
+    # subvolume is '@'; without it we'd nest the new subvol inside @.
+    action_run "Mount btrfs top-level at ${STYLE_CLR}${MNT}"     \
+        "$(check_sudo) mount -o subvolid=5 ${btrfs_dev} ${MNT}"  \
         'done'
-    assert $? "failed to carve subvolume ${subvol}"
+    assert $? "failed to mount ${btrfs_dev} top-level at ${MNT}"
+
+    # From here on, guarantee unmount even if a later step aborts the script.
+    # Expand $MNT/$LOG_FILE/$(check_sudo) now (at trap-set time) so the cleanup
+    # is self-contained even if the EXIT fires from inside another scope.
+    # shellcheck disable=SC2064
+    trap "$(check_sudo) umount ${MNT} &>> ${LOG_FILE} || true" EXIT
+
+    if as_root btrfs subvolume show "${MNT}/${subvol}" &>> "$LOG_FILE"; then
+        printf_action "Subvolume exists: ${STYLE_CLR}${subvol}\n"
+    else
+        action_run "Create subvolume ${STYLE_CLR}${STYLE_BOLD}${subvol}"  \
+            "$(check_sudo) btrfs subvolume create ${MNT}/${subvol}"       \
+            'done'
+        assert $? "failed to create subvolume ${subvol}"
+    fi
+
+    # +C on the empty subvol root is inherited by every file created beneath -
+    # the only supported way to disable CoW per-subvolume on btrfs.
+    action_run "Disable CoW on ${STYLE_CLR}${subvol}"  \
+        "$(check_sudo) chattr +C ${MNT}/${subvol}"     \
+        'done'
+    assert $? "failed to disable CoW on ${subvol}"
+
+    action_run "Unmount ${STYLE_CLR}${MNT}"  \
+        "$(check_sudo) umount ${MNT}"        \
+        'done'
+    assert $? "failed to unmount ${MNT}"
+
+    trap - EXIT
 
     # Look up the device UUID for the fstab entry
     local uuid
