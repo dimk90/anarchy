@@ -138,12 +138,12 @@ create_swap_subvolume() {
     action_request_permission "to create ${SWAP_SUBVOL} subvolume"
 
     action_run "Mount cryptroot top-level at ${STYLE_CLR}${MNT}"  \
-        "as_root mount -o subvolid=5 '$CRYPT_DEV' '$MNT'"          \
+        "as_root mount -o subvolid=5 '$CRYPT_DEV' '$MNT'"         \
         'done'
     assert $? "can't mount cryptroot top-level"
 
     action_run "Create $(gum style --foreground "$GUM_YELLOW" "$MNT/$SWAP_SUBVOL")"  \
-        "as_root btrfs subvolume create '$MNT/$SWAP_SUBVOL'"                          \
+        "as_root btrfs subvolume create '$MNT/$SWAP_SUBVOL'"                         \
         'done'
     assert $? "can't create $SWAP_SUBVOL subvolume"
 
@@ -170,7 +170,7 @@ mount_swap_subvolume() {
     local fstab_pattern="^UUID=${crypt_uuid}  ${SWAP_DIR}  btrfs  ${SWAP_BTRFS_OPTS}  0 0\$"
 
     action_request_permission "to add fstab entry for ${SWAP_DIR}"
-    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_DIR}"               \
+    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_DIR}"                 \
         "config_set_param '/etc/fstab' '${fstab_pattern}' '' $(check_sudo)"  \
         'done'
     assert $? "can't add fstab entry for $SWAP_DIR"
@@ -279,7 +279,7 @@ configure_hibernation() {
 
     action_request_permission 'to rebuild UKI'
     action_run "Run $(gum style --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
-        'as_root mkinitcpio -P'                                                \
+        'as_root mkinitcpio -P'                                               \
         'done'
     assert $? 'mkinitcpio failed'
 }
