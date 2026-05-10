@@ -267,8 +267,7 @@ configure_hibernation() {
     fi
 
     local offset
-    offset=$(as_root btrfs inspect-internal map-swapfile -r "$SWAP_FILE" 2>>"$LOG_FILE"  \
-                | awk '/Resume offset/ {print $3}')
+    offset=$(as_root btrfs inspect-internal map-swapfile -r "$SWAP_FILE" 2>>"$LOG_FILE")
     [ -z "$offset" ] && assert 1 "can't read resume offset for $SWAP_FILE"
 
     printf_action "Resume offset: ${STYLE_CLR}${offset}\n"
