@@ -151,6 +151,15 @@ create_swap_subvolume() {
 }
 
 
+fstab_append() {
+    local pattern="$1"
+    local line="$2"
+    local prefix="${3-}"
+    ${prefix} grep -qE "${pattern}" /etc/fstab && return 0
+    printf '\n%s\n' "${line}" | ${prefix} tee -a /etc/fstab &>> "$LOG_FILE"
+}
+
+
 mount_swap_subvolume() {
     #
     # Add fstab entry, daemon-reload, mkdir, mount /swap, chmod 700.
@@ -161,13 +170,13 @@ mount_swap_subvolume() {
         "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"              \
         "$(gum style --foreground "$GUM_YELLOW" "$SWAP_DIR")"
 
-    # config_set_param uses regex; our literals contain no regex meta-chars,
-    # so the pattern (after sanitize-strip of ^ and $) equals the appended line.
-    local fstab_pattern="^UUID=${crypt_uuid}  ${SWAP_DIR}  btrfs  ${SWAP_BTRFS_OPTS}  0 0\$"
+    local fstab_line="UUID=${crypt_uuid}  ${SWAP_DIR}  btrfs  ${SWAP_BTRFS_OPTS}  0 0"
+    local fstab_pattern="^${fstab_line}\$"
 
     action_request_permission "to add fstab entry for ${SWAP_DIR}"
-    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_DIR}"                 \
-        "config_set_param '/etc/fstab' '${fstab_pattern}' '' $(check_sudo)"  \
+    export -f fstab_append
+    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_DIR}"                         \
+        "fstab_append '${fstab_pattern}' '${fstab_line}' $(check_sudo)"  \
         'done'
     assert $? "can't add fstab entry for $SWAP_DIR"
 
@@ -213,10 +222,12 @@ create_swap_file() {
         'done'
     assert $? "can't swapon $SWAP_FILE"
 
-    local fstab_pattern="^${SWAP_FILE}  none  swap  ${SWAP_FILE_OPTS}  0 0\$"
+    local fstab_line="${SWAP_FILE}  none  swap  ${SWAP_FILE_OPTS}  0 0"
+    local fstab_pattern="^${fstab_line}\$"
 
-    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_FILE}"               \
-        "config_set_param '/etc/fstab' '${fstab_pattern}' '' $(check_sudo)"   \
+    export -f fstab_append
+    action_run "Add fstab entry for ${STYLE_CLR}${SWAP_FILE}"                        \
+        "fstab_append '${fstab_pattern}' '${fstab_line}' $(check_sudo)"  \
         'done'
     assert $? "can't add fstab entry for $SWAP_FILE"
 }
@@ -250,8 +261,6 @@ configure_hibernation() {
     # Append resume= cmdline params, rebuild UKI.
     #
     local crypt_uuid="$1"
-
-    printf_section "Configuring Hibernation\n"
 
     if [ ! -f "$CMDLINE_FILE" ]; then
         printf_action "%b ${STYLE_DIM}${CMDLINE_FILE} not found - run configure-boot first${STYLE_CLR}\n"  \
