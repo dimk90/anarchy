@@ -105,15 +105,6 @@ verify_prerequisites() {
         exit 1
     fi
 
-    # 4. /swap not already a mountpoint (re-run guard)
-    if ! action_run "${STYLE_CLR}${SWAP_DIR}${STYLE_DIM} not already mounted"  \
-                    "! mountpoint -q '$SWAP_DIR'"                              \
-                    'free'                                                     \
-                    'mounted'; then
-        printf_error "${SWAP_DIR} is already a mountpoint - inspect and remove existing setup before re-running\n"
-        exit 1
-    fi
-
     # Cryptroot UUID for fstab entries + resume= cmdline
     CRYPT_UUID=$(as_root blkid -s UUID -o value "$CRYPT_DEV" 2>>"$LOG_FILE")
     [ -z "$CRYPT_UUID" ] && assert 1 "can't read UUID for ${CRYPT_DEV}"
@@ -126,8 +117,10 @@ verify_prerequisites() {
     SWAP_SIZE="$(( (mem_kb + 1024*1024 - 1) / (1024*1024) ))g"
     printf_action "Swap size (RAM-sized): ${STYLE_CLR}${SWAP_SIZE}\n"
 
-    printf_action 'Proceed? '
-    ask_yn || exit 0
+    if ! mountpoint -q "$SWAP_DIR"; then
+        printf_action 'Proceed? '
+        ask_yn || exit 0
+    fi
 }
 
 
@@ -311,17 +304,28 @@ main() {
 
     ## Swap setup
 
-    create_swap_subvolume
-    mount_swap_subvolume "$CRYPT_UUID"
-    create_swap_file
+    if mountpoint -q "$SWAP_DIR"; then
+        printf_section "Swap\n"
+        printf_action "%b ${STYLE_DIM}Already mounted — skipping setup${STYLE_CLR}\n" \
+            "$(bullet_info)"
+    else
+        create_swap_subvolume
+        mount_swap_subvolume "$CRYPT_UUID"
+        create_swap_file
+    fi
 
     ## Hibernation
 
     printf_section "Hibernation\n"
-    printf_action 'Configure hibernation? '
-    if ask_yn; then
-        if configure_hibernation "$CRYPT_UUID"; then
-            printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
+    if grep -q 'resume=' "$CMDLINE_FILE" 2>/dev/null; then
+        printf_action "%b ${STYLE_DIM}Already configured — nothing to do${STYLE_CLR}\n" \
+            "$(bullet_info)"
+    else
+        printf_action 'Configure hibernation? '
+        if ask_yn; then
+            if configure_hibernation "$CRYPT_UUID"; then
+                printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
+            fi
         fi
     fi
 
