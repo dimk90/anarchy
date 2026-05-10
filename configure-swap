@@ -125,6 +125,9 @@ verify_prerequisites() {
     [ -z "$mem_kb" ] && assert 1 "can't read MemTotal from /proc/meminfo"
     SWAP_SIZE="$(( (mem_kb + 1024*1024 - 1) / (1024*1024) ))g"
     printf_action "Swap size (RAM-sized): ${STYLE_CLR}${SWAP_SIZE}\n"
+
+    printf_action 'Proceed? '
+    ask_yn || exit 0
 }
 
 
