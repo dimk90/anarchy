@@ -258,7 +258,7 @@ configure_hibernation() {
     #
     local crypt_uuid="$1"
 
-    printf_section "Configuring hibernation\n"
+    printf_section "Configuring Hibernation\n"
 
     if [ ! -f "$CMDLINE_FILE" ]; then
         printf_action "%b ${STYLE_DIM}${CMDLINE_FILE} not found - run configure-boot first${STYLE_CLR}\n"  \
