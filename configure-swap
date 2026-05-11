@@ -204,7 +204,7 @@ mount_swap_subvolume() {
 
 create_swap_file() {
     #
-    # Create the swap file via mkswapfile, swapon, add fstab entry.
+    # Create the swap file via mkswapfile, add fstab entry, swapon -a.
     #
     printf_section "Creating swap file ${STYLE_CLR}%b${STYLE_DIM} (${STYLE_CLR}%b${STYLE_DIM})\n"  \
         "$(gum style --foreground "$GUM_YELLOW" "$SWAP_FILE")"   \
@@ -217,11 +217,6 @@ create_swap_file() {
         'done'
     assert $? "can't create swap file"
 
-    action_run "Activate ${STYLE_CLR}${SWAP_FILE}"  \
-        "as_root swapon '$SWAP_FILE'"               \
-        'done'
-    assert $? "can't swapon $SWAP_FILE"
-
     local fstab_line="${SWAP_FILE}  none  swap  ${SWAP_FILE_OPTS}  0 0"
     local fstab_pattern="^${fstab_line}\$"
 
@@ -230,6 +225,11 @@ create_swap_file() {
         "fstab_append '${fstab_pattern}' '${fstab_line}' $(check_sudo)"  \
         'done'
     assert $? "can't add fstab entry for $SWAP_FILE"
+
+    action_run "Activate swap (${STYLE_CLR}swapon -a${STYLE_DIM})"  \
+        'as_root swapon -a'                                         \
+        'done'
+    assert $? "can't swapon -a"
 }
 
 
