@@ -108,6 +108,29 @@ parse_disk_part() {
 }
 
 
+is_uefi_boot() {
+    #
+    # Check whether the system is booted in UEFI mode.
+    # efibootmgr --create requires this; legacy BIOS would fail at NVRAM step.
+    #
+    [ -d /sys/firmware/efi ]
+}
+
+
+is_root_btrfs_subvol_at() {
+    #
+    # Check whether '/' is mounted on btrfs with subvol=@. The embedded
+    # cmdline bakes 'rootflags=subvol=@' — a mismatch yields an unbootable UKI.
+    #
+    local fstype subvol
+    fstype=$(findmnt -n -o FSTYPE / 2>>"$LOG_FILE")
+    [ "$fstype" = 'btrfs' ] || return 1
+
+    subvol=$(findmnt -n -o OPTIONS / 2>>"$LOG_FILE" | grep -oE 'subvol=[^,]+' | head -n 1)
+    [ "$subvol" = 'subvol=/@' ] || [ "$subvol" = 'subvol=@' ]
+}
+
+
 install_microcode() {
     #
     # Install CPU microcode. Bundled into the UKI by mkinitcpio's
@@ -267,6 +290,65 @@ register_uki() {
 }
 
 
+verify_uki_prereqs() {
+    #
+    # Report detected state and gate the UKI flow behind a single confirmation.
+    # Hard-fails when UEFI boot mode is missing or the linux kernel package is
+    # absent; warns (but does not abort) when the live root mount diverges from
+    # the embedded cmdline or when prior UKI artefacts exist.
+    #
+    printf_section "Verify UKI Prerequisites\n"
+
+    local fatal=0
+
+    if is_uefi_boot; then
+        printf_action "UEFI boot mode: ${STYLE_CLR}%b\n" \
+            "$(gum style --foreground "$GUM_YELLOW" 'yes')"
+    else
+        printf_action "%b ${STYLE_DIM}UEFI boot mode not detected — ${STYLE_CLR}/sys/firmware/efi${STYLE_DIM} missing${STYLE_CLR}\n" \
+            "$(bullet_error)"
+        fatal=1
+    fi
+
+    if is_package_installed 'linux'; then
+        printf_action "Kernel package: ${STYLE_CLR}%b\n" \
+            "$(gum style --foreground "$GUM_YELLOW" 'linux')"
+    else
+        printf_action "%b ${STYLE_DIM}kernel package ${STYLE_CLR}linux${STYLE_DIM} is not installed — ${STYLE_CLR}mkinitcpio -P${STYLE_DIM} has no target${STYLE_CLR}\n" \
+            "$(bullet_error)"
+        fatal=1
+    fi
+
+    if is_root_btrfs_subvol_at; then
+        printf_action "Root fs: ${STYLE_CLR}%b\n" \
+            "$(gum style --foreground "$GUM_YELLOW" 'btrfs, subvol=@')"
+    else
+        printf_action "%b ${STYLE_DIM}root is not btrfs subvol=@ — embedded ${STYLE_CLR}rootflags=subvol=@${STYLE_DIM} will not match the live root${STYLE_CLR}\n" \
+            "$(bullet_warning)"
+    fi
+
+    if [ -f "$UKI_PATH" ]; then
+        printf_action "%b ${STYLE_DIM}existing UKI at ${STYLE_CLR}${UKI_PATH}${STYLE_DIM} will be rebuilt${STYLE_CLR}\n" \
+            "$(bullet_info)"
+    fi
+
+    local nvram_match
+    nvram_match=$(as_root efibootmgr 2>>"$LOG_FILE" | grep -F "${UKI_LABEL}" || true)
+    if [ -n "$nvram_match" ]; then
+        printf_action "%b ${STYLE_DIM}NVRAM entry ${STYLE_CLR}${UKI_LABEL}${STYLE_DIM} already present — a duplicate will be added${STYLE_CLR}\n" \
+            "$(bullet_warning)"
+    fi
+
+    if [ "$fatal" -ne 0 ]; then
+        printf_error "%b\n" 'UKI prerequisites not met — aborting'
+        exit 1
+    fi
+
+    printf_action 'Proceed with UKI generation? '
+    ask_yn
+}
+
+
 install_edk2_shell() {
     #
     # Install EDK2 UEFI Shell to the ESP and register it in NVRAM as a
@@ -301,10 +383,6 @@ install_edk2_shell() {
 
 
 main() {
-
-    # TODO:
-    # - ask for proceed after boot found and cryptroot detected
-    # - ask to select disk?
 
     ## Get gum
 
@@ -385,6 +463,8 @@ main() {
 
         printf_action "LUKS: ${STYLE_CLR}%b\n" \
             "$(gum style --foreground "$GUM_YELLOW" "$crypt_part")"
+
+        verify_uki_prereqs || return 0
 
         install_microcode
         update_mkinitcpio_hooks
