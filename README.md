@@ -26,7 +26,7 @@ This is destructive and irreversible — `wipefs`, `sgdisk --zap-all`, and
 Partition the target disk and prepare mount points for an Arch install
 (GPT + LUKS2 + btrfs subvolumes). Must be run as root from the live USB.
 The script scans available disks, asks the user to pick one, refuses to
-proceed unless the disk is empty, and optionally runs `genfstab` at the end:
+proceed unless the disk is empty, and runs `genfstab` at the end:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-disk | bash
 ```
@@ -35,18 +35,16 @@ Resulting layout:
 
 | Part | Size     | Encryption | Filesystem | Label    | Subvolume         | Mount point        |
 | :--: | :------- | :--------- | :--------- | :------- | :---------------- | :----------------- |
-|  p1  | 512 MiB  | —          | FAT32      | —        | —                 | `/efi`             |
-|  p2  | 2 GiB    | —          | btrfs      | `boot`   | `@boot`           | `/boot`            |
-|  p2  | (shared) | —          | btrfs      | `boot`   | `@boot-snapshots` | `/boot/.snapshots` |
-|  p3  | rest     | LUKS2      | btrfs      | `rootfs` | `@`               | `/`                |
-|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home`           | `/home`            |
-|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@log`            | `/var/log`         |
-|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
-|  p3  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
+|  p1  | 6 GiB    | —          | FAT32      | —        | —                 | `/boot`            |
+|  p2  | rest     | LUKS2      | btrfs      | `rootfs` | `@`               | `/`                |
+|  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home`           | `/home`            |
+|  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@home-snapshots` | `/home/.snapshots` |
+|  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@log`            | `/var/log`         |
+|  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
+|  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
 
 The encrypted partition is opened as `/dev/mapper/cryptroot`.
-Btrfs is mounted with `noatime,ssd,compress=zstd:1,space_cache=v2`
-(and `commit=120` on non-root subvolumes).
+Btrfs is mounted with `noatime,ssd,discard=async,commit=120,compress=zstd:1,space_cache=v2`.
 
 ### boot
 
@@ -69,8 +67,9 @@ manually).
 
 Create a new user with home dir, optional `/opt/<user>` workspace, and
 an optional btrfs `@<user>-cache` subvolume mounted at `~/.cache` (no-CoW
-via inherited `+C` attribute). Prompts for username and password and
-asks which steps to run (all selected by default):
+via inherited `+C` attribute). Prompts for username and password, always
+creates the user account, and asks which of the two optional steps
+(workspace and cache subvolume) to run (both selected by default):
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-user | bash
 ```
