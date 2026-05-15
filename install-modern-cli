@@ -335,6 +335,14 @@ install_delta() {
 }
 
 
+# Mutates caller-local `choices` (string) and `added` (array) via dynamic scope.
+add_dep() {
+    grep -q "$1" <<< "$choices" && return 0
+    choices=$(printf '%s\n%s' "$choices" "$1")
+    added+=("$1")
+}
+
+
 main() {
 
     ## Get gum
@@ -349,18 +357,71 @@ main() {
     start_logger
     printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
 
-    ## Install CLI
+    ## Ask user for tools to install
 
-    install_zoxide
-    install_less
-    install_bash_completion
-    install_bat
-    install_fd
-    install_rg
-    install_eza
-    install_tldr
-    install_fzf
-    install_delta
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm Tools')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' --cursor="   > " \
+                     --header "${section}"                             \
+                     'zoxide - smart cd'                               \
+                     'less - pager'                                    \
+                     'bash-completion'                                 \
+                     'bat - cat with syntax highlighting'              \
+                     'fd - find replacement'                           \
+                     'ripgrep - grep replacement'                      \
+                     'eza - ls replacement'                            \
+                     'tldr - concise man pages'                        \
+                     'fzf - fuzzy finder'                              \
+                     'git-delta - diff viewer'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    # Print number of selected items
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected tools: ${STYLE_CLR}${num_choice}\n"
+
+    # Empty choice means nothing to do -> exit
+    if [ "$num_choice" -eq 0 ]; then
+        echo
+        return 0
+    fi
+
+    ## Resolve dependencies (delta -> fzf -> fd/eza/bat)
+
+    local added=()
+    grep -q 'delta' <<< "$choices" && add_dep 'fzf'
+    if grep -q 'fzf' <<< "$choices"; then
+        add_dep 'fd'
+        add_dep 'eza'
+        add_dep 'bat'
+    fi
+
+    if [ ${#added[@]} -gt 0 ]; then
+        local joined
+        joined=$(IFS=,; echo "${added[*]}")
+        printf_action "%b ${STYLE_DIM}auto-added dependencies: ${STYLE_CLR}${joined}${STYLE_DIM} (required by fzf/delta config)\n${STYLE_CLR}" \
+            "$(bullet_info)"
+    fi
+
+    ## Install selected tools
+
+    grep -q 'zoxide'          <<< "$choices" && install_zoxide
+    grep -q 'less'            <<< "$choices" && install_less
+    grep -q 'bash-completion' <<< "$choices" && install_bash_completion
+    grep -q 'bat'             <<< "$choices" && install_bat
+    grep -q 'fd'              <<< "$choices" && install_fd
+    grep -q 'ripgrep'         <<< "$choices" && install_rg
+    grep -q 'eza'             <<< "$choices" && install_eza
+    grep -q 'tldr'            <<< "$choices" && install_tldr
+    grep -q 'fzf'             <<< "$choices" && install_fzf
+    grep -q 'delta'           <<< "$choices" && install_delta
 
     printf_info "Restart your shell to apply the new configuration\n"
 
