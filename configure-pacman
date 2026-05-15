@@ -44,6 +44,11 @@ main() {
         "config_set_param '/etc/pacman.conf' '^Color$' 'options' $(check_sudo)" \
         'done'
 
+    # Enable progress bar (in case it was disabled)
+    action_run 'Enabling progress bar' \
+        "remove_line '/etc/pacman.conf' '^NoProgressBar' '$(check_sudo)'" \
+        'done'
+
     # Enable color in the pipe also: e.g. pacman -Ss ... | less -R
     action_run 'Enabling color in the pipe' \
         "alias_set_permanent 'pacman' 'pacman --color=always'" \
