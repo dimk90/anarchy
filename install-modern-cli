@@ -298,6 +298,7 @@ install_fzf() {
 
     # Install fzf.fish plugin
     if is_command_available 'fish'; then
+        action_require_package 'git'
         export -f fish_install_fzf_plugin
         action_run 'Install fzf.fish plugin (hotkeys)' 'fish_install_fzf_plugin' 'done'
     fi
