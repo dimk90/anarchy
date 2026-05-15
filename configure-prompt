@@ -176,6 +176,8 @@ main() {
         action_run 'Enable starship' 'bash_enable_starship' 'done'
     fi
 
+    printf_info "Restart your shell to apply the new configuration\n"
+
     return 0
 }
 
