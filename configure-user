@@ -22,9 +22,6 @@ set +o errexit # disable exit on non-zero exit code
 # Default groups for the new user
 DEFAULT_GROUPS='wheel,input'
 
-# Default login shell
-DEFAULT_SHELL='/bin/bash'
-
 # Mount point used for top-level btrfs access (matches configure-disk)
 MNT='/mnt'
 
@@ -70,13 +67,22 @@ configure_user_account() {
         return 0
     fi
 
+    # Pick the login shell — prefer fish when present, fall back to bash.
+    local shell='/bin/bash'
+    local shell_status='bash (fish not installed)'
+    if is_command_available 'fish'; then
+        shell='/usr/bin/fish'
+        shell_status='fish'
+    fi
+    action_run "Default shell ${STYLE_CLR}${shell}" '' "${shell_status}"
+
     # Create the user
     action_request_permission "to create user ${user}"
     action_run "$(printf '%b %b %b'                              \
         "$(gum style --faint 'Create user')"                     \
         "$(gum style --bold --foreground "$GUM_YELLOW" "$user")" \
         "$(gum style --faint "(groups: ${DEFAULT_GROUPS})")"     \
-    )" "$(check_sudo) useradd -m -G ${DEFAULT_GROUPS} -s ${DEFAULT_SHELL} ${user}" \
+    )" "$(check_sudo) useradd -m -G ${DEFAULT_GROUPS} -s ${shell} ${user}" \
        'created'
     assert $? "failed to create user ${user}"
 
@@ -94,6 +100,42 @@ configure_user_account() {
     assert $rc "failed to set password for ${user}"
 
     action_run "Set password for ${STYLE_CLR}${STYLE_BOLD}${user}" '' 'done'
+}
+
+
+configure_sudo() {
+    printf_section "Sudo\n"
+
+    # Install sudo if missing — action_require_package prints exists/installed.
+    action_require_package 'sudo'
+
+    # Wheel group — uncomment %wheel line in /etc/sudoers (idempotent).
+    if as_root grep -qE '^%wheel\s+ALL=\(ALL:ALL\)\s+ALL' /etc/sudoers &>> "$LOG_FILE"; then
+        action_run "Enable wheel in ${STYLE_CLR}/etc/sudoers" '' 'already enabled'
+    else
+        action_request_permission 'to enable wheel in /etc/sudoers'
+        action_run "Enable wheel in ${STYLE_CLR}/etc/sudoers"                            \
+            "replace_line /etc/sudoers '^#\s*%wheel\s+ALL=\(ALL:ALL\)\s+ALL\s*\$'        \
+                                       '%wheel ALL=(ALL:ALL) ALL' '$(check_sudo)'"      \
+            'done'
+        assert $? 'failed to enable wheel in /etc/sudoers'
+    fi
+
+    # Proxy drop-in — install asset, enforce 0440, validate with visudo.
+    action_request_permission 'to install /etc/sudoers.d/proxy'
+    action_install_file '/etc/sudoers.d/proxy'                  \
+        'https://dimk90.github.io/anarchy/sudo/proxy'           \
+        "$(check_sudo)"
+
+    action_run "Set mode ${STYLE_CLR}0440${STYLE_DIM} on ${STYLE_CLR}/etc/sudoers.d/proxy"  \
+        "$(check_sudo) chmod 0440 /etc/sudoers.d/proxy"                                     \
+        'done'
+    assert $? 'failed to chmod /etc/sudoers.d/proxy'
+
+    action_run "Validate ${STYLE_CLR}/etc/sudoers.d/proxy"  \
+        "$(check_sudo) visudo -cf /etc/sudoers.d/proxy"     \
+        'parsed'
+    assert $? 'visudo rejected /etc/sudoers.d/proxy'
 }
 
 
@@ -292,6 +334,7 @@ main() {
     if choices=$(gum choose --no-limit --selected='*'                  \
                             --cursor="   > "                           \
                             --header "${section}"                      \
+                            'Sudo - install + wheel + proxy'           \
                             'Workspace - /opt/<user>'                  \
                             'Cache subvolume - btrfs @<user>-cache'); then
         choices=${choices,,} # lowercase for matching
@@ -307,6 +350,7 @@ main() {
 
     ## Run steps
 
+    grep -q 'sudo'            <<< "$choices" && configure_sudo
     configure_user_account "$user"
     grep -q 'workspace'       <<< "$choices" && configure_opt_dir          "$user"
     grep -q 'cache subvolume' <<< "$choices" && configure_cache_subvolume  "$user"
