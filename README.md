@@ -71,7 +71,7 @@ via inherited `+C` attribute). Prompts for username and password, always
 creates the user account, and asks which of the two optional steps
 (workspace and cache subvolume) to run (both selected by default):
 ```bash
-curl -fsSL https://dimk90.github.io/anarchy/configure-user | bash
+curl -fsSL https://dimk90.github.io/anarchy/create-user | bash
 ```
 
 Run **before** the user's first login — apps populate `~/.cache` on
