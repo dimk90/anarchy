@@ -1107,6 +1107,9 @@ action_set_password() {
     #
     local title="${1:-Set password}"
 
+    local separator
+    separator="$(gum style --faint '-')"
+
     request_title=$(printf_action "%b" "$title")
 
     password=$(gum input --password --char-limit=30                   \
@@ -1122,15 +1125,13 @@ action_set_password() {
     [ $? -ne 0 ] && return 1
 
     if [ "$password" != "$confirm" ]; then
-        printf_action "%b - %b\n"                           \
-            "$title"                                        \
-            "$(gum style --foreground $GUM_RED 'mismatch')" >&2
+        printf_action "%b %b %b\n" "$title" "$separator" \
+                      "$(gum style --foreground $GUM_RED 'mismatch')" >&2
         return 1
     fi
 
-    printf_action "%b - %b\n"                               \
-        "$title"                                            \
-        "$(gum style --foreground $GUM_ACCENT 'done')" >&2
+    printf_action "%b %b %b\n" "$title" "$separator" \
+                  "$(gum style --foreground $GUM_ACCENT 'done')" >&2
 
     echo "$password"
     return 0
