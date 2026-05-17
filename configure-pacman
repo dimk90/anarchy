@@ -19,44 +19,36 @@ set +o errexit # disable exit on non-zero exit code
 ## Routines
 
 
-main() {
+configure_colors() {
 
-    ## Get gum
+    printf_section "Enabling Colors\n"
 
-    request_gum
-    assert $? 'no gum - no fun :('
-
-    ## Init
-
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
-
-
-    ## Pacman
-
-    printf_section "Configuring Pacman\n"
-
-    # Enable colors
     action_request_permission 'to modify pacman.conf'
     action_run 'Enabling colors' \
         "config_set_param '/etc/pacman.conf' '^Color$' 'options' $(check_sudo)" \
-        'done'
-
-    # Enable progress bar (in case it was disabled)
-    action_run 'Enabling progress bar' \
-        "remove_line '/etc/pacman.conf' '^NoProgressBar' '$(check_sudo)'" \
         'done'
 
     # Enable color in the pipe also: e.g. pacman -Ss ... | less -R
     action_run 'Enabling color in the pipe' \
         "alias_set_permanent 'pacman' 'pacman --color=always'" \
         'done'
+}
 
-    ## Reflector
 
-    printf_section "Installing Reflector\n"
+configure_progress_bar() {
+
+    printf_section "Enabling Progress Bar\n"
+
+    action_request_permission 'to modify pacman.conf'
+    action_run 'Enabling progress bar' \
+        "remove_line '/etc/pacman.conf' '^NoProgressBar' '$(check_sudo)'" \
+        'done'
+}
+
+
+setup_reflector() {
+
+    printf_section "Setting Up Reflector\n"
 
     # Reflector package
     action_require_package 'reflector'
@@ -92,6 +84,73 @@ main() {
                           '\s*NoExtract\s*=\s*etc/pacman.d/mirrorlist' \
                           'options' $(check_sudo)" \
         'done'
+}
+
+
+refresh_mirrorlist() {
+
+    printf_section "Refreshing Mirrorlist\n"
+
+    # Make sure reflector is installed even if 'Set up reflector' wasn't selected
+    action_require_package 'reflector'
+
+    action_request_permission 'to run reflector'
+    action_run 'Refreshing mirrorlist' \
+        "$(check_sudo) reflector @/etc/xdg/reflector/reflector.conf" \
+        'done'
+}
+
+
+main() {
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Ask user for steps to run
+
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Configure Pacman')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' --cursor="   > " \
+                     --header "${section}"  \
+                     'Enable colors'        \
+                     'Enable progress bar'  \
+                     'Set up reflector'     \
+                     'Refresh mirrorlist'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 0
+    fi
+
+    printf "%s\n" "$section"
+
+    # Print number of selected items
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected steps: ${STYLE_CLR}${num_choice}\n"
+
+    # Empty choice means nothing to do -> exit
+    if [ "$num_choice" -eq 0 ]; then
+        echo
+        return 0
+    fi
+
+    ## Run selected steps
+
+    grep -q 'enable colors'       <<< "$choices" && configure_colors
+    grep -q 'enable progress bar' <<< "$choices" && configure_progress_bar
+    grep -q 'set up reflector'    <<< "$choices" && setup_reflector
+    grep -q 'refresh mirrorlist'  <<< "$choices" && refresh_mirrorlist
 
     return 0
 }
