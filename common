@@ -94,7 +94,7 @@ start_logger() {
     #   echo " -> start log: $(get_logger)"
     #
     if [ "$LOG_FILE" = '/dev/null' ]; then
-        LOG_FILE="$(mktemp).log"
+        LOG_FILE="$(mktemp --suffix=.log)"
         assert $? "can't create log file in /tmp"
     fi
 }
