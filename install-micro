@@ -42,7 +42,7 @@ main() {
     if choices=$(gum choose --no-limit --selected='*' \
                             --cursor="   > "          \
                             --header "${section}"     \
-                            'Settings' 'Keybindings' 'Default Editor'); then
+                            'Settings' 'Keybindings' 'Default Editor' 'Clipboard Support'); then
         choices=${choices,,} # convert to lowercase for easier matching
     else
         return 0
@@ -66,6 +66,13 @@ main() {
     printf_section "Installing & Configuring\n"
 
     action_require_package 'micro'
+
+    # Install clipboard helpers (xclip for X11, wl-clipboard for Wayland); micro's
+    # default clipboard=external shells out to whichever matches the running session
+    if grep -q 'clipboard support' <<< "$choices"; then
+        action_require_package 'xclip'
+        action_require_package 'wl-clipboard'
+    fi
 
     # Create micro config directory if it doesn't exist
     mkdir -p ~/.config/micro
