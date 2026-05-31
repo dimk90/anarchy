@@ -74,10 +74,14 @@ uv tool install nanoemoji
 
 Run `SBIX` font building:
 ```shell
-cd noto-emoji/colrv1 && uvx nanoemoji sbix.toml
+cd noto-emoji/colrv1 && nanoemoji sbix.toml
 ```
 
 ## Remove Symbols up to U+3A
+
+```shell
+uv tool install fonttools
+```
 
 ```shell
 pyftsubset NotoColorEmoji.sbix.ttf \
