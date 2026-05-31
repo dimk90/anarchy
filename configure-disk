@@ -28,8 +28,13 @@ CRYPT_NAME='cryptroot'
 # Mount target root (live install convention)
 MNT='/mnt'
 
-# Btrfs mount options
+# Btrfs mount options for @'s first mount. These establish the filesystem-wide
+# options (ssd/discard/commit/compress/space_cache) for the whole filesystem.
 BTRFS_OPTS='noatime,ssd,discard=async,commit=120,compress=zstd:1,space_cache=v2'
+
+# Later subvolume mounts inherit the filesystem-wide options from @'s first
+# mount; only noatime (a per-mount VFS flag) needs repeating.
+BTRFS_OPTS_SUB='noatime'
 
 # Tightened /boot (vfat) mount options for fstab (genfstab leaves "defaults")
 EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=winnt,nofail'
@@ -381,7 +386,7 @@ mount_targets() {
 
     # Remaining root subvolumes
     action_run "Mount @home at $MNT/home"                                          \
-        "as_root mount -o subvol=@home,${BTRFS_OPTS} '$cryptdev' '$MNT/home'"      \
+        "as_root mount -o subvol=@home,${BTRFS_OPTS_SUB} '$cryptdev' '$MNT/home'"  \
         'done'
     assert $? "can't mount @home"
 
@@ -392,18 +397,18 @@ mount_targets() {
         assert $? "can't create $MNT/home/.snapshots"
 
         action_run "Mount @home-snapshots at $MNT/home/.snapshots"                                        \
-            "as_root mount -o subvol=@home-snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/home/.snapshots'"    \
+            "as_root mount -o subvol=@home-snapshots,${BTRFS_OPTS_SUB} '$cryptdev' '$MNT/home/.snapshots'"\
             'done'
         assert $? "can't mount @home-snapshots"
     fi
 
     action_run "Mount @log at $MNT/var/log"                                        \
-        "as_root mount -o subvol=@log,${BTRFS_OPTS} '$cryptdev' '$MNT/var/log'"    \
+        "as_root mount -o subvol=@log,${BTRFS_OPTS_SUB} '$cryptdev' '$MNT/var/log'"\
         'done'
     assert $? "can't mount @log"
 
     action_run "Mount @cache at $MNT/var/cache"                                          \
-        "as_root mount -o subvol=@cache,${BTRFS_OPTS} '$cryptdev' '$MNT/var/cache'"      \
+        "as_root mount -o subvol=@cache,${BTRFS_OPTS_SUB} '$cryptdev' '$MNT/var/cache'"  \
         'done'
     assert $? "can't mount @cache"
 
@@ -414,7 +419,7 @@ mount_targets() {
         assert $? "can't create $MNT/.snapshots"
 
         action_run "Mount @snapshots at $MNT/.snapshots"                                        \
-            "as_root mount -o subvol=@snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/.snapshots'"    \
+            "as_root mount -o subvol=@snapshots,${BTRFS_OPTS_SUB} '$cryptdev' '$MNT/.snapshots'"\
             'done'
         assert $? "can't mount @snapshots"
     fi
@@ -482,6 +487,10 @@ generate_fstab() {
     action_run 'Write fstab header' "$cmd_write_header" 'done'
     assert $? "can't write fstab header"
 
+    # genfstab reads /proc/mounts, where the filesystem-wide btrfs options
+    # (ssd/discard/commit/compress/space_cache) show on every subvolume mount,
+    # so every btrfs line carries the full inherited set regardless of the
+    # trimmed mount commands above. That repetition is expected and harmless.
     action_run 'Run genfstab -U /mnt >> /mnt/etc/fstab'         \
         "as_root bash -c 'genfstab -U $MNT >> $MNT/etc/fstab'"  \
         'done'
