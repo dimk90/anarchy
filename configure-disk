@@ -48,6 +48,17 @@ EFI_OPTS='defaults,uid=0,gid=0,umask=0077,noatime,nodev,nosuid,noexec,shortname=
 # |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@cache`          | `/var/cache`       |
 # |  p2  | (shared) | LUKS2      | btrfs      | `rootfs` | `@snapshots`      | `/.snapshots`      |
 #
+# Snapshot holders @snapshots and @home-snapshots are optional (chosen via
+# select_subvolumes); @, @home, @log, @cache are always created.
+#
+
+
+## Globals (set at runtime)
+
+
+# Optional snapshot-holder subvolumes (toggled in select_subvolumes)
+WANT_ROOT_SNAPSHOTS=true
+WANT_HOME_SNAPSHOTS=true
 
 
 ## Routines
@@ -112,6 +123,39 @@ select_disk() {
 
     # Extract path (first whitespace-separated field)
     awk '{print $1}' <<< "$selected"
+}
+
+
+select_subvolumes() {
+    #
+    # Ask which optional snapshot-holder subvolumes to create.
+    # Mandatory subvolumes (@, @home, @log, @cache) are always created.
+    # Sets WANT_ROOT_SNAPSHOTS / WANT_HOME_SNAPSHOTS. Returns 1 on cancel.
+    #
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Confirm Snapshot Subvolumes')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' --cursor='   > '   \
+                     --header "${section}"                               \
+                     'Root snapshots - @snapshots at /.snapshots'        \
+                     'Home snapshots - @home-snapshots at /home/.snapshots'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 1
+    fi
+
+    printf "%s\n" "$section" # repaint header gum cleared on selection
+
+    WANT_ROOT_SNAPSHOTS=false
+    WANT_HOME_SNAPSHOTS=false
+    grep -q 'root snapshots' <<< "$choices" && WANT_ROOT_SNAPSHOTS=true
+    grep -q 'home snapshots' <<< "$choices" && WANT_HOME_SNAPSHOTS=true
+
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
+    return 0
 }
 
 
@@ -282,15 +326,27 @@ create_subvolumes() {
         'done'
     assert $? "can't mount cryptroot"
 
-    action_run 'Create @, @home, @home-snapshots, @log, @cache, @snapshots'         \
-        "as_root btrfs subvolume create '$MNT/@' &&                \
-         as_root btrfs subvolume create '$MNT/@home' &&            \
-         as_root btrfs subvolume create "$MNT/@home-snapshots" &&  \
-         as_root btrfs subvolume create '$MNT/@log' &&             \
-         as_root btrfs subvolume create '$MNT/@cache' &&           \
-         as_root btrfs subvolume create '$MNT/@snapshots'"         \
+    action_run 'Create @, @home, @log, @cache'                    \
+        "as_root btrfs subvolume create '$MNT/@' &&               \
+         as_root btrfs subvolume create '$MNT/@home' &&           \
+         as_root btrfs subvolume create '$MNT/@log' &&            \
+         as_root btrfs subvolume create '$MNT/@cache'"            \
         'done'
     assert $? "can't create root subvolumes"
+
+    if [ "$WANT_ROOT_SNAPSHOTS" = true ]; then
+        action_run 'Create @snapshots'                            \
+            "as_root btrfs subvolume create '$MNT/@snapshots'"    \
+            'done'
+        assert $? "can't create @snapshots"
+    fi
+
+    if [ "$WANT_HOME_SNAPSHOTS" = true ]; then
+        action_run 'Create @home-snapshots'                            \
+            "as_root btrfs subvolume create '$MNT/@home-snapshots'"    \
+            'done'
+        assert $? "can't create @home-snapshots"
+    fi
 
     action_run 'Unmount root top-level'              \
         "as_root umount '$MNT'"                      \
@@ -317,9 +373,9 @@ mount_targets() {
     assert $? "can't mount @"
 
     # Mount-point directories for the rest
-    action_run 'Create /home /var/log /var/cache /.snapshots /boot'    \
+    action_run 'Create /home /var/log /var/cache /boot'                \
         "as_root mkdir -p '$MNT/home' '$MNT/var/log' '$MNT/var/cache'  \
-                          '$MNT/.snapshots' '$MNT/boot'"               \
+                          '$MNT/boot'"                                 \
         'done'
     assert $? "can't create mount-point directories"
 
@@ -329,15 +385,17 @@ mount_targets() {
         'done'
     assert $? "can't mount @home"
 
-    action_run "Create $MNT/home/.snapshots"            \
-        "as_root mkdir -p '$MNT/home/.snapshots'"       \
-        'done'
-    assert $? "can't create $MNT/home/.snapshots"
+    if [ "$WANT_HOME_SNAPSHOTS" = true ]; then
+        action_run "Create $MNT/home/.snapshots"            \
+            "as_root mkdir -p '$MNT/home/.snapshots'"       \
+            'done'
+        assert $? "can't create $MNT/home/.snapshots"
 
-    action_run "Mount @home-snapshots at $MNT/home/.snapshots"                                            \
-        "as_root mount -o subvol=@home-snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/home/.snapshots'"  \
-        'done'
-    assert $? "can't mount @home-snapshots"
+        action_run "Mount @home-snapshots at $MNT/home/.snapshots"                                        \
+            "as_root mount -o subvol=@home-snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/home/.snapshots'"    \
+            'done'
+        assert $? "can't mount @home-snapshots"
+    fi
 
     action_run "Mount @log at $MNT/var/log"                                        \
         "as_root mount -o subvol=@log,${BTRFS_OPTS} '$cryptdev' '$MNT/var/log'"    \
@@ -349,10 +407,17 @@ mount_targets() {
         'done'
     assert $? "can't mount @cache"
 
-    action_run "Mount @snapshots at $MNT/.snapshots"                                            \
-        "as_root mount -o subvol=@snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/.snapshots'"  \
-        'done'
-    assert $? "can't mount @snapshots"
+    if [ "$WANT_ROOT_SNAPSHOTS" = true ]; then
+        action_run "Create $MNT/.snapshots"            \
+            "as_root mkdir -p '$MNT/.snapshots'"       \
+            'done'
+        assert $? "can't create $MNT/.snapshots"
+
+        action_run "Mount @snapshots at $MNT/.snapshots"                                        \
+            "as_root mount -o subvol=@snapshots,${BTRFS_OPTS} '$cryptdev' '$MNT/.snapshots'"    \
+            'done'
+        assert $? "can't mount @snapshots"
+    fi
 
     # ESP
     action_run "Mount ESP at $MNT/boot"            \
@@ -384,10 +449,14 @@ print_summary() {
     printf "$fmt" "$esp_part"  '6 GiB'    '-'     'fat32' '-'      '-'                '/boot'
     printf "$fmt" "$root_part" 'rest'     'LUKS2' 'btrfs' 'rootfs' '@'                '/'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@home'            '/home'
-    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@home-snapshots'  '/home/.snapshots'
+    [ "$WANT_HOME_SNAPSHOTS" = true ] && \
+        printf "$fmt" ''       '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@home-snapshots'  '/home/.snapshots'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@log'             '/var/log'
     printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@cache'           '/var/cache'
-    printf "$fmt" ''           '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@snapshots'       '/.snapshots'
+    [ "$WANT_ROOT_SNAPSHOTS" = true ] && \
+        printf "$fmt" ''       '(shared)' 'LUKS2' 'btrfs' 'rootfs' '@snapshots'       '/.snapshots'
+
+    return 0
 }
 
 
@@ -482,6 +551,10 @@ main() {
         printf_info "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
         exit 1
     fi
+
+    ## Select snapshot subvolumes
+
+    select_subvolumes || return 0
 
     # Confirm destructive operation
     printf_action 'Proceed? '
