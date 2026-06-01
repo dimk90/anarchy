@@ -363,34 +363,68 @@ install_limine_bootloader() {
 }
 
 
+# shellcheck disable=SC2329
+build_limine_conf() {
+    #
+    # Assemble the Limine config into $tmp: the theme (if selected) goes first
+    # so it sits above the settings + boot entries — same order as the manual
+    # install (save the theme, then append the config). The '>>' redirects stay
+    # inside this function so action_run's appended '&>> LOG' can't clobber them.
+    #
+    local tmp="$1" want_theme="$2" theme_url="$3" conf_url="$4"
+
+    if [ "$want_theme" = true ]; then
+        curl -fsSL "$theme_url" >> "$tmp" || return 1
+    fi
+    curl -fsSL "$conf_url" >> "$tmp" || return 1
+}
+
+
 write_limine_config() {
     #
-    # Install limine.conf, optionally merge the theme, embed the live UKI's
-    # BLAKE2B, and drop the stale deep config under EFI/limine/.
+    # Assemble limine.conf (theme first when selected, then settings + boot
+    # entries), embed the live UKI's BLAKE2B, and drop the stale deep config
+    # under EFI/limine/. Confirms + backs up an existing config first.
     #
     printf_section "Writing Limine Config\n"
 
     action_request_permission 'to write /boot/limine.conf'
-    action_install_file "$LIMINE_CONF" "$LIMINE_CONF_URL" "$(check_sudo)"
 
-    if [ "$WANT_THEME" = true ]; then
-        local theme_tmp
-        theme_tmp=$(mktemp)
-        assert $? "can't create temporary file"
+    # An existing config means a prior setup — confirm before clobbering it, and
+    # keep a backup if we proceed. /boot is root-only (umask 0077), so the
+    # existence test needs root.
+    if is_package_installed 'limine' && as_root test -f "$LIMINE_CONF"; then
+        printf_action "%b ${STYLE_DIM}${LIMINE_CONF} already exists${STYLE_CLR}\n" \
+            "$(bullet_info)"
+        printf_action 'Back up and replace? '
+        if ! ask_yn; then
+            printf_action "%b ${STYLE_DIM}keeping existing config — skipping${STYLE_CLR}\n" \
+                "$(bullet_info)"
+            return 0
+        fi
 
-        action_run 'Download Limine theme'                     \
-            "curl -fsSL '$LIMINE_THEME_URL' -o '$theme_tmp'"   \
-            'done'
-        assert $? "can't download Limine theme"
-
-        # GNU sed 'r' queues the theme file to be read in after the marker line.
-        action_run 'Apply Limine theme'                                                \
-            "$(check_sudo) sed -i '/^# === Theme ===\$/r ${theme_tmp}' '$LIMINE_CONF'" \
-            'done'
-        assert $? "can't apply Limine theme"
-
-        rm -f "$theme_tmp"
+        local backup_name
+        backup_name=$(backup_file "$LIMINE_CONF" "$(check_sudo)")
+        assert $? "can't back up $LIMINE_CONF"
+        [ -n "$backup_name" ] && printf_action "Backup created: ${STYLE_CLR}${backup_name}\n"
     fi
+
+    # Assemble into a temp: theme leads (if selected), settings + entries follow.
+    local conf_tmp
+    conf_tmp=$(mktemp)
+    assert $? "can't create temporary file"
+
+    export -f build_limine_conf
+    action_run 'Assemble limine.conf'                                                        \
+        "build_limine_conf '$conf_tmp' '$WANT_THEME' '$LIMINE_THEME_URL' '$LIMINE_CONF_URL'"  \
+        'done'
+    assert $? "can't assemble limine.conf"
+
+    action_run "Install ${STYLE_CLR}${LIMINE_CONF}"   \
+        "$(check_sudo) cp '$conf_tmp' '$LIMINE_CONF'" \
+        'done'
+    assert $? "can't install $LIMINE_CONF"
+    rm -f "$conf_tmp"
 
     # /boot is root-only (umask 0077), so b2sum needs root.
     local uki_hash
