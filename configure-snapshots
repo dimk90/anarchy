@@ -35,6 +35,10 @@ LIMINE_LOADER='\EFI\limine\limine_x64.efi'
 LIMINE_CONF='/boot/limine.conf'
 DEEP_LIMINE_CONF='/boot/EFI/limine/limine.conf'
 
+# Encrypted btrfs holding @ and the snapshot holders — must match configure-disk.
+CRYPT_NAME='cryptroot'
+CRYPT_DEV="/dev/mapper/${CRYPT_NAME}"
+
 # Asset URLs (served by the GitHub Pages site)
 BASE_URL='https://dimk90.github.io/anarchy'
 LIMINE_CONF_URL="${BASE_URL}/boot/limine.conf"
@@ -56,6 +60,9 @@ WANT_THEME=true
 # ESP disk + partition index for the efibootmgr entry (set in verify_prerequisites)
 ESP_DISK=''
 ESP_IDX=''
+
+# Cryptroot UUID for the holder fstab lines (set in verify_prerequisites)
+CRYPT_UUID=''
 
 
 ## Routines
@@ -300,26 +307,20 @@ verify_prerequisites() {
         exit 1
     fi
 
-    # 6. @snapshots holder fstab entry (created by configure-disk). genfstab may
-    #    write subvol=/@snapshots, so tolerate the leading slash.
-    if ! action_run "fstab entry ${STYLE_CLR}@snapshots"                         \
-                    "grep -qE 'subvol=/?@snapshots([,[:space:]]|\$)' /etc/fstab" \
-                    'present'                                                    \
+    # 6. cryptroot mapper present — its UUID anchors the holder fstab lines, and
+    #    holders are siblings on this btrfs. (Missing holders are provisioned
+    #    later, so there's no fstab-presence gate here.)
+    if ! action_run "Cryptroot mapper ${STYLE_CLR}${CRYPT_DEV}"  \
+                    "as_root test -e '$CRYPT_DEV'"              \
+                    'present'                                   \
                     'missing'; then
-        printf_error "no @snapshots fstab entry - re-run configure-disk with root snapshots\n"
+        printf_error "${CRYPT_DEV} not open - snapshots require the configure-disk layout\n"
         exit 1
     fi
 
-    # 7. @home-snapshots holder fstab entry (only when home is selected)
-    if [ "$WANT_HOME" = true ]; then
-        if ! action_run "fstab entry ${STYLE_CLR}@home-snapshots"                         \
-                        "grep -qE 'subvol=/?@home-snapshots([,[:space:]]|\$)' /etc/fstab" \
-                        'present'                                                         \
-                        'missing'; then
-            printf_error "no @home-snapshots fstab entry - re-run configure-disk with home snapshots, or deselect Home snapshots\n"
-            exit 1
-        fi
-    fi
+    CRYPT_UUID=$(as_root blkid -s UUID -o value "$CRYPT_DEV" 2>>"$LOG_FILE")
+    [ -z "$CRYPT_UUID" ] && assert 1 "can't read UUID for ${CRYPT_DEV}"
+    printf_action "Cryptroot UUID: ${STYLE_CLR}${CRYPT_UUID}\n"
 
     printf_action 'Proceed? '
     ask_yn || exit 0
@@ -489,30 +490,108 @@ install_sync_defaults() {
 }
 
 
+# shellcheck disable=SC2329
+fstab_append() {
+    #
+    # Append a line to /etc/fstab unless a line matching the regex pattern is
+    # already present. prefix (e.g. sudo) elevates the read + append.
+    #
+    local pattern="$1"
+    local line="$2"
+    local prefix="${3-}"
+
+    ${prefix} grep -qE "${pattern}" /etc/fstab && return 0
+    printf '\n%s\n' "${line}" | ${prefix} tee -a /etc/fstab &>> "$LOG_FILE"
+}
+
+
+ensure_holder() {
+    #
+    # Make sure the snapshot-holder subvolume and its fstab entry exist, creating
+    # them when missing (configure-disk normally provisions them; this covers the
+    # case it didn't). Idempotent.
+    #
+    #   $1 subvol  - sibling holder subvolume (@snapshots | @home-snapshots)
+    #   $2 snapdir - its mountpoint (/.snapshots | /home/.snapshots)
+    #
+    local subvol="$1" snapdir="$2"
+
+    # Create the sibling subvolume if absent. It can't be made from inside @, so
+    # mount the btrfs top-level (subvolid=5) at a temp mountpoint.
+    if as_root btrfs subvolume list / 2>>"$LOG_FILE" | grep -qE "[[:space:]]path ${subvol}$"; then
+        printf_action "%b ${STYLE_DIM}subvolume ${STYLE_CLR}${subvol}${STYLE_DIM} exists${STYLE_CLR}\n" \
+            "$(bullet_info)"
+    else
+        local top
+        top=$(mktemp -d)
+        assert $? "can't create temp mountpoint"
+
+        action_run "Mount cryptroot top-level at ${STYLE_CLR}${top}"  \
+            "as_root mount -o subvolid=5 '$CRYPT_DEV' '$top'"         \
+            'done'
+        assert $? "can't mount cryptroot top-level"
+
+        action_run "Create subvolume ${STYLE_CLR}${subvol}"  \
+            "as_root btrfs subvolume create '$top/$subvol'"  \
+            'done'
+        assert $? "can't create $subvol"
+
+        action_run "Unmount top-level ${STYLE_CLR}${top}"  \
+            "as_root umount '$top'"                        \
+            'done'                                         \
+            'busy'
+        assert $? "can't unmount $top"
+
+        rmdir "$top" 2>>"$LOG_FILE"
+    fi
+
+    # Add the fstab entry if missing. btrfs-wide options are inherited from @'s
+    # mount, so only subvol= + noatime are needed. Tolerate a slash-prefixed
+    # subvol=/@... that genfstab/configure-disk may already have written.
+    local fstab_line="UUID=${CRYPT_UUID}  ${snapdir}  btrfs  subvol=${subvol},noatime  0 0"
+    local fstab_pattern="subvol=/?${subvol}([,[:space:]]|\$)"
+
+    export -f fstab_append
+    action_run "Add fstab entry for ${STYLE_CLR}${snapdir}"             \
+        "fstab_append '${fstab_pattern}' '${fstab_line}' $(check_sudo)" \
+        'done'
+    assert $? "can't add fstab entry for $snapdir"
+
+    action_run 'Reload systemd unit cache'      \
+        "$(check_sudo) systemctl daemon-reload" \
+        'done'
+    assert $? 'daemon-reload failed'
+}
+
+
 configure_snapper_config() {
     #
     # Create a snapper config, swap snapper's throwaway nested .snapshots for
-    # the configure-disk sibling holder, set permissions, and apply retention.
-    # Idempotent: skips the create dance when the config already exists.
+    # the sibling holder, set permissions, and apply retention. Provisions the
+    # holder first. Idempotent: skips the create dance when the config exists.
     #
     #   $1 cfg          - snapper config name (root | home)
     #   $2 target       - subvolume mountpoint (/ | /home)
     #   $3 snapdir      - sibling .snapshots mountpoint
-    #   $4 retention_fn - exported function applying the retention policy
+    #   $4 subvol       - sibling holder subvolume (@snapshots | @home-snapshots)
+    #   $5 retention_fn - exported function applying the retention policy
     #
-    local cfg="$1" target="$2" snapdir="$3" retention_fn="$4"
+    local cfg="$1" target="$2" snapdir="$3" subvol="$4" retention_fn="$5"
 
     printf_section "Configuring Snapper for ${STYLE_CLR}%b\n"  \
         "$(gum style --foreground "$GUM_YELLOW" "$target")"
 
     action_request_permission "to configure snapper for ${target}"
 
+    # Make sure the holder subvolume + its fstab line exist before the dance.
+    ensure_holder "$subvol" "$snapdir"
+
     if as_root snapper list-configs 2>>"$LOG_FILE" | grep -qw "$cfg"; then
         printf_action "%b ${STYLE_DIM}config ${STYLE_CLR}${cfg}${STYLE_DIM} exists — skipping create-config${STYLE_CLR}\n" \
             "$(bullet_info)"
     else
-        # The sibling holder is mounted (configure-disk fstab line); unmount it
-        # so create-config can make — and we can delete — its throwaway subvol.
+        # If the holder is currently mounted (pre-provisioned), unmount it so
+        # create-config can make — and we can delete — its throwaway subvol.
         if mountpoint -q "$snapdir"; then
             action_run "Unmount sibling holder ${STYLE_CLR}${snapdir}"   \
                 "as_root umount '$snapdir' && as_root rm -rf '$snapdir'" \
@@ -643,13 +722,13 @@ main() {
     # Retention helpers run inside action_run's bash -c subshell — export them.
     export -f apply_root_retention apply_home_retention
 
-    configure_snapper_config 'root' '/' '/.snapshots' 'apply_root_retention'
+    configure_snapper_config 'root' '/' '/.snapshots' '@snapshots' 'apply_root_retention'
     enable_limine_snapper_sync
 
     ## Snapper for /home (optional)
 
     if [ "$WANT_HOME" = true ]; then
-        configure_snapper_config 'home' '/home' '/home/.snapshots' 'apply_home_retention'
+        configure_snapper_config 'home' '/home' '/home/.snapshots' '@home-snapshots' 'apply_home_retention'
         enable_timeline_timer
     fi
 
