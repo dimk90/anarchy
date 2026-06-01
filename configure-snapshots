@@ -1,0 +1,631 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Constants
+
+
+# UKI built by configure-boot — its BLAKE2B is embedded in limine.conf and its
+# NVRAM entry must stay ahead of Limine in the boot order.
+UKI_PATH='/boot/EFI/Linux/arch-linux.efi'
+UKI_LABEL='Arch Linux (UKI)'
+
+# Limine bootloader binary + NVRAM entry
+LIMINE_LABEL='Limine (Snapshots)'
+LIMINE_EFI_SRC='/usr/share/limine/BOOTX64.EFI'
+LIMINE_EFI_DST='/boot/EFI/limine/limine_x64.efi'
+LIMINE_LOADER='\EFI\limine\limine_x64.efi'
+
+# Canonical Limine config (the deep copy under EFI/limine/ goes stale silently
+# and must be removed — limine-snapper-sync only updates the root one).
+LIMINE_CONF='/boot/limine.conf'
+DEEP_LIMINE_CONF='/boot/EFI/limine/limine.conf'
+
+# Asset URLs (served by the GitHub Pages site)
+BASE_URL='https://dimk90.github.io/anarchy'
+LIMINE_CONF_URL="${BASE_URL}/boot/limine.conf"
+LIMINE_THEME_URL="${BASE_URL}/boot/limine-theme.conf"
+LIMINE_HOOK_URL="${BASE_URL}/boot/99-limine.hook"
+LIMINE_DEFAULT_URL="${BASE_URL}/boot/limine.default"
+
+# AUR companions: snapshot→Limine entry sync and kernel-update hook
+AUR_TOOLS='limine-snapper-sync limine-mkinitcpio-hook'
+
+
+## Globals (set at runtime)
+
+
+# Optional components (toggled in select_optional_components)
+WANT_HOME=true
+WANT_THEME=true
+
+# ESP disk + partition index for the efibootmgr entry (set in verify_prerequisites)
+ESP_DISK=''
+ESP_IDX=''
+
+
+## Routines
+
+
+detect_esp_mount() {
+    #
+    # Print the partition device path mounted at /boot.
+    #
+    findmnt -n -o SOURCE /boot 2>>"$LOG_FILE"
+}
+
+
+parse_disk_part() {
+    #
+    # Convert a partition device path to "<disk>|<index>".
+    #   /dev/nvme0n1p1 -> /dev/nvme0n1|1
+    #   /dev/sda1      -> /dev/sda|1
+    # NVMe-style needs the 'p' separator (digit before 'p' before idx).
+    #
+    local part="$1"
+    local disk='' idx=''
+
+    if [[ "$part" =~ ^(.*[0-9])p([0-9]+)$ ]]; then
+        disk="${BASH_REMATCH[1]}"
+        idx="${BASH_REMATCH[2]}"
+    elif [[ "$part" =~ ^(.*[^0-9])([0-9]+)$ ]]; then
+        disk="${BASH_REMATCH[1]}"
+        idx="${BASH_REMATCH[2]}"
+    fi
+
+    echo "${disk}|${idx}"
+}
+
+
+# shellcheck disable=SC2329
+is_root_btrfs_subvol_at() {
+    #
+    # Check whether '/' is mounted on btrfs with subvol=@. The snapshot layout
+    # (and the cmdline baked into the UKI) assumes this.
+    #
+    local fstype subvol
+    fstype=$(findmnt -n -o FSTYPE / 2>>"$LOG_FILE")
+    [ "$fstype" = 'btrfs' ] || return 1
+
+    subvol=$(findmnt -n -o OPTIONS / 2>>"$LOG_FILE" | grep -oE 'subvol=[^,]+' | head -n 1)
+    [ "$subvol" = 'subvol=/@' ] || [ "$subvol" = 'subvol=@' ]
+}
+
+
+# shellcheck disable=SC2329
+reorder_bootorder() {
+    #
+    # Put the UKI first and Limine second in the UEFI boot order, preserving the
+    # rest. Returns 1 if either entry can't be found in NVRAM.
+    #
+    local out uki lim order rest neworder
+    out=$(as_root efibootmgr 2>>"$LOG_FILE")
+
+    uki=$(grep -F "$UKI_LABEL" <<< "$out" \
+          | grep -oE '^Boot[0-9A-Fa-f]{4}' | head -n1 | sed 's/^Boot//')
+    lim=$(grep -F "$LIMINE_LABEL" <<< "$out" \
+          | grep -oE '^Boot[0-9A-Fa-f]{4}' | head -n1 | sed 's/^Boot//')
+
+    [ -z "$uki" ] && return 1
+    [ -z "$lim" ] && return 1
+
+    order=$(grep -E '^BootOrder:' <<< "$out" | sed -E 's/^BootOrder:[[:space:]]*//')
+    rest=$(tr ',' '\n' <<< "$order" | grep -viE "^(${uki}|${lim})$" | paste -sd ',' -)
+
+    if [ -n "$rest" ]; then
+        neworder="${uki},${lim},${rest}"
+    else
+        neworder="${uki},${lim}"
+    fi
+
+    as_root efibootmgr --bootorder "$neworder" &>> "$LOG_FILE"
+}
+
+
+# shellcheck disable=SC2329
+apply_root_retention() {
+    #
+    # Retention for the 'root' config: snap-pac is the only trigger, no
+    # timeline, a real rollback window, drop empty pre/post pairs.
+    #
+    as_root snapper -c root set-config \
+        ALLOW_GROUPS=wheel             \
+        SYNC_ACL=yes                   \
+        NUMBER_CLEANUP=yes             \
+        NUMBER_MIN_AGE=1800            \
+        NUMBER_LIMIT=20                \
+        NUMBER_LIMIT_IMPORTANT=10      \
+        TIMELINE_CREATE=no             \
+        TIMELINE_CLEANUP=yes           \
+        TIMELINE_LIMIT_HOURLY=0        \
+        TIMELINE_LIMIT_DAILY=0         \
+        TIMELINE_LIMIT_WEEKLY=0        \
+        TIMELINE_LIMIT_MONTHLY=0       \
+        TIMELINE_LIMIT_YEARLY=0        \
+        EMPTY_PRE_POST_CLEANUP=yes     \
+        EMPTY_PRE_POST_MIN_AGE=1800
+}
+
+
+# shellcheck disable=SC2329
+apply_home_retention() {
+    #
+    # Retention for the 'home' config: timeline is the only trigger, daily
+    # granularity with weekly + monthly fallback, pacman irrelevant.
+    #
+    as_root snapper -c home set-config \
+        ALLOW_GROUPS=wheel             \
+        SYNC_ACL=yes                   \
+        PACMAN_PRE_POST=no             \
+        NUMBER_CLEANUP=no              \
+        TIMELINE_CREATE=yes            \
+        TIMELINE_CLEANUP=yes           \
+        TIMELINE_MIN_AGE=1800          \
+        TIMELINE_LIMIT_HOURLY=0        \
+        TIMELINE_LIMIT_DAILY=7         \
+        TIMELINE_LIMIT_WEEKLY=4        \
+        TIMELINE_LIMIT_MONTHLY=3       \
+        TIMELINE_LIMIT_YEARLY=0        \
+        EMPTY_PRE_POST_CLEANUP=no
+}
+
+
+select_optional_components() {
+    #
+    # Ask which optional components to set up. The core (Limine + root
+    # snapshots) is always configured. Sets WANT_HOME / WANT_THEME.
+    # Returns 1 on cancel.
+    #
+    local section
+    section=$(prefix_printf "$(bullet_section)" 'Select Optional Components')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' --cursor='   > '   \
+                     --header "${section}"                               \
+                     'Home snapshots - timeline config for /home'        \
+                     'Limine theme - monochrome HiDPI menu styling'); then
+        choices=${choices,,} # convert to lowercase for easier matching
+    else
+        return 1
+    fi
+
+    printf "%s\n" "$section" # repaint header gum cleared on selection
+
+    WANT_HOME=false
+    WANT_THEME=false
+    grep -q 'home snapshots' <<< "$choices" && WANT_HOME=true
+    grep -q 'limine theme'   <<< "$choices" && WANT_THEME=true
+
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
+    return 0
+}
+
+
+require_tools() {
+    #
+    # Ensure the official-repo packages are installed.
+    #
+    printf_section "Checking Required Tools\n"
+
+    action_require_package 'limine'
+    action_require_package 'snapper'
+    action_require_package 'snap-pac'
+}
+
+
+verify_prerequisites() {
+    #
+    # Pre-flight checks. Each step is an action_run so the section is never
+    # empty: failure renders a red status, the trailing exit gives the
+    # diagnostic. Sets ESP_DISK / ESP_IDX for the NVRAM entry.
+    #
+    printf_section "Verifying Prerequisites\n"
+
+    action_request_permission 'to inspect the system'
+
+    # 1. yay present (AUR tools build only as a normal user)
+    if ! action_run "AUR helper ${STYLE_CLR}yay"  \
+                    'command -v yay'              \
+                    'present'                     \
+                    'missing'; then
+        printf_error "yay not found - run install-yay first\n"
+        exit 1
+    fi
+
+    # 2. UEFI boot mode (efibootmgr needs it)
+    if ! action_run 'UEFI boot mode'        \
+                    '[ -d /sys/firmware/efi ]' \
+                    'yes'                   \
+                    'no'; then
+        printf_error "not booted in UEFI mode - can't register Limine in NVRAM\n"
+        exit 1
+    fi
+
+    # 3. ESP mounted at /boot
+    local esp_part
+    esp_part=$(detect_esp_mount)
+    if ! action_run "ESP mounted at ${STYLE_CLR}/boot"  \
+                    "[ -n '$esp_part' ]"                \
+                    'mounted'                           \
+                    'missing'; then
+        printf_error "ESP not mounted at /boot - mount it and re-run\n"
+        exit 1
+    fi
+
+    local disk_part
+    disk_part=$(parse_disk_part "$esp_part")
+    ESP_DISK="${disk_part%|*}"
+    ESP_IDX="${disk_part##*|}"
+    if [ -z "$ESP_DISK" ] || [ -z "$ESP_IDX" ]; then
+        printf_error "can't parse ESP partition path: %s\n" "$esp_part"
+        exit 1
+    fi
+    printf_action "ESP: ${STYLE_CLR}%b ${STYLE_DIM}(disk ${STYLE_CLR}%b${STYLE_DIM}, part ${STYLE_CLR}%b${STYLE_DIM})\n" \
+        "$(gum style --foreground "$GUM_YELLOW" "$esp_part")"  \
+        "$(gum style --foreground "$GUM_YELLOW" "$ESP_DISK")"  \
+        "$(gum style --foreground "$GUM_YELLOW" "$ESP_IDX")"
+
+    # 4. root is btrfs subvol=@
+    export -f is_root_btrfs_subvol_at
+    if ! action_run 'Root filesystem (btrfs subvol=@)'  \
+                    'is_root_btrfs_subvol_at'           \
+                    'btrfs subvol=@'                    \
+                    'mismatch'; then
+        printf_error "/ is not btrfs subvol=@ - snapshots require the configure-disk layout\n"
+        exit 1
+    fi
+
+    # 5. UKI present (built by configure-boot); /boot is root-only (umask 0077)
+    if ! action_run "UKI ${STYLE_CLR}${UKI_PATH}"  \
+                    "as_root test -f '$UKI_PATH'"  \
+                    'present'                      \
+                    'missing'; then
+        printf_error "UKI not found at ${UKI_PATH} - run configure-boot first\n"
+        exit 1
+    fi
+
+    # 6. @snapshots holder fstab entry (created by configure-disk). genfstab may
+    #    write subvol=/@snapshots, so tolerate the leading slash.
+    if ! action_run "fstab entry ${STYLE_CLR}@snapshots"                         \
+                    "grep -qE 'subvol=/?@snapshots([,[:space:]]|\$)' /etc/fstab" \
+                    'present'                                                    \
+                    'missing'; then
+        printf_error "no @snapshots fstab entry - re-run configure-disk with root snapshots\n"
+        exit 1
+    fi
+
+    # 7. @home-snapshots holder fstab entry (only when home is selected)
+    if [ "$WANT_HOME" = true ]; then
+        if ! action_run "fstab entry ${STYLE_CLR}@home-snapshots"                         \
+                        "grep -qE 'subvol=/?@home-snapshots([,[:space:]]|\$)' /etc/fstab" \
+                        'present'                                                         \
+                        'missing'; then
+            printf_error "no @home-snapshots fstab entry - re-run configure-disk with home snapshots, or deselect Home snapshots\n"
+            exit 1
+        fi
+    fi
+
+    printf_action 'Proceed? '
+    ask_yn || exit 0
+}
+
+
+install_aur_tools() {
+    #
+    # Build + install the AUR companions with yay (runs as the normal user;
+    # yay shells out to sudo pacman internally, so cache the password first).
+    #
+    printf_section "Installing Snapshot Sync Tools (AUR)\n"
+
+    action_request_permission 'to install AUR packages with yay'
+    action_run "Install $(gum style --foreground "$GUM_YELLOW" "$AUR_TOOLS")"  \
+        "yay -S --needed --noconfirm ${AUR_TOOLS}"                             \
+        'done'
+    assert $? "can't install AUR snapshot tools"
+}
+
+
+install_limine_bootloader() {
+    #
+    # Seed the ESP with the Limine binary and install the pacman hook that
+    # redeploys it on every limine upgrade.
+    #
+    printf_section "Installing Limine Bootloader\n"
+
+    action_request_permission 'to deploy Limine to the ESP'
+    action_run "Create ${STYLE_CLR}/boot/EFI/limine"  \
+        'as_root mkdir -p /boot/EFI/limine'           \
+        'done'
+    assert $? "can't create /boot/EFI/limine"
+
+    action_install_file '/etc/pacman.d/hooks/99-limine.hook' "$LIMINE_HOOK_URL" "$(check_sudo)"
+
+    action_run "Deploy ${STYLE_CLR}${LIMINE_EFI_DST##*/}${STYLE_DIM} to the ESP"  \
+        "as_root cp '$LIMINE_EFI_SRC' '$LIMINE_EFI_DST' && as_root sync"          \
+        'done'
+    assert $? "can't deploy ${LIMINE_EFI_DST}"
+}
+
+
+write_limine_config() {
+    #
+    # Install limine.conf, optionally merge the theme, embed the live UKI's
+    # BLAKE2B, and drop the stale deep config under EFI/limine/.
+    #
+    printf_section "Writing Limine Config\n"
+
+    action_request_permission 'to write /boot/limine.conf'
+    action_install_file "$LIMINE_CONF" "$LIMINE_CONF_URL" "$(check_sudo)"
+
+    if [ "$WANT_THEME" = true ]; then
+        local theme_tmp
+        theme_tmp=$(mktemp)
+        assert $? "can't create temporary file"
+
+        action_run 'Download Limine theme'                     \
+            "curl -fsSL '$LIMINE_THEME_URL' -o '$theme_tmp'"   \
+            'done'
+        assert $? "can't download Limine theme"
+
+        # GNU sed 'r' queues the theme file to be read in after the marker line.
+        action_run 'Apply Limine theme'                                                \
+            "$(check_sudo) sed -i '/^# === Theme ===\$/r ${theme_tmp}' '$LIMINE_CONF'" \
+            'done'
+        assert $? "can't apply Limine theme"
+
+        rm -f "$theme_tmp"
+    fi
+
+    # /boot is root-only (umask 0077), so b2sum needs root.
+    local uki_hash
+    uki_hash=$(as_root b2sum "$UKI_PATH" 2>>"$LOG_FILE" | awk '{print $1}')
+    [ -z "$uki_hash" ] && assert 1 "can't compute BLAKE2B of $UKI_PATH"
+    printf_action "UKI BLAKE2B: ${STYLE_CLR}${uki_hash:0:16}\n"
+
+    action_run "Embed UKI hash into ${STYLE_CLR}${LIMINE_CONF##*/}"            \
+        "$(check_sudo) sed -i 's|<b2sum-of-uki>|${uki_hash}|' '$LIMINE_CONF'"  \
+        'done'
+    assert $? "can't embed UKI hash in $LIMINE_CONF"
+
+    action_run "Remove stale ${STYLE_CLR}${DEEP_LIMINE_CONF}"  \
+        "as_root rm -f '$DEEP_LIMINE_CONF'"                    \
+        'done'
+    assert $? "can't remove $DEEP_LIMINE_CONF"
+}
+
+
+register_limine_nvram() {
+    #
+    # Register Limine as a separate NVRAM entry, then reorder so the UKI boots
+    # first and Limine second. Idempotent: skip create if the entry exists.
+    #
+    printf_section "Registering Limine in NVRAM\n"
+
+    action_require_package 'efibootmgr'
+    action_request_permission 'to manage NVRAM boot entries'
+
+    if as_root efibootmgr 2>>"$LOG_FILE" | grep -qF "$LIMINE_LABEL"; then
+        printf_action "%b ${STYLE_DIM}entry ${STYLE_CLR}${LIMINE_LABEL}${STYLE_DIM} already present — skipping create${STYLE_CLR}\n" \
+            "$(bullet_info)"
+    else
+        action_run "Register $(gum style --foreground "$GUM_YELLOW" "$LIMINE_LABEL")"  \
+            "as_root efibootmgr --create --disk '$ESP_DISK' --part $ESP_IDX            \
+                                --label '$LIMINE_LABEL'                                \
+                                --loader '$LIMINE_LOADER' --unicode"                   \
+            'done'
+        assert $? "can't register Limine in NVRAM"
+    fi
+
+    export UKI_LABEL LIMINE_LABEL
+    export -f reorder_bootorder
+    if ! action_run 'Reorder boot entries (UKI first, Limine second)'  \
+                    'reorder_bootorder'                                \
+                    'done'                                             \
+                    'UKI entry not found'; then
+        printf_action "%b ${STYLE_DIM}reorder skipped — set it manually: ${STYLE_CLR}efibootmgr --bootorder <UKI>,<Limine>,…${STYLE_CLR}\n" \
+            "$(bullet_warning)"
+    fi
+}
+
+
+install_sync_defaults() {
+    #
+    # /etc/default/limine drives limine-snapper-sync + limine-mkinitcpio-hook.
+    #
+    printf_section "Configuring Sync Defaults\n"
+
+    action_request_permission 'to write /etc/default/limine'
+    action_install_file '/etc/default/limine' "$LIMINE_DEFAULT_URL" "$(check_sudo)"
+}
+
+
+configure_snapper_config() {
+    #
+    # Create a snapper config, swap snapper's throwaway nested .snapshots for
+    # the configure-disk sibling holder, set permissions, and apply retention.
+    # Idempotent: skips the create dance when the config already exists.
+    #
+    #   $1 cfg          - snapper config name (root | home)
+    #   $2 target       - subvolume mountpoint (/ | /home)
+    #   $3 snapdir      - sibling .snapshots mountpoint
+    #   $4 retention_fn - exported function applying the retention policy
+    #
+    local cfg="$1" target="$2" snapdir="$3" retention_fn="$4"
+
+    printf_section "Configuring Snapper for ${STYLE_CLR}%b\n"  \
+        "$(gum style --foreground "$GUM_YELLOW" "$target")"
+
+    action_request_permission "to configure snapper for ${target}"
+
+    if as_root snapper list-configs 2>>"$LOG_FILE" | grep -qw "$cfg"; then
+        printf_action "%b ${STYLE_DIM}config ${STYLE_CLR}${cfg}${STYLE_DIM} exists — skipping create-config${STYLE_CLR}\n" \
+            "$(bullet_info)"
+    else
+        # The sibling holder is mounted (configure-disk fstab line); unmount it
+        # so create-config can make — and we can delete — its throwaway subvol.
+        if mountpoint -q "$snapdir"; then
+            action_run "Unmount sibling holder ${STYLE_CLR}${snapdir}"   \
+                "as_root umount '$snapdir' && as_root rm -rf '$snapdir'" \
+                'done'                                                   \
+                'busy'
+            assert $? "can't unmount $snapdir"
+        fi
+
+        action_run "Create snapper config ${STYLE_CLR}${cfg}"   \
+            "as_root snapper -c '$cfg' create-config '$target'" \
+            'done'
+        assert $? "can't create snapper config $cfg"
+
+        action_run "Delete throwaway subvolume ${STYLE_CLR}${snapdir}"  \
+            "as_root btrfs subvolume delete '$snapdir'"                 \
+            'done'
+        assert $? "can't delete throwaway subvolume at $snapdir"
+
+        action_run "Create mountpoint ${STYLE_CLR}${snapdir}"  \
+            "as_root mkdir '$snapdir'"                         \
+            'done'
+        assert $? "can't create $snapdir"
+
+        action_run "Mount sibling holder at ${STYLE_CLR}${snapdir}"  \
+            "as_root mount '$snapdir'"                               \
+            'done'
+        assert $? "can't mount $snapdir (is the fstab entry present?)"
+    fi
+
+    action_run "Set ${STYLE_CLR}${snapdir}${STYLE_DIM} ownership and mode"  \
+        "as_root chmod 750 '$snapdir' && as_root chown :wheel '$snapdir'"   \
+        'done'
+    assert $? "can't set permissions on $snapdir"
+
+    action_run "Apply ${STYLE_CLR}${cfg}${STYLE_DIM} retention policy"  \
+        "$retention_fn"                                                 \
+        'done'
+    assert $? "can't apply $cfg retention"
+
+    # snap-pac walks SNAPPER_CONFIGS; create-config adds the config there.
+    if [ "$cfg" = 'root' ]; then
+        action_run 'Verify snap-pac wired (SNAPPER_CONFIGS)'  \
+            "as_root grep -qw 'root' /etc/conf.d/snapper"     \
+            'root'                                            \
+            'missing'
+    fi
+}
+
+
+enable_limine_snapper_sync() {
+    #
+    # Run an initial sync (best-effort) and enable the inotify-driven service
+    # that turns each new snapshot into a Limine boot entry.
+    #
+    printf_section "Enabling limine-snapper-sync\n"
+
+    action_request_permission 'to enable limine-snapper-sync'
+
+    # May find nothing to do before the first snapshot — never fatal.
+    action_run 'Run initial sync (best-effort)'   \
+        'as_root limine-snapper-sync || true'     \
+        'done'
+
+    action_run 'Enable limine-snapper-sync.service'                  \
+        'as_root systemctl enable --now limine-snapper-sync.service' \
+        'enabled'
+    assert $? "can't enable limine-snapper-sync.service"
+}
+
+
+enable_timeline_timer() {
+    #
+    # One timer walks every config with TIMELINE_CREATE=yes (just 'home' here).
+    #
+    printf_section "Enabling Timeline Timer\n"
+
+    action_request_permission 'to enable snapper-timeline.timer'
+    action_run 'Enable snapper-timeline.timer'                  \
+        'as_root systemctl enable --now snapper-timeline.timer' \
+        'enabled'
+    assert $? "can't enable snapper-timeline.timer"
+}
+
+
+main() {
+
+    ## Refuse to run as root
+    # yay / makepkg cannot build as root; privileged steps use as_root instead.
+    if [ "$EUID" -eq 0 ]; then
+        printf_error "%b\n" 'this script must be run as a non-root user (AUR tools cannot build as root)'
+        exit 1
+    fi
+
+    ## Get gum
+
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    ## Init
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+
+    ## Optional components
+
+    select_optional_components || return 0
+
+    ## Tools + pre-flight
+
+    require_tools
+    verify_prerequisites
+
+    ## AUR tooling
+
+    install_aur_tools
+
+    ## Limine bootloader, config, NVRAM, sync defaults
+
+    install_limine_bootloader
+    write_limine_config
+    register_limine_nvram
+    install_sync_defaults
+
+    ## Snapper for / (mandatory)
+
+    # Retention helpers run inside action_run's bash -c subshell — export them.
+    export -f apply_root_retention apply_home_retention
+
+    configure_snapper_config 'root' '/' '/.snapshots' 'apply_root_retention'
+    enable_limine_snapper_sync
+
+    ## Snapper for /home (optional)
+
+    if [ "$WANT_HOME" = true ]; then
+        configure_snapper_config 'home' '/home' '/home/.snapshots' 'apply_home_retention'
+        enable_timeline_timer
+    fi
+
+    ## Closing tips
+
+    printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
+    printf_info "%b\n" 'reboot to confirm the Limine menu, then run pacman -Syu to test a snapshot pair'
+
+    return 0
+}
+
+
+main "$@"
