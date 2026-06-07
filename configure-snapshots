@@ -224,14 +224,24 @@ select_optional_components() {
 }
 
 
-require_tools() {
+install_limine() {
     #
-    # Ensure the official-repo packages are installed.
+    # Everything Limine under one section: the official package, the AUR
+    # companions, the bootloader binary + its pacman hook, limine.conf, the
+    # NVRAM entry, and /etc/default/limine. Each step keeps its own
+    # action_request_permission — a silent no-op while sudo is cached, but it
+    # re-asserts privilege right before its work (the AUR build can outlast the
+    # sudo timestamp) and documents that step's intent.
     #
-    printf_section "Checking Required Tools\n"
+    printf_section "Installing Limine\n"
 
     action_require_package 'limine'
-    action_require_package 'snapper'
+
+    install_aur_tools
+    install_limine_bootloader
+    write_limine_config
+    register_limine_nvram
+    install_sync_defaults
 }
 
 
@@ -330,9 +340,8 @@ install_aur_tools() {
     #
     # Build + install the AUR companions with yay (runs as the normal user;
     # yay shells out to sudo pacman internally, so cache the password first).
+    # Step of the "Installing Limine" section.
     #
-    printf_section "Installing Snapshot Sync Tools (AUR)\n"
-
     action_request_permission 'to install AUR packages with yay'
     action_run "Install $(gum style --foreground "$GUM_YELLOW" "$AUR_TOOLS")"  \
         "yay -S --needed --noconfirm ${AUR_TOOLS}"                             \
@@ -344,10 +353,9 @@ install_aur_tools() {
 install_limine_bootloader() {
     #
     # Seed the ESP with the Limine binary and install the pacman hook that
-    # redeploys it on every limine upgrade.
+    # redeploys it on every limine upgrade. Step of the "Installing Limine"
+    # section.
     #
-    printf_section "Installing Limine Bootloader\n"
-
     action_request_permission 'to deploy Limine to the ESP'
     action_run "Create ${STYLE_CLR}/boot/EFI/limine"  \
         'as_root mkdir -p /boot/EFI/limine'           \
@@ -384,10 +392,9 @@ write_limine_config() {
     #
     # Assemble limine.conf (theme first when selected, then settings + boot
     # entries), embed the live UKI's BLAKE2B, and drop the stale deep config
-    # under EFI/limine/. Confirms + backs up an existing config first.
+    # under EFI/limine/. Confirms + backs up an existing config first. Step of
+    # the "Installing Limine" section.
     #
-    printf_section "Writing Limine Config\n"
-
     action_request_permission 'to write /boot/limine.conf'
 
     # An existing config means a prior setup — confirm before clobbering it, and
@@ -447,10 +454,9 @@ write_limine_config() {
 register_limine_nvram() {
     #
     # Register Limine as a separate NVRAM entry, then reorder so the UKI boots
-    # first and Limine second. Idempotent: skip create if the entry exists.
+    # first and Limine second. Idempotent: skip create if the entry exists. Step
+    # of the "Installing Limine" section.
     #
-    printf_section "Registering Limine in NVRAM\n"
-
     action_require_package 'efibootmgr'
     action_request_permission 'to manage NVRAM boot entries'
 
@@ -481,9 +487,8 @@ register_limine_nvram() {
 install_sync_defaults() {
     #
     # /etc/default/limine drives limine-snapper-sync + limine-mkinitcpio-hook.
+    # Step of the "Installing Limine" section.
     #
-    printf_section "Configuring Sync Defaults\n"
-
     action_request_permission 'to write /etc/default/limine'
     action_install_file '/etc/default/limine' "$LIMINE_DEFAULT_URL" "$(check_sudo)"
 }
@@ -582,6 +587,12 @@ configure_snapper_config() {
 
     action_request_permission "to configure snapper for ${target}"
 
+    # snapper is installed once here (root always runs first and is mandatory);
+    # the home pass reuses it. create-config needs it; ensure_holder doesn't.
+    if [ "$cfg" = 'root' ]; then
+        action_require_package 'snapper'
+    fi
+
     # Make sure the holder subvolume + its fstab line exist before the dance.
     ensure_holder "$subvol" "$snapdir"
 
@@ -643,10 +654,9 @@ configure_snapper_config() {
 enable_limine_snapper_sync() {
     #
     # Run an initial sync (best-effort) and enable the inotify-driven service
-    # that turns each new snapshot into a Limine boot entry.
+    # that turns each new snapshot into a Limine boot entry. Folds under the
+    # "Configuring Snapper for /" section (prints no header of its own).
     #
-    printf_section "Enabling limine-snapper-sync\n"
-
     action_request_permission 'to enable limine-snapper-sync'
 
     # May find nothing to do before the first snapshot — never fatal.
@@ -669,10 +679,9 @@ install_snap_pac() {
     # configuration's own package installs from creating snapshots before the
     # pipeline is ready. (alpm fixes the hook set at transaction start, so
     # snap-pac never snapshots its own install — the first pair fires on the
-    # user's next pacman -Syu.)
+    # user's next pacman -Syu.) Folds under the "Configuring Snapper for /"
+    # section as its final action.
     #
-    printf_section "Installing the Snapshot Trigger (snap-pac)\n"
-
     action_require_package 'snap-pac'
 }
 
@@ -680,9 +689,9 @@ install_snap_pac() {
 enable_timeline_timer() {
     #
     # One timer walks every config with TIMELINE_CREATE=yes (just 'home' here).
+    # Folds under the "Configuring Snapper for /home" section (prints no header
+    # of its own).
     #
-    printf_section "Enabling Timeline Timer\n"
-
     action_request_permission 'to enable snapper-timeline.timer'
     action_run 'Enable snapper-timeline.timer'                  \
         'as_root systemctl enable --now snapper-timeline.timer' \
@@ -716,36 +725,26 @@ main() {
 
     select_optional_components || return 0
 
-    ## Tools + pre-flight
+    ## Pre-flight
 
-    require_tools
     verify_prerequisites
 
-    ## AUR tooling
+    ## Limine — bootloader, AUR tools, config, NVRAM, sync defaults (one section)
 
-    install_aur_tools
+    install_limine
 
-    ## Limine bootloader, config, NVRAM, sync defaults
-
-    install_limine_bootloader
-    write_limine_config
-    register_limine_nvram
-    install_sync_defaults
-
-    ## Snapper for / (mandatory)
+    ## Snapper — per-target configs, sync service, snap-pac trigger, timer
 
     # Retention helpers run inside action_run's bash -c subshell — export them.
     export -f apply_root_retention apply_home_retention
 
+    # root (mandatory): enable_limine_snapper_sync + install_snap_pac print no
+    # header — they fold under "Configuring Snapper for /". snap-pac is last.
     configure_snapper_config 'root' '/' '/.snapshots' '@snapshots' 'apply_root_retention'
     enable_limine_snapper_sync
-
-    ## Snapshot trigger (installed last, once the pipeline is live)
-
     install_snap_pac
 
-    ## Snapper for /home (optional)
-
+    # home (optional): enable_timeline_timer folds under its section.
     if [ "$WANT_HOME" = true ]; then
         configure_snapper_config 'home' '/home' '/home/.snapshots' '@home-snapshots' 'apply_home_retention'
         enable_timeline_timer
