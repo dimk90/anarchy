@@ -232,7 +232,6 @@ require_tools() {
 
     action_require_package 'limine'
     action_require_package 'snapper'
-    action_require_package 'snap-pac'
 }
 
 
@@ -662,6 +661,22 @@ enable_limine_snapper_sync() {
 }
 
 
+install_snap_pac() {
+    #
+    # Install snap-pac LAST — it's the trigger that turns each pacman
+    # transaction into a snapper pre/post pair. Installing it only now, with the
+    # root config registered and the limine-snapper-sync watcher live, keeps the
+    # configuration's own package installs from creating snapshots before the
+    # pipeline is ready. (alpm fixes the hook set at transaction start, so
+    # snap-pac never snapshots its own install — the first pair fires on the
+    # user's next pacman -Syu.)
+    #
+    printf_section "Installing the Snapshot Trigger (snap-pac)\n"
+
+    action_require_package 'snap-pac'
+}
+
+
 enable_timeline_timer() {
     #
     # One timer walks every config with TIMELINE_CREATE=yes (just 'home' here).
@@ -724,6 +739,10 @@ main() {
 
     configure_snapper_config 'root' '/' '/.snapshots' '@snapshots' 'apply_root_retention'
     enable_limine_snapper_sync
+
+    ## Snapshot trigger (installed last, once the pipeline is live)
+
+    install_snap_pac
 
     ## Snapper for /home (optional)
 
