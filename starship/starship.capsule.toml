@@ -130,6 +130,7 @@ disabled = false
 [python]
 format = '[─](fg:cap-separator)[](fg:cap-language)[ ](fg:cap-icon bg:cap-language)[](fg:cap-language bg:cap-background)[ ${pyenv_prefix}(${version} )(\($virtualenv\))](bg:cap-background)[](fg:cap-background)'
 version_format = 'v${major}.${minor}'
+python_binary = [['uv', 'run', '--no-python-downloads', '--no-project', 'python'], ['python']]
 
 
 [git_branch]

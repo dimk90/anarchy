@@ -137,6 +137,7 @@ format = '[${symbol}${pyenv_prefix}(${version} )(\($virtualenv\) )]($style)'
 symbol = ' '
 style = 'green'
 version_format = 'v${major}.${minor}'
+python_binary = [['uv', 'run', '--no-python-downloads', '--no-project', 'python'], ['python']]
 
 
 [git_branch]
