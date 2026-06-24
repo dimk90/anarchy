@@ -57,6 +57,28 @@ install_font() {
 }
 
 
+install_mouse() {
+    #
+    # Install gpm for console mouse support: left-drag to select, middle-click
+    # to paste. Provides copy/paste across the vconsole (shell <-> micro) where
+    # there is no X11/Wayland clipboard.
+    #
+    printf_section "Installing mouse support\n"
+
+    ## Install gpm
+
+    action_require_package 'gpm'
+
+    ## Enable gpm service
+
+    action_request_permission 'to enable gpm'
+    action_run 'Enable gpm.service'                   \
+        'as_root systemctl enable --now gpm.service'  \
+        'enabled'
+    assert $? "can't enable gpm.service"
+}
+
+
 set_keymap() {
     remove_line '/etc/vconsole.conf' '^KEYMAP=' "$(check_sudo)" || return 1
     echo 'KEYMAP=us-extra' | as_root tee -a /etc/vconsole.conf
@@ -172,7 +194,8 @@ main() {
                      --header "${section}"                              \
                      'Locale - Set console locale to en_US.UTF-8'       \
                      'Keymap - US/ANSI keyboard with extra bindings for CTRL,SHIFT,ALT' \
-                     'Font - Terminus font + size configuration for console'); then
+                     'Font - Terminus font + size configuration for console'   \
+                     'Mouse - GPM daemon for console copy/paste (select + middle-click)'); then
         choices=${choices,,} # convert to lowercase for easier matching
     else
         return 0
@@ -209,6 +232,7 @@ main() {
     grep -q 'locale' <<< "$choices" && install_locale
     grep -q 'keymap' <<< "$choices" && install_keymap
     grep -q 'font'   <<< "$choices" && install_font
+    grep -q 'mouse'  <<< "$choices" && install_mouse
 
     return 0
 }
