@@ -61,7 +61,31 @@ curl -fsSL https://dimk90.github.io/anarchy/configure-boot | bash
 
 CPU microcode is bundled into the UKI by mkinitcpio's `microcode` hook
 (`intel-ucode` on Intel; AMD/other vendors must install microcode
-manually).
+manually). The preset also emits a split `initramfs-linux.img` (paired
+with `vmlinuz-linux` + microcode) that `configure-snapshots` consumes for
+the snapshot boot path.
+
+### snapshots
+
+Set up btrfs snapshots with boot-to-snapshot recovery. Installs the
+Limine bootloader (registered as a separate NVRAM entry, ordered *after*
+the UKI so the UKI stays the default), its AUR companions
+(`limine-snapper-sync`, `limine-mkinitcpio-hook`), and `snapper` +
+`snap-pac`. Configures a mandatory `root` snapshot config (pacman-triggered
+via snap-pac, no timeline, 20-snapshot rollback window) and an optional
+`home` config (timeline-driven — daily/weekly/monthly), provisioning the
+`@snapshots`/`@home-snapshots` holder subvolumes and their fstab entries
+if missing. Must be run as a non-root user (AUR tools can't build as root):
+```bash
+curl -fsSL https://dimk90.github.io/anarchy/configure-snapshots | bash
+```
+
+Embeds the live UKI's BLAKE2B into `limine.conf`, enables
+`limine-snapper-sync.service` (turns each new snapshot into a Limine boot
+entry) and, for `home`, `snapper-timeline.timer`. Requires the
+`configure-disk` layout (open `cryptroot`, btrfs `subvol=@`), the UKI from
+`configure-boot`, and `yay` (`install-yay`). The Limine theme (monochrome
+HiDPI menu) is optional.
 
 ### user
 
