@@ -32,6 +32,10 @@ UKI_PATH='/boot/EFI/Linux/arch-linux.efi'
 UKI_LOADER='\EFI\Linux\arch-linux.efi'
 UKI_LABEL='Arch Linux (UKI)'
 
+# Split initramfs emitted alongside the UKI (preset's default_image).
+# Feeds Limine's snapshot boot path; paired with vmlinuz-linux + microcode.
+SPLIT_INITRAMFS_PATH='/boot/initramfs-linux.img'
+
 # EDK2 UEFI Shell paths and label
 EDK2_SHELL_SRC='/usr/share/edk2-shell/x64/Shell_Full.efi'
 EDK2_SHELL_DST='/boot/EFI/shellx64.efi'
@@ -226,8 +230,10 @@ write_crypttab() {
 
 install_preset() {
     #
-    # Install /etc/mkinitcpio.d/linux.preset that emits a UKI with
-    # the cmdline baked in, and create the UKI output directory.
+    # Install /etc/mkinitcpio.d/linux.preset. The preset emits BOTH a UKI
+    # (default_uki, cmdline baked in) and a split initramfs-linux.img
+    # (default_image) for Limine's snapshot boot path, and create the UKI
+    # output directory.
     #
     printf_section "Installing mkinitcpio preset\n"
 
@@ -246,8 +252,9 @@ install_preset() {
 
 build_uki() {
     #
-    # Run mkinitcpio -P to bundle stub + kernel + initramfs + microcode +
-    # cmdline into a single PE binary. Verify the output exists.
+    # Run mkinitcpio -P. The preset emits both the UKI (stub + kernel +
+    # initramfs + microcode + cmdline in a single PE binary) and the split
+    # initramfs-linux.img for Limine's snapshot path. Verify the UKI exists.
     #
     printf_section "Building UKI\n"
 
@@ -266,6 +273,14 @@ build_uki() {
 
     printf_action "UKI built: ${STYLE_CLR}%b\n" \
         "$(gum style --foreground "$GUM_YELLOW" "$UKI_PATH")"
+
+    if [ -f "$SPLIT_INITRAMFS_PATH" ]; then
+        printf_action "Split initramfs: ${STYLE_CLR}%b\n" \
+            "$(gum style --foreground "$GUM_YELLOW" "$SPLIT_INITRAMFS_PATH")"
+    else
+        printf_action "%b ${STYLE_DIM}split initramfs ${STYLE_CLR}${SPLIT_INITRAMFS_PATH}${STYLE_DIM} not emitted — Limine's snapshot boot path will be unavailable${STYLE_CLR}\n" \
+            "$(bullet_warning)"
+    fi
 }
 
 
