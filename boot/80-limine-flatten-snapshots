@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Flatten limine-snapper-sync's snapshot submenus: delete the redundant depth-4
+# //// entry header it nests under each ///N snapshot (a lone ////Current kernel
+# node), so Limine binds that kernel to the ///N snapshot directly — one fewer
+# menu level (Snapshots → N → boot, not Snapshots → N → Current → boot). Match
+# EXACTLY four slashes so it never touches the depth-2 //Current template
+# (deleting that breaks the tool: "your OS entry has no kernel"). The tool
+# rebuilds the subtree on every sync, so run it as a post.d hook; idempotent.
+sed -i -E '/^[[:space:]]*\/{4}[^/]/d' /boot/limine.conf

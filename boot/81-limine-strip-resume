@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Strip resume=/resume_offset= from limine-snapper-sync's auto-generated snapshot
+# entries. Booting a snapshot (a different subvolume) while a hibernation image
+# written against @ exists corrupts state — snapshot recovery must boot fresh.
+# The native SNAPSHOT_KERNEL_PARAMETERS-=resume removal is exact-token only and
+# never matches resume=UUID=…, so post-process the written config instead. The
+# /…Snapshots/,$ range leaves //Current (above the marker) and the UKI untouched.
+sed -i -E '/^[[:space:]]*\/\/[+]?Snapshots/,$ s/[[:space:]]+resume(_offset)?=[^[:space:]]*//g' /boot/limine.conf
