@@ -36,7 +36,7 @@ install_font() {
     local cmd_set_font
     cmd_set_font=$(printf '%b && %b' \
         "remove_line '/etc/vconsole.conf' '^FONT=' $(check_sudo)" \
-        "echo 'FONT=ter-124b' | as_root tee -a /etc/vconsole.conf")
+        "echo 'FONT=ter-128b' | as_root tee -a /etc/vconsole.conf")
     action_request_permission 'for updating /etc/vconsole.conf'
     action_run 'Update font in /etc/vconsole.conf' \
         "${cmd_set_font}" \
@@ -53,7 +53,7 @@ install_font() {
 
     ## Change current font
 
-    action_run 'Change current font' 'setfont ter-124b' 'done'
+    action_run 'Change current font' 'setfont ter-128b' 'done'
 }
 
 
