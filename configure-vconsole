@@ -22,13 +22,37 @@ set +o errexit # disable exit on non-zero exit code
 
 install_font() {
     #
-    # Install and set Terminus font for console
+    # Install and set console font: spleen (default) or terminus
     #
     printf_section "Installing font\n"
 
-    ## Install terminus
+    ## Select font
 
-    action_require_package 'terminus-font'
+    local header
+    header=$(prefix_printf "$(bullet_action)" 'Select console font (default: spleen):\n')
+
+    local choice
+    choice=$(gum choose --cursor="      > " \
+                        --header="${header}" \
+                        --limit=1            \
+                        'spleen' 'terminus') || choice='spleen'
+    printf_action "Console font: ${STYLE_CLR}${choice}\n"
+
+    ## Install selected font
+
+    local font_name
+    if [ "$choice" = 'terminus' ]; then
+        action_require_package 'terminus-font'
+        font_name='ter-128b'
+    else
+        # spleen ships as a bundled PSF; kbd provides the consolefonts dir + setfont
+        action_require_package 'kbd'
+        action_request_permission 'to install spleen-16x32.psfu'
+        action_install_file '/usr/share/kbd/consolefonts/spleen-16x32.psfu' \
+                            'https://dimk90.github.io/anarchy/font/psf/spleen-16x32.psfu' \
+                            "$(check_sudo)"
+        font_name='spleen-16x32'
+    fi
 
     ## Update /etc/vconsole.conf
 
@@ -36,7 +60,7 @@ install_font() {
     local cmd_set_font
     cmd_set_font=$(printf '%b && %b' \
         "remove_line '/etc/vconsole.conf' '^FONT=' $(check_sudo)" \
-        "echo 'FONT=ter-128b' | as_root tee -a /etc/vconsole.conf")
+        "echo 'FONT=${font_name}' | as_root tee -a /etc/vconsole.conf")
     action_request_permission 'for updating /etc/vconsole.conf'
     action_run 'Update font in /etc/vconsole.conf' \
         "${cmd_set_font}" \
@@ -53,7 +77,7 @@ install_font() {
 
     ## Change current font
 
-    action_run 'Change current font' 'setfont ter-128b' 'done'
+    action_run 'Change current font' "setfont ${font_name}" 'done'
 }
 
 
@@ -194,7 +218,7 @@ main() {
                      --header "${section}"                              \
                      'Locale - Set console locale to en_US.UTF-8'       \
                      'Keymap - US/ANSI keyboard with extra bindings for CTRL,SHIFT,ALT' \
-                     'Font - Terminus font + size configuration for console'   \
+                     'Font - HiDPI modern font for native terminal'   \
                      'Mouse - GPM daemon for console copy/paste (select + middle-click)'); then
         choices=${choices,,} # convert to lowercase for easier matching
     else
