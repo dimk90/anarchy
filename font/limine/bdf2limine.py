@@ -14,12 +14,33 @@ wins wherever both define a glyph.
 import sys
 from typing import NamedTuple
 
+# CP437 bytes 0x01-0x1F and 0x7F hold graphic glyphs (arrows, triangles, card
+# suits) that Python's `cp437` codec instead maps to control characters. Limine
+# draws some of them as menu indicators — notably U+25BA (right triangle) for an
+# expandable entry — so map the whole range to its graphic code points.
+CP437_GRAPHICS: dict[int, int] = {
+    0x01: 0x263A, 0x02: 0x263B, 0x03: 0x2665, 0x04: 0x2666,
+    0x05: 0x2663, 0x06: 0x2660, 0x07: 0x2022, 0x08: 0x25D8,
+    0x09: 0x25CB, 0x0A: 0x25D9, 0x0B: 0x2642, 0x0C: 0x2640,
+    0x0D: 0x266A, 0x0E: 0x266B, 0x0F: 0x263C, 0x10: 0x25BA,
+    0x11: 0x25C4, 0x12: 0x2195, 0x13: 0x203C, 0x14: 0x00B6,
+    0x15: 0x00A7, 0x16: 0x25AC, 0x17: 0x21A8, 0x18: 0x2191,
+    0x19: 0x2193, 0x1A: 0x2192, 0x1B: 0x2190, 0x1C: 0x221F,
+    0x1D: 0x2194, 0x1E: 0x25B2, 0x1F: 0x25BC, 0x7F: 0x2302,
+}
+
+# Near-equivalent code points to try when a font lacks the exact glyph — e.g.
+# the CP437 pointers U+25BA/U+25C4 vs the more common triangles U+25B6/U+25C0.
+GLYPH_EQUIVALENTS: dict[int, tuple[int, ...]] = {
+    0x25BA: (0x25B6, 0x25B8),
+    0x25C4: (0x25C0, 0x25C2),
+}
+
 
 class BBox(NamedTuple):
     """
     A BDF glyph bounding box: pixel size plus offset from the origin.
     """
-
     width: int
     height: int
     x_offset: int
@@ -30,7 +51,6 @@ class Glyph(NamedTuple):
     """
     A single glyph: its bounding box and one packed int per pixel row.
     """
-
     bbox: BBox
     rows: list[int]
 
@@ -40,7 +60,6 @@ class ParsedFont(NamedTuple):
     The result of parsing a BDF: glyphs keyed by Unicode code point, plus the
     font-wide ascent and descent (None if the BDF omitted them).
     """
-
     glyphs: dict[int, Glyph]
     ascent: int | None
     descent: int | None
@@ -87,6 +106,31 @@ def parse_bdf(path: str) -> ParsedFont:
     return ParsedFont(glyphs, ascent, descent)
 
 
+def cp437_code_point(byte_value: int) -> int:
+    """
+    Map a CP437 byte to its Unicode code point.
+
+    Uses the graphic glyphs for the 0x01-0x1F and 0x7F range that Python's
+    `cp437` codec would otherwise decode as control characters.
+    """
+    if byte_value in CP437_GRAPHICS:
+        return CP437_GRAPHICS[byte_value]
+    return ord(bytes([byte_value]).decode('cp437', 'replace'))
+
+
+def find_glyph(glyphs: dict[int, Glyph], code_point: int) -> Glyph | None:
+    """
+    Look up a glyph by code point, falling back to near-equivalent code points
+    (e.g. a different triangle) when the exact one is absent.
+    """
+    if code_point in glyphs:
+        return glyphs[code_point]
+    for alternative in GLYPH_EQUIVALENTS.get(code_point, ()):
+        if alternative in glyphs:
+            return glyphs[alternative]
+    return None
+
+
 def render(glyph: Glyph | None, ascent: int, height: int) -> list[int]:
     """
     Rasterize one glyph into an 8-wide by `height` cell.
@@ -129,13 +173,15 @@ def main() -> int:
     data = bytearray()
     donor_filled = 0
     for code in range(256):   # CP437 order
-        unicode_point = ord(bytes([code]).decode('cp437', 'replace'))
-        glyph = source.glyphs.get(unicode_point)
+        code_point = cp437_code_point(code)
+        glyph = find_glyph(source.glyphs, code_point)
         ascent = source_ascent
-        if glyph is None and donor is not None and unicode_point in donor.glyphs:
-            glyph = donor.glyphs[unicode_point]
-            ascent = donor.ascent if donor.ascent is not None else source_ascent
-            donor_filled += 1
+        if glyph is None and donor is not None:
+            donor_glyph = find_glyph(donor.glyphs, code_point)
+            if donor_glyph is not None:
+                glyph = donor_glyph
+                ascent = donor.ascent if donor.ascent is not None else source_ascent
+                donor_filled += 1
         data += bytes(render(glyph, ascent, height))
 
     with open(output_path, 'wb') as output_file:
