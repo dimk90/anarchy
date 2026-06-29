@@ -22,20 +22,20 @@ set +o errexit # disable exit on non-zero exit code
 
 install_font() {
     #
-    # Install and set console font: spleen (default) or terminus
+    # Install and set console font: terminus (default), spleen, or profont
     #
     printf_section "Installing font\n"
 
     ## Select font
 
     local header
-    header=$(prefix_printf "$(bullet_action)" 'Select console font (default: spleen):\n')
+    header=$(prefix_printf "$(bullet_action)" 'Select console font (default: terminus):\n')
 
     local choice
     choice=$(gum choose --cursor="      > " \
                         --header="${header}" \
                         --limit=1            \
-                        'spleen' 'terminus') || choice='spleen'
+                        'terminus' 'spleen' 'profont') || choice='terminus'
     printf_action "Console font: ${STYLE_CLR}${choice}\n"
 
     ## Install selected font
@@ -44,6 +44,14 @@ install_font() {
     if [ "$choice" = 'terminus' ]; then
         action_require_package 'terminus-font'
         font_name='ter-128b'
+    elif [ "$choice" = 'profont' ]; then
+        # profont ships as a bundled PSF; kbd provides the consolefonts dir + setfont
+        action_require_package 'kbd'
+        action_request_permission 'to install profont-16x32.psfu'
+        action_install_file '/usr/share/kbd/consolefonts/profont-16x32.psfu' \
+                            'https://dimk90.github.io/anarchy/font/psf/profont-16x32.psfu' \
+                            "$(check_sudo)"
+        font_name='profont-16x32'
     else
         # spleen ships as a bundled PSF; kbd provides the consolefonts dir + setfont
         action_require_package 'kbd'
