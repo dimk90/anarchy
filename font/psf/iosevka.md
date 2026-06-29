@@ -70,17 +70,20 @@ sized to a 13×28 cell (≈ Terminus `ter-128b`).
     > currency (`8352_8399`), arrows (`8592_8703`), etc.
 
 - Verify the cell. `bdf2psf` sizes the PSF from `FONT_ASCENT + FONT_DESCENT`
-  (height) and `DWIDTH` (width) — *not* `FONTBOUNDINGBOX`. Want the sum ≈ 28 and
-  `DWIDTH` ≈ 13; nudge `-p` if off:
+  (height) and `AVERAGE_WIDTH / 10` (width) — *not* `FONTBOUNDINGBOX`. `DWIDTH`
+  is the true fixed advance; read it to know what `AVERAGE_WIDTH` should be
+  (patched next). Want the ascent+descent sum ≈ 28 and `DWIDTH` ≈ 13; nudge `-p`
+  if off:
     ```shell
     grep -c '^STARTCHAR' /tmp/iosevka-term-28.bdf                  # a few hundred glyphs
-    grep -e 'FONT_ASCENT|FONT_DESCENT' /tmp/iosevka-term-28.bdf    # sum ≈ 28
+    grep -E 'FONT_ASCENT|FONT_DESCENT' /tmp/iosevka-term-28.bdf    # sum ≈ 28
     grep -m1 DWIDTH /tmp/iosevka-term-28.bdf                       # ≈ 13
     ```
 
-- Patch the width metric. `otf2bdf` writes `AVERAGE_WIDTH` as the *average ink*
-  width, not the fixed advance, so `bdf2psf` would build too narrow a cell and
-  clip glyphs. Set it to `DWIDTH × 10` (13 → 130):
+- Patch the width metric. `bdf2psf` reads `AVERAGE_WIDTH` for the cell width,
+  but `otf2bdf` writes it as the *average ink* width, not the fixed advance — so
+  `bdf2psf` would build too narrow a cell and clip glyphs. Set it to
+  `DWIDTH × 10` (13 → 130):
     ```shell
     sed -i 's/^AVERAGE_WIDTH .*/AVERAGE_WIDTH 130/' /tmp/iosevka-term-28.bdf
     ```
@@ -98,6 +101,10 @@ sized to a 13×28 cell (≈ Terminus `ter-128b`).
     ```
 
     > [!NOTE]
+    > This build renders ~479 glyphs, so it needs the 512-slot set — which runs
+    > the console at 8 colors (see the top note). Trim the `-l` ranges to fit 256
+    > if you would rather keep all 16 colors.
+    >
     > Residual `no glyph defined` warnings are for `Uni2.512` code points outside
     > the rendered `-l` ranges — those cells stay blank; widen `-l` to cover them.
     > If the data paths error, list `/usr/share/bdf2psf/fontsets/`.
