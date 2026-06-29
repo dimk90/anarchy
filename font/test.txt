@@ -2,17 +2,63 @@
 // the quick brown fox jumps over the lazy dog
 
 /*
- * ABC.DEF.GHI.JKL.MNO.PQRS.TUV.WXYZ abc.def.ghi.jkl.mno.pqrs.tuv.wxyz
- * !iIlL17|¦ ¢coO08BDQ $5SZ2zs ∂96µm float il1[]={1-2/3.4,5+6=7/8%90};
- * 1234567890 ,._-+= >< «¯-¬_» ~–÷+× {*}[]()<>`+-=$/#_%^@\&|~?'" !,.;:
- * g9q¶ Þẞðþſß ΓΔΛαβγδηθικλμνξπτυφχψ ЖЗКНРУЭЯавжзклмнруфчьыэя <= != ==
+ * ABC.DEF.GHI.JKL.MNO.PQRS.TUV.WXYZ
+ * abc.def.ghi.jkl.mno.pqrs.tuv.wxyz
+ *
+ * !iIlL17|¦ ¢coO08BDQ $5SZ2zs ∂96µm
+ * float il1[]={1-2/3.4,5+6=7/8%90};
+ *
+ * 1234567890
+ * ,._-+= >< «¯-¬_» ~–÷+× {*}[]()<>`+-=$/#_%^@\&|~?'" !,.;:
+ *
+ * ΓΔΛαβγδηθικλμνξπτυφχψ
+ * ЖЗКНРУЭЯавжзклмнруфчьыэя
+ * <= != ==
  */
 
-/*
- * -<< -< -<- <-- <--- <<- <- -> ->> --> ---> ->- >- >>-
- * =<< =< =<= <== <=== <<= <= => =>> ==> ===> =>= >= >>=
- * <-> <--> <---> <----> <=> <==> <===> <====> :: ::: __
- * <~~ </ </> /> ~~> == != /= ~= <> === !== !=== =/= =!=
- * <: := *= *+ <* <*> *> <| <|> |> <. <.> .> +* =* =: :>
- * (* *) [| |] {| |} ++ +++ \/ /\ |- -| <!-- <!---
- */
+------ Python ------
+
+from jparse import JpegMetaParser, TagPath
+
+tag_final_ccm = TagPath(app_name='APP7', ifd_number=7,  tag_id=0x0907)
+tag_final_wb  = TagPath(app_name='APP7', ifd_number=14, tag_id=0x0F03)
+
+with open(r'cProfile/IMG.jpg', 'rb') as f:
+    parser = JpegMetaParser(f)
+    final_ccm = parser.get_tag_value(tag_final_ccm)
+    final_wb  = parser.get_tag_value(tag_final_wb)
+
+print(f'CCM:\n {repr(final_ccm)}\n')
+print(f'WB: {final_wb}')
+
+------ C/C++ ------
+
+#include <iostream>
+#include <string>
+
+
+int slat_char_to_number(char c)
+{
+    return int(not bool(c - '0'));
+}
+
+void process_input(int& tb_count, int& lr_count)
+{
+    tb_count = 0;
+    lr_count = 0;
+
+    std::string input_line;
+    int input_count;
+
+    std::cin >> input_count;
+    for (int i=0; i < input_count; ++i)
+    {
+        std::cin >> input_line;
+
+        tb_count += slat_char_to_number(input_line[0]);
+        tb_count += slat_char_to_number(input_line[1]);
+
+        lr_count += slat_char_to_number(input_line[2]);
+        lr_count += slat_char_to_number(input_line[3]);
+    }
+}
