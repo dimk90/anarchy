@@ -31,12 +31,14 @@ own headerless format, so these are a separate build.
 |---|---|---|
 | `terminus-8x16.bin` | Terminus `ter-u16b` (8×16, **bold**) | full CP437 |
 | `spleen-8x16.bin` | Spleen `spleen-8x16` (8×16) + Terminus donor | full CP437; `►`/`◄` from Terminus |
-| `profont-8x16.bin` | ProFont `r400-15` (7×15, padded) + Terminus donor | Latin from ProFont; box-drawing/arrows from Terminus |
+| `profont-8x16.bin` | ProFont `r400-15` (7×15, padded, emboldened) + bold Terminus donor | Latin from ProFont; box-drawing/arrows from bold Terminus |
 
 > [!NOTE]
-> Only the **bold** Terminus face (`ter-u16b`) is shipped — the normal weight is
-> too thin to read on the boot menu. Spleen and ProFont are single-weight, so
-> they have no bold variant.
+> Weights: Terminus uses its real **bold** face (`ter-u16b`) — the normal weight
+> is too thin to read on the boot menu. Spleen's single weight is already heavy
+> enough. ProFont is light and ships no bold face, so it is **synthetically
+> emboldened** (`--bold`: each row OR'd with itself shifted 1 px right) and its
+> donor glyphs come from bold Terminus.
 
 > [!NOTE]
 > ProFont has **no 8-wide size** (its widths are 5, 6, 7, 12, 14, 16). The 7×15
@@ -54,8 +56,8 @@ own headerless format, so these are a separate build.
     ```
 
 - Get 8-wide BDF sources:
-    - Terminus `ter-u16b.bdf` (bold — the menu font) and `ter-u16n.bdf` (used
-      only as the gap-filling donor) from the
+    - Terminus `ter-u16b.bdf` (bold — the Terminus menu font, and ProFont's
+      donor) and `ter-u16n.bdf` (Spleen's donor) from the
       [Terminus source](https://terminus-font.sourceforge.net/).
     - Spleen `spleen-8x16.bdf` from the
       [Spleen source](https://github.com/fcambus/spleen).
@@ -68,13 +70,14 @@ own headerless format, so these are a separate build.
 
 - Convert each to Limine's raw format with [`bdf2limine.py`](bdf2limine.py). It
   reorders glyphs to CP437 (via Python's built-in `cp437` codec) and packs them
-  8-wide, 1 byte per row. Args: `SRC.bdf OUT.bin HEIGHT [DONOR.bdf]` — an
-  optional donor fills any CP437 glyph the source lacks (source wins), the same
-  merge as the PSF [ProFont build](../psf/profont.md):
+  8-wide, 1 byte per row. Args: `SRC.bdf OUT.bin HEIGHT [DONOR.bdf] [--bold]` — an
+  optional donor fills any CP437 glyph the source lacks (source wins, same merge
+  as the PSF [ProFont build](../psf/profont.md)); `--bold` emboldens the source
+  glyphs for fonts with no bold face:
     ```shell
     python3 bdf2limine.py ter-u16b.bdf        terminus-8x16.bin 16
-    python3 bdf2limine.py spleen-8x16.bdf     spleen-8x16.bin        16 ter-u16n.bdf
-    python3 bdf2limine.py /tmp/profont-15.bdf profont-8x16.bin       16 ter-u16n.bdf
+    python3 bdf2limine.py spleen-8x16.bdf     spleen-8x16.bin   16 ter-u16n.bdf
+    python3 bdf2limine.py /tmp/profont-15.bdf profont-8x16.bin  16 ter-u16b.bdf --bold
     ```
 
 - Verify each file is 256 × 16 = **4096 bytes**:

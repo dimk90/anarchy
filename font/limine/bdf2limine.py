@@ -5,11 +5,12 @@ Limine's `term_font` expects a headerless blob of 256 CP437-ordered glyphs,
 8 px wide, 1 byte per row, top to bottom. Width is fixed at 8 (Limine ignores
 the width in `term_font_size`), so the source BDF must be an 8-wide font.
 
-Usage: bdf2limine.py SRC.bdf OUT.bin HEIGHT [DONOR.bdf]
+Usage: bdf2limine.py SRC.bdf OUT.bin HEIGHT [DONOR.bdf] [--bold]
 
 An optional DONOR BDF (same 8-wide geometry) fills any CP437 position the
 source font lacks — e.g. box-drawing/blocks for a Latin-only font. The source
-wins wherever both define a glyph.
+wins wherever both define a glyph. `--bold` synthetically emboldens the source
+glyphs (not the donor) for fonts that ship no real bold face.
 """
 import sys
 from typing import NamedTuple
@@ -157,10 +158,22 @@ def render(glyph: Glyph | None, ascent: int, height: int) -> list[int]:
     return cell
 
 
+def embolden(cell: list[int]) -> list[int]:
+    """
+    Thicken each row by one pixel to the right for an artificial bold weight.
+
+    OR-ing a row with itself shifted one pixel right widens vertical strokes;
+    it is meant for fonts that ship no real bold face.
+    """
+    return [row | (row >> 1) for row in cell]
+
+
 def main() -> int:
     args = sys.argv[1:]
-    source_path, output_path, height = args[0], args[1], int(args[2])
-    donor_path = args[3] if len(args) > 3 else None
+    bold = '--bold' in args
+    positional = [arg for arg in args if not arg.startswith('--')]
+    source_path, output_path, height = positional[0], positional[1], int(positional[2])
+    donor_path = positional[3] if len(positional) > 3 else None
 
     source = parse_bdf(source_path)
     if source.ascent is None:
@@ -175,23 +188,29 @@ def main() -> int:
     for code in range(256):   # CP437 order
         code_point = cp437_code_point(code)
         glyph = find_glyph(source.glyphs, code_point)
-        ascent = source_ascent
-        if glyph is None and donor is not None:
-            donor_glyph = find_glyph(donor.glyphs, code_point)
-            if donor_glyph is not None:
-                glyph = donor_glyph
-                ascent = donor.ascent if donor.ascent is not None else source_ascent
-                donor_filled += 1
-        data += bytes(render(glyph, ascent, height))
+        if glyph is not None:
+            cell = render(glyph, source_ascent, height)
+            if bold:
+                cell = embolden(cell)
+        else:
+            cell = [0] * height
+            if donor is not None:
+                donor_glyph = find_glyph(donor.glyphs, code_point)
+                if donor_glyph is not None:
+                    donor_ascent = donor.ascent if donor.ascent is not None else source_ascent
+                    cell = render(donor_glyph, donor_ascent, height)
+                    donor_filled += 1
+        data += bytes(cell)
 
     with open(output_path, 'wb') as output_file:
         output_file.write(data)
 
     glyph_count = len(data) // height
     donor_note = f', {donor_filled} from donor' if donor_path else ''
+    bold_note = ', bold' if bold else ''
     print(
         f'{output_path}: {len(data)} bytes = {glyph_count} glyphs x {height} rows '
-        f'(ascent {source_ascent}{donor_note})'
+        f'(ascent {source_ascent}{donor_note}{bold_note})'
     )
     return 0
 
