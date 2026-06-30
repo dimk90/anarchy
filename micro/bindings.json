@@ -14,8 +14,8 @@
 	"\u001B[3;2~": "Cut|CopyLine,DeleteLine",
 	"Ctrl-x": "Cut|CopyLine,DeleteLine",
 
-	"AltUp": "MoveLinesUp",
-	"\u001B[1;3A": "MoveLinesUp",
+	"AltUp": "lua:movelines.moveUp",
+	"\u001B[1;3A": "lua:movelines.moveUp",
 
     "AltDown": "MoveLinesDown",
 	"\u001B[1;3B": "MoveLinesDown",

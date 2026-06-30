@@ -96,6 +96,13 @@ main() {
     if grep -q 'keybindings' <<< "$choices"; then
         action_install_file "${HOME}/.config/micro/bindings.json"  \
                             'https://dimk90.github.io/anarchy/micro/bindings.json'
+
+        # bindings.json maps Alt+Up to the movelines plugin, which fixes micro's
+        # missing upward scroll when moving a selected block off the top of the view
+        mkdir -p ~/.config/micro/plug/movelines
+        assert $? "can't create ~/.config/micro/plug/movelines"
+        action_install_file "${HOME}/.config/micro/plug/movelines/movelines.lua"  \
+                            'https://dimk90.github.io/anarchy/micro/movelines.lua'
     fi
 
     # Set as default editor
