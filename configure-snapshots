@@ -35,6 +35,11 @@ LIMINE_LOADER='\EFI\limine\limine_x64.efi'
 LIMINE_CONF='/boot/limine.conf'
 DEEP_LIMINE_CONF='/boot/EFI/limine/limine.conf'
 
+# post.d hooks limine-snapper-sync runs after rewriting limine.conf (resume
+# strip, optional menu flatten). Created here — limine-entry-tool, which ships
+# the dir, isn't installed until the Secure Boot step.
+BOOT_HOOKS_DIR='/etc/boot/hooks/post.d'
+
 # Encrypted btrfs holding @ and the snapshot holders — must match configure-disk.
 CRYPT_NAME='cryptroot'
 CRYPT_DEV="/dev/mapper/${CRYPT_NAME}"
@@ -45,6 +50,11 @@ LIMINE_CONF_URL="${BASE_URL}/boot/limine.conf"
 LIMINE_THEME_URL="${BASE_URL}/boot/limine-theme.conf"
 LIMINE_HOOK_URL="${BASE_URL}/boot/99-limine.hook"
 LIMINE_DEFAULT_URL="${BASE_URL}/boot/limine.default"
+LIMINE_STRIP_HOOK_URL="${BASE_URL}/boot/81-limine-strip-resume"
+LIMINE_FLATTEN_HOOK_URL="${BASE_URL}/boot/80-limine-flatten-snapshots"
+
+# Limine menu bitmap fonts (deployed to the ESP root; theme term_font picks one)
+LIMINE_FONT_BASE_URL="${BASE_URL}/font/limine"   # /<name>-8x16.bin
 
 # AUR companions: snapshot→Limine entry sync and kernel-update hook
 AUR_TOOLS='limine-snapper-sync limine-mkinitcpio-hook'
@@ -56,6 +66,10 @@ AUR_TOOLS='limine-snapper-sync limine-mkinitcpio-hook'
 # Optional components (toggled in select_optional_components)
 WANT_HOME=true
 WANT_THEME=true
+WANT_FLATTEN=true
+
+# Limine menu font (set in select_optional_components when WANT_THEME)
+LIMINE_FONT='spleen'
 
 # ESP disk + partition index for the efibootmgr entry (set in verify_prerequisites)
 ESP_DISK=''
@@ -194,7 +208,8 @@ apply_home_retention() {
 select_optional_components() {
     #
     # Ask which optional components to set up. The core (Limine + root
-    # snapshots) is always configured. Sets WANT_HOME / WANT_THEME.
+    # snapshots) is always configured. Sets WANT_HOME / WANT_THEME /
+    # WANT_FLATTEN, and LIMINE_FONT when the theme is selected.
     # Returns 1 on cancel.
     #
     local section
@@ -204,7 +219,8 @@ select_optional_components() {
     if choices=$(gum choose --no-limit --selected='*' --cursor='   > '   \
                      --header "${section}"                               \
                      'Home snapshots - timeline config for /home'        \
-                     'Limine theme - monochrome HiDPI menu styling'); then
+                     'Limine theme - monochrome HiDPI menu styling'      \
+                     'Flatten snapshot submenus - drop the redundant //// menu level'); then
         choices=${choices,,} # convert to lowercase for easier matching
     else
         return 1
@@ -214,12 +230,26 @@ select_optional_components() {
 
     WANT_HOME=false
     WANT_THEME=false
-    grep -q 'home snapshots' <<< "$choices" && WANT_HOME=true
-    grep -q 'limine theme'   <<< "$choices" && WANT_THEME=true
+    WANT_FLATTEN=false
+    grep -q 'home snapshots'   <<< "$choices" && WANT_HOME=true
+    grep -q 'limine theme'     <<< "$choices" && WANT_THEME=true
+    grep -q 'flatten snapshot' <<< "$choices" && WANT_FLATTEN=true
 
     local num_choice
     num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
     printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
+
+    # The menu font lives in the theme block — only ask when the theme is on.
+    if [ "$WANT_THEME" = true ]; then
+        local header
+        header=$(prefix_printf "$(bullet_action)" 'Select Limine menu font (default: spleen):\n')
+        LIMINE_FONT=$(gum choose --cursor='      > '  \
+                                 --header="${header}" \
+                                 --limit=1            \
+                                 'spleen' 'terminus' 'profont' 'default') || LIMINE_FONT='spleen'
+        printf_action "Limine menu font: ${STYLE_CLR}${LIMINE_FONT}\n"
+    fi
+
     return 0
 }
 
@@ -228,7 +258,8 @@ install_limine() {
     #
     # Everything Limine under one section: the official package, the AUR
     # companions, the bootloader binary + its pacman hook, limine.conf, the
-    # NVRAM entry, and /etc/default/limine. Each step keeps its own
+    # menu font, the NVRAM entry, /etc/default/limine, and the post.d boot
+    # hooks. Each step keeps its own
     # action_request_permission — a silent no-op while sudo is cached, but it
     # re-asserts privilege right before its work (the AUR build can outlast the
     # sudo timestamp) and documents that step's intent.
@@ -240,8 +271,10 @@ install_limine() {
     install_aur_tools
     install_limine_bootloader
     write_limine_config
+    deploy_menu_font
     register_limine_nvram
     install_sync_defaults
+    install_boot_hooks
 }
 
 
@@ -316,7 +349,16 @@ verify_prerequisites() {
         exit 1
     fi
 
-    # 6. cryptroot mapper present — its UUID anchors the holder fstab lines, and
+    # 6. kernel cmdline present (written by configure-boot) — fills //Current
+    if ! action_run "Kernel cmdline ${STYLE_CLR}/etc/kernel/cmdline"  \
+                    'as_root test -s /etc/kernel/cmdline'             \
+                    'present'                                         \
+                    'missing'; then
+        printf_error "/etc/kernel/cmdline not found - run configure-boot first\n"
+        exit 1
+    fi
+
+    # 7. cryptroot mapper present — its UUID anchors the holder fstab lines, and
     #    holders are siblings on this btrfs. (Missing holders are provisioned
     #    later, so there's no fstab-presence gate here.)
     if ! action_run "Cryptroot mapper ${STYLE_CLR}${CRYPT_DEV}"  \
@@ -388,11 +430,34 @@ build_limine_conf() {
 }
 
 
+# shellcheck disable=SC2329
+fill_kernel_cmdline() {
+    #
+    # Replace the kernel_cmdline placeholder in the assembled config ($1) with the
+    # literal contents of /etc/kernel/cmdline, so //Current — and every snapshot
+    # limine-snapper-sync clones from it — carries the real cmdline. Pure-bash
+    # substitution: the cmdline holds '=', '/', '.' (and maybe '&'/'\') that a
+    # sed/awk replacement would mangle, and it must not ride into a bash -c string.
+    # /etc/kernel/cmdline is written by configure-boot and gated in verify_prerequisites.
+    #   $1 conf - assembled config (user-owned temp)
+    #
+    local conf="$1"
+    local placeholder='<put /etc/kernel/cmdline content>'
+    local cmdline body
+
+    cmdline=$(as_root cat /etc/kernel/cmdline 2>>"$LOG_FILE") || return 1
+    [ -n "$cmdline" ] || return 1
+    body=$(< "$conf") || return 1
+    printf '%s\n' "${body/"$placeholder"/$cmdline}" > "$conf"
+}
+
+
 write_limine_config() {
     #
     # Assemble limine.conf (theme first when selected, then settings + boot
-    # entries), embed the live UKI's BLAKE2B, and drop the stale deep config
-    # under EFI/limine/. Confirms + backs up an existing config first. Step of
+    # entries), fill //Current's kernel_cmdline from /etc/kernel/cmdline, then
+    # drop the stale deep config under EFI/limine/. Confirms + backs up an
+    # existing config first. Step of
     # the "Installing Limine" section.
     #
     action_request_permission 'to write /boot/limine.conf'
@@ -427,27 +492,68 @@ write_limine_config() {
         'done'
     assert $? "can't assemble limine.conf"
 
+    export -f fill_kernel_cmdline
+    action_run 'Embed kernel cmdline into //Current'  \
+        "fill_kernel_cmdline '$conf_tmp'"             \
+        'done'
+    assert $? "can't embed /etc/kernel/cmdline into limine.conf"
+
     action_run "Install ${STYLE_CLR}${LIMINE_CONF}"   \
         "$(check_sudo) cp '$conf_tmp' '$LIMINE_CONF'" \
         'done'
     assert $? "can't install $LIMINE_CONF"
     rm -f "$conf_tmp"
 
-    # /boot is root-only (umask 0077), so b2sum needs root.
-    local uki_hash
-    uki_hash=$(as_root b2sum "$UKI_PATH" 2>>"$LOG_FILE" | awk '{print $1}')
-    [ -z "$uki_hash" ] && assert 1 "can't compute BLAKE2B of $UKI_PATH"
-    printf_action "UKI BLAKE2B: ${STYLE_CLR}${uki_hash:0:16}\n"
-
-    action_run "Embed UKI hash into ${STYLE_CLR}${LIMINE_CONF##*/}"            \
-        "$(check_sudo) sed -i 's|<b2sum-of-uki>|${uki_hash}|' '$LIMINE_CONF'"  \
-        'done'
-    assert $? "can't embed UKI hash in $LIMINE_CONF"
-
     action_run "Remove stale ${STYLE_CLR}${DEEP_LIMINE_CONF}"  \
         "as_root rm -f '$DEEP_LIMINE_CONF'"                    \
         'done'
     assert $? "can't remove $DEEP_LIMINE_CONF"
+}
+
+
+# shellcheck disable=SC2329
+use_builtin_menu_font() {
+    #
+    # Drop the external-bitmap directives so Limine falls back to its built-in
+    # font. term_font_scale stays — it scales the built-in font too.
+    #   $1 conf    - limine.conf path
+    #   $2 prefix  - sudo prefix (from check_sudo)
+    #
+    remove_line "$1" '^term_font:' "$2" && remove_line "$1" '^term_font_size:' "$2"
+}
+
+
+deploy_menu_font() {
+    #
+    # Point the Limine menu at the selected font. The term_font directive lives
+    # in the theme block, so this is a no-op without the theme. 'default' keeps
+    # Limine's built-in font (no bitmap); the named fonts deploy their raw bitmap
+    # to the ESP root and, when not the baked-in spleen, repoint term_font. Folds
+    # under the "Installing Limine" section.
+    #
+    [ "$WANT_THEME" = true ] || return 0
+
+    action_request_permission 'to set the Limine menu font'
+
+    if [ "$LIMINE_FONT" = 'default' ]; then
+        export -f use_builtin_menu_font
+        action_run 'Use built-in Limine menu font'                 \
+            "use_builtin_menu_font '$LIMINE_CONF' '$(check_sudo)'"  \
+            'done'
+        assert $? "can't drop term_font lines in $LIMINE_CONF"
+        return 0
+    fi
+
+    local font_file="${LIMINE_FONT}-8x16.bin"
+    action_install_file "/boot/${font_file}" "${LIMINE_FONT_BASE_URL}/${font_file}" "$(check_sudo)"
+
+    # Only spleen is baked into limine-theme.conf — repoint term_font for the rest.
+    if [ "$LIMINE_FONT" != 'spleen' ]; then
+        action_run "Point ${STYLE_CLR}term_font${STYLE_DIM} at ${STYLE_CLR}${font_file}"                  \
+            "replace_line '$LIMINE_CONF' '^term_font:.*' 'term_font: boot():/${font_file}' $(check_sudo)"  \
+            'done'
+        assert $? "can't repoint term_font in $LIMINE_CONF"
+    fi
 }
 
 
@@ -491,6 +597,42 @@ install_sync_defaults() {
     #
     action_request_permission 'to write /etc/default/limine'
     action_install_file '/etc/default/limine' "$LIMINE_DEFAULT_URL" "$(check_sudo)"
+}
+
+
+install_boot_hooks() {
+    #
+    # Install the post.d hooks limine-snapper-sync runs after it rewrites
+    # limine.conf: 81-limine-strip-resume (always — idempotent, a no-op without
+    # hibernation) and, when selected, 80-limine-flatten-snapshots. Must land
+    # before the initial sync so the first written config is already scrubbed.
+    # action_install_file neither creates the dir nor sets the exec bit, so do
+    # both here. Step of the "Installing Limine" section.
+    #
+    action_request_permission 'to install limine post.d hooks'
+
+    action_run "Create ${STYLE_CLR}${BOOT_HOOKS_DIR}"  \
+        "as_root mkdir -p '${BOOT_HOOKS_DIR}'"         \
+        'done'
+    assert $? "can't create ${BOOT_HOOKS_DIR}"
+
+    # strip-resume: always (hibernation safety; harmless when no resume= present)
+    local strip_dst="${BOOT_HOOKS_DIR}/81-limine-strip-resume"
+    action_install_file "$strip_dst" "$LIMINE_STRIP_HOOK_URL" "$(check_sudo)"
+    action_run "Make ${STYLE_CLR}${strip_dst##*/}${STYLE_DIM} executable"  \
+        "as_root chmod +x '$strip_dst'"                                    \
+        'done'
+    assert $? "can't chmod +x $strip_dst"
+
+    # flatten: optional
+    if [ "$WANT_FLATTEN" = true ]; then
+        local flat_dst="${BOOT_HOOKS_DIR}/80-limine-flatten-snapshots"
+        action_install_file "$flat_dst" "$LIMINE_FLATTEN_HOOK_URL" "$(check_sudo)"
+        action_run "Make ${STYLE_CLR}${flat_dst##*/}${STYLE_DIM} executable"  \
+            "as_root chmod +x '$flat_dst'"                                    \
+            'done'
+        assert $? "can't chmod +x $flat_dst"
+    fi
 }
 
 
@@ -752,8 +894,8 @@ main() {
 
     ## Closing tips
 
-    printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
-    printf_info "%b\n" 'reboot to confirm the Limine menu, then run pacman -Syu to test a snapshot pair'
+    printf_info "%b\n" 'reboot to confirm the Limine menu, then run pacman -Syu to trigger the first snapshot pair'
+    printf_info "%b\n" 'after the first sync: grep -i resume /boot/limine.conf — resume= must show only on //Current'
 
     return 0
 }
