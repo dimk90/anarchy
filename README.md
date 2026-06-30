@@ -80,12 +80,14 @@ if missing. Must be run as a non-root user (AUR tools can't build as root):
 curl -fsSL https://dimk90.github.io/anarchy/configure-snapshots | bash
 ```
 
-Embeds the live UKI's BLAKE2B into `limine.conf`, enables
+Fills the Limine `//Current` snapshot-boot template's cmdline from
+`/etc/kernel/cmdline`, installs `post.d` hooks that strip `resume=` from
+snapshot entries (and optionally flatten their submenus), enables
 `limine-snapper-sync.service` (turns each new snapshot into a Limine boot
 entry) and, for `home`, `snapper-timeline.timer`. Requires the
-`configure-disk` layout (open `cryptroot`, btrfs `subvol=@`), the UKI from
-`configure-boot`, and `yay` (`install-yay`). The Limine theme (monochrome
-HiDPI menu) is optional.
+`configure-disk` layout (open `cryptroot`, btrfs `subvol=@`), the UKI and
+`/etc/kernel/cmdline` from `configure-boot`, and `yay` (`install-yay`). The
+Limine theme (monochrome HiDPI menu with a selectable bitmap font) is optional.
 
 ### user
 
@@ -124,7 +126,10 @@ curl -fsSL https://dimk90.github.io/anarchy/configure-vconsole | bash
 
 ### micro
 
-Install and configure Micro text editor:
+Install and configure the Micro text editor — settings, keybindings, default
+editor, and clipboard support. The keybindings add a `movelines` Lua plugin that
+fixes the view not scrolling when a selection is moved up past the top edge with
+Alt+Up:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/install-micro | bash
 ```
