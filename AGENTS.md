@@ -36,7 +36,7 @@ All install/configure scripts follow this structure:
 5. Main function with gum-based interactive UI
 6. Execute main with assert-based error handling
 
-For authoring or editing these scripts (helpers, output flow, privilege handling), use the `anarchy-script` skill.
+For authoring or editing these scripts (helpers, output flow, privilege handling), use the `anarchy-script` skill (`.agents/skills/anarchy-script/SKILL.md`).
 
 ### Directory Layout
 
