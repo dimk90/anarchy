@@ -90,10 +90,16 @@ A Pi skill is just a directory with a SKILL.md — there is no scaffolding or pa
 
 #### Location
 
-Use the Pi skill directories: `~/.pi/agent/skills/<name>/` (global) or `.pi/skills/<name>/` (project; loaded after the project is trusted). Pi also discovers skills from packages, the `settings.json` `skills` array, and `--skill <path>`.
+Preferred locations:
+
+- **Global skills**: `~/.pi/agent/skills/<name>/`
+- **Project skills**: `.agents/skills/<name>/` — the agent-agnostic project folder, tracked in the repo. If the agent doesn't discover `.agents/skills` natively, add a symlink from its own discovery location (e.g. `.pi/skills/<name>` or `.claude/skills/<name>` → `../../.agents/skills/<name>`).
+
+Pi also discovers skills from packages, the `settings.json` `skills` array, and `--skill <path>`; project locations load after the project is trusted.
 
 ````bash
-mkdir -p ~/.pi/agent/skills/my-skill
+mkdir -p ~/.pi/agent/skills/my-skill          # global
+mkdir -p .agents/skills/my-skill              # project
 ````
 
 Create only the resource subdirectories the skill actually needs.
