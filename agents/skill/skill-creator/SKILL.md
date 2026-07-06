@@ -90,10 +90,10 @@ A Pi skill is just a directory with a SKILL.md — there is no scaffolding or pa
 
 #### Location
 
-Prefer the cross-harness directories, also picked up by Claude Code and Codex: `~/.agents/skills/<name>/` (global) or `.agents/skills/<name>/` (project; loaded after the project is trusted). Use the Pi-only `~/.pi/agent/skills/<name>/` or `.pi/skills/<name>/` to scope a skill to Pi. Pi also discovers skills from packages, the `settings.json` `skills` array, and `--skill <path>`.
+Use the Pi skill directories: `~/.pi/agent/skills/<name>/` (global) or `.pi/skills/<name>/` (project; loaded after the project is trusted). Pi also discovers skills from packages, the `settings.json` `skills` array, and `--skill <path>`.
 
 ````bash
-mkdir -p ~/.agents/skills/my-skill
+mkdir -p ~/.pi/agent/skills/my-skill
 ````
 
 Create only the resource subdirectories the skill actually needs.
@@ -140,7 +140,7 @@ description: What this skill does and the specific situations that should trigge
 
 Run once before first use:
 ```bash
-cd ~/.agents/skills/my-skill && npm install
+cd ~/.pi/agent/skills/my-skill && npm install
 ```
 
 ## Usage
