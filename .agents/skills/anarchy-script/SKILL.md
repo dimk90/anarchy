@@ -7,7 +7,7 @@ description: Author or edit install-* / configure-* scripts in this anarchy repo
 
 Scripts in this repo are gum-styled TUI shell scripts that download `common` (a ~1200-line shared bash lib) at runtime and use its helpers for output, package installs, file edits, privilege handling, and persistent shell config. Every install/configure script follows the same skeleton; the work is in choosing the right helpers and stringing them together.
 
-The single source of truth is the local `common` file at the repo root. **Read it directly with Read/Grep — don't curl the published version.** The published file lags real edits.
+Repo-wide rules (local `common` as source of truth, `[scope]` commit convention, GitHub Pages deployment caveats) live in AGENTS.md — this skill covers only the script pattern itself.
 
 ## Clarify before coding
 
@@ -153,7 +153,9 @@ printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
   ```bash
   printf_action "Set EDITOR for ${STYLE_CLR}${STYLE_BOLD}$shells\n"
   ```
-- For multi-segment lines, build the line with `printf` and inline `${STYLE_DIM}…${STYLE_CLR}` segments around the highlight (memory rule: re-apply faint after inline highlight).
+- For multi-segment lines, build the line with `printf` and inline `${STYLE_DIM}…${STYLE_CLR}` segments around the highlight (rule of thumb: re-apply faint after inline highlight).
+
+No re-apply needed when the highlight is the *last* segment of the title, or when prose appears only *before* the first highlight — the outer faint holds until the first embedded reset.
 
 When you have a short bullet plus secondary prose, prefer collapsing into a single `printf_action` with `%b` rather than two separate calls — keeps the output tight.
 
@@ -211,7 +213,9 @@ Full signatures and corner cases live in `references/helpers.md`.
 
 ### Privileged commands
 
-Always gate `as_root` / a `sudo` action behind `action_request_permission` *first*, so the password prompt happens with a styled UI before the spinner. If the action genuinely doesn't need root in your control flow, drop `as_root` entirely — don't add it defensively.
+Always gate `as_root` / a `sudo` action behind `action_request_permission` *first*, so the password prompt happens with a styled UI before the spinner. If the action genuinely doesn't need root in your control flow, drop `as_root` entirely — don't add it defensively; especially before a destructive-op confirmation, where a password prompt before the user even sees what they're about to destroy is poor UX.
+
+Placement within a function: after its `printf_section` header and after any early-return guard (don't prompt when there's nothing to do), before the first `as_root` on that path. The call is idempotent — `have_privilege` short-circuits — so repeating it in sibling functions is free. Reason text follows `'to <imperative-action>'`: `'to wipe filesystem signatures'`, `'to discard device blocks'`.
 
 #### `as_root` vs `$(check_sudo)` — pick by call site
 
@@ -345,19 +349,10 @@ grep -q 'keybindings' <<< "$choices" && do_keybindings
 
 For single-select, `--limit=1` and a default fallback via `|| choice='pure'`.
 
-## Filename and commit conventions
+## Filename convention
 
 - `install-NAME` puts a thing on the system (package, driver bundle, plugin set).
 - `configure-NAME` tunes an existing thing (pacman.conf, vconsole, prompt).
-- Commits use `[scope] Description`. **Scope must match an existing one in `git log`** — e.g., `[doc]` not `[docs]`, `[modern-cli]` not `[cli]`. AGENTS.md examples are illustrative, not authoritative; check `git log --format='%s' | grep -oP '^\[[^]]+\]' | sort -u` before inventing a new scope.
-
-## Deployment caveat
-
-Every file at the repo root is served by Jekyll under the GitHub Pages URL. Scripts curl helpers and assets from that same URL, so:
-
-- Don't drop scratch files at the repo root — they get published.
-- New asset directories (`foo/bar.conf`) are reachable as `https://dimk90.github.io/anarchy/foo/bar.conf` automatically. No build step.
-- If a path must be excluded, add it to `_config.yaml`'s `exclude` list.
 
 ## Fast access
 

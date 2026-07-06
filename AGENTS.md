@@ -26,17 +26,11 @@ source <(echo "$COMMON")
 
 When reading `common` yourself, use the local file at the repo root — the published URL lags local edits.
 
+Bump `COMMON_VERSION` only for new features or behavior-affecting changes (new helper, changed contract). It's shown to users at script start as a "what changed" signal — routine refactors, tweaks, and doc edits ship without a bump.
+
 ### Script Pattern
 
-All install/configure scripts follow this structure:
-1. `set -o nounset` for strict variable handling
-2. `set -o errexit` during import only, then `set +o errexit` for runtime (helpers return non-zero on purpose, checked with `assert`)
-3. Source `common` library via curl
-4. Define functions for each operation
-5. Main function with gum-based interactive UI
-6. Execute main with assert-based error handling
-
-For authoring or editing these scripts (helpers, output flow, privilege handling), use the `anarchy-script` skill (`.agents/skills/anarchy-script/SKILL.md`).
+All install/configure scripts share one skeleton: strict mode, source `common` via curl, helper functions, gum-based interactive `main` with assert-based error handling. The full pattern — skeleton, output flow, helpers, privilege handling — lives in the `anarchy-script` skill (`.agents/skills/anarchy-script/SKILL.md`); use it for any script authoring or editing.
 
 ### Directory Layout
 
@@ -64,9 +58,11 @@ Color test scripts can be run directly:
 ./color-gum             # Gum framework colors
 ```
 
-## Script Section Headers
+## Writing Conventions
 
-`printf_section` headers use English Title Case: capitalize every major word, lowercase articles/prepositions (e.g. "Install Packages", "Files and Env", "Set Up the User").
+- **Title Case headers**: `printf_section` titles and markdown headers (in `doc/`, skills, README) use English Title Case — capitalize major words, lowercase articles/prepositions (e.g. "Install Packages", "Files and Env", "Set Up the User"). Doesn't apply to commit messages, comments, or log lines.
+- **Concise markdown, no duplication**: in guides (`doc/`), state each fact or explanation exactly once — cross-link the canonical spot instead of re-explaining; keep a single source of truth for values.
+- **Verify against official docs**: before suggesting a CLI flag, command sequence, or multi-component design (boot, encryption, filesystems, snapshots), check the official docs/man pages — flag existence, step compatibility, and each component's support for its assigned role. Don't rely on recall.
 
 ## Commit Convention
 
