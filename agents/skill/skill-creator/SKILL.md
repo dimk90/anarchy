@@ -122,13 +122,13 @@ Pi supports these fields (unknown fields are ignored):
 | `description` | Yes | Max 1024 chars. The primary trigger — see below. Missing description means the skill is not loaded. |
 | `license` | No | License name or reference to a bundled file. |
 | `compatibility` | No | Max 500 chars. Environment requirements (runtimes, env vars, OS). |
-| `allowed-tools` | No | Tools the skill uses, e.g. `Bash(git:*) Read` — see below. |
+| `allowed-tools` | No | Tools the skill uses, e.g. `Bash(git commit:*) Read` — see below. |
 | `metadata` | No | Arbitrary key-value mapping. |
 | `disable-model-invocation` | No | When `true`, the skill is hidden from the system prompt; users load it only via `/skill:name`. |
 
 `description`: state both what the skill does and the specific triggers/contexts for using it — all of it here, since the body loads only after triggering (a "When to Use" section in the body is useless). Example for a `docx` skill: "Comprehensive document creation, editing, and analysis with support for tracked changes, comments, formatting preservation, and text extraction. Use when Pi needs to work with professional documents (.docx files) for: (1) Creating new documents, (2) Modifying or editing content, (3) Working with tracked changes, (4) Adding comments, or any other document tasks".
 
-`allowed-tools`: a space-separated pre-approval list, `Bash(<cmd>:*)` scopes shell commands. Experimental in the spec; Pi currently ignore it, but fill it with the tools the skill actually uses anyway, for the future potential use.
+`allowed-tools`: a space-separated pre-approval list, `Bash(<cmd>:*)` scopes shell commands. Experimental in the spec; Pi currently ignores it, but fill it with the tools the skill actually uses anyway, for the future potential use. **Keep scopes granular** — list the specific subcommands the workflow runs instead of blanket-approving a whole binary: `Bash(git status:*) Bash(git diff:*) Bash(git commit:*)`, not `Bash(git:*)`. A broad scope pre-approves operations the skill never performs (e.g. `git push` from a commit skill) and defeats the point of the list.
 
 #### Body
 
