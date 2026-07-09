@@ -30,6 +30,26 @@ formatter/linter config always wins over the defaults below.
   `export { a, type B }` lists over blanket `export *` when the module has
   internals.
 
+## File Layout
+
+Top-to-bottom "newspaper" layout — readers meet things in dependency order:
+
+1. Imports.
+2. Module constants (`SCREAMING_SNAKE_CASE`).
+3. Public types/interfaces — the module's vocabulary and contract.
+4. Exported functions — the API.
+5. Private helpers — below the public functions, or just before their single
+   caller.
+
+Refinements:
+
+- A private type used by only one helper may sit directly above that helper
+  instead of at the top ("declare near single use").
+- Long files with distinct areas: group by feature under `// ===...===`
+  banners, each section holding its own types + functions.
+- Never interleave types and functions with no dependency or locality logic —
+  order encodes structure, not edit history.
+
 ## Types
 
 - Strict mode assumed. Use only erasable syntax (works under type stripping):
