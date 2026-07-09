@@ -5,10 +5,14 @@ description: Python-specific code style and conventions for writing or editing P
 
 # Python Code Style
 
-Python-specific rules that layer on the general `code-style` skill. Load
-`code-style` as well; it covers the language-agnostic baseline (thinking
-before coding, simplicity, surgical changes, verification, naming and
-comments). Only the Python additions live here.
+> **REQUIRED FIRST:** If not already in context, read
+> `~/.pi/agent/skills/code-style/SKILL.md` before writing or editing any code.
+> These rules layer on top of it.
+
+Python-specific rules that layer on the general `code-style` skill; it covers
+the language-agnostic baseline (thinking before coding, simplicity, surgical
+changes, verification, naming and comments). Only the Python additions live
+here.
 
 ## Strings
 

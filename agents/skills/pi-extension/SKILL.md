@@ -6,8 +6,13 @@ compatibility: Requires pi coding agent. Extensions are TypeScript (ESM), loaded
 
 # Pi Extension Development
 
-Distilled workflow and best practices for pi extensions. Load `code-style` and
-`typescript-code` too; this skill adds pi-specific rules on top.
+## Prerequisites — read these first if not in context
+
+- `~/.pi/agent/skills/code-style/SKILL.md`
+- `~/.pi/agent/skills/typescript-code/SKILL.md`
+
+Distilled workflow and best practices for pi extensions; this skill adds
+pi-specific rules on top of the prerequisites above.
 
 Detailed references (read on demand):
 

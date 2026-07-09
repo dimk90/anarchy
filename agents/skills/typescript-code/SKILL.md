@@ -5,8 +5,11 @@ description: TypeScript-specific code style and conventions for writing or editi
 
 # TypeScript Code Style
 
-TypeScript rules that layer on the general `code-style` skill. Load
-`code-style` as well; it covers the language-agnostic baseline. Project
+> **REQUIRED FIRST:** If not already in context, read
+> `~/.pi/agent/skills/code-style/SKILL.md` before writing or editing any code.
+> These rules layer on top of it.
+
+TypeScript rules that layer on the general `code-style` skill. Project
 formatter/linter config always wins over the defaults below.
 
 ## Formatting
