@@ -1,0 +1,85 @@
+{
+  "permission": {
+
+    "*": "allow",
+
+    "path": {
+      "*": "allow",
+
+      "*.env*": "deny",
+      "*.env.example": "allow",
+
+      "~/.ssh/*": "deny",
+      "*.pem": "deny",
+      "*.key": "deny",
+      "*.p12": "deny",
+      "*.pfx": "deny",
+      "*id_rsa*": "deny",
+      "*id_ed25519*": "deny",
+      "*.tfstate": "deny",
+      "*.tfstate.*": "deny",
+
+      "~/.bashrc": "ask",
+      "~/.zshrc": "ask",
+      "~/.profile": "ask",
+      "~/.config/fish/*": "ask",
+      "*.git/hooks/*": "deny"
+    },
+
+    "bash": {
+      "*": "allow",
+      "git commit *": "allow",
+      "rm -f *": "allow",
+
+      "sudo *": "ask",
+      "curl *": "ask",
+      "wget *": "ask",
+      "rmdir *": "ask",
+      "git checkout *": "ask",
+      "git restore *": "ask",
+      "git switch *": "ask",
+      "git branch -d *": "ask",
+
+      "git reset --hard *": "deny",
+      "git clean -f*": "deny",
+      "git branch -D *": "deny",
+      "git push *": "deny"
+    },
+
+    "external_directory": {
+      "*": "ask",
+
+      "/tmp/*": "allow",
+
+      "~/.ssh*": "deny",
+      "~/.gnupg*": "deny",
+      "~/.password-store*": "deny",
+      "~/.local/share/keyrings*": "deny",
+      "~/.gnome/keyrings*": "deny",
+      "~/.aws*": "deny",
+      "~/.config/gcloud*": "deny",
+      "~/.azure*": "deny",
+      "~/.kube*": "deny",
+      "~/.docker/config.json": "deny",
+      "~/.netrc": "deny",
+      "~/.git-credentials": "deny",
+      "~/.npmrc": "deny",
+      "~/.pypirc": "deny",
+      "~/.cargo/credentials*": "deny",
+      "~/.config/gh*": "deny",
+      "~/.config/glab*": "deny",
+      "~/.pgpass": "deny",
+      "~/.my.cnf": "deny",
+      "~/.local/share/opencode/auth*": "deny",
+      "~/.config/fish/conf.d/proxy.fish": "deny",
+      "~/.local/share/fish/fish_history": "deny",
+      "~/.bash_history": "deny",
+      "~/.zsh_history": "deny",
+      "~/.mozilla*": "deny",
+      "~/.config/google-chrome*": "deny",
+      "/etc/shadow": "deny",
+      "/etc/sudoers*": "deny",
+      "/etc/wireguard*": "deny"
+    }
+  }
+}
