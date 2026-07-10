@@ -85,7 +85,8 @@ auto-discovered locations, `/reload` hot-reloads the extension.
    to helper modules; move TUI component classes and subprocess plumbing to
    their own files. Pure helpers get unit-testable functions, not `pi` access.
 5. **Add state handling last** (see State below).
-6. **Test interactively** in tmux; iterate with `/reload`.
+6. **Test interactively** in a real PTY (tmux, `script`, or a Python pty
+   harness); iterate with `/reload`.
 
 ## Core Rules
 
@@ -129,22 +130,50 @@ auto-discovered locations, `/reload` hot-reloads the extension.
    chain across extensions; `before_agent_start` chains `systemPrompt`. Don't
    clobber — extend (`event.systemPrompt + "\n..."`).
 5. When adding UI to a previously headless extension, add `ctx.hasUI` guards.
-6. Retest: `pi -e ./ext.ts` in tmux, exercise old and new paths, then `/reload`
-   in a real session.
+6. Retest: `pi -e ./ext.ts` in a real PTY, exercise old and new paths, then
+   `/reload` in a real session.
 
 ## Testing
 
+Test in the cheapest layer that proves the behavior:
+
+1. Run the project typecheck and pure unit tests.
+2. Test lifecycle/event behavior without a provider when possible. Abort a
+   synthetic run at `turn_start`; add an `after_provider_response` sentinel
+   when zero provider calls is an invariant.
+3. Make a provider-backed smoke test only when output from a real model is
+   relevant. Unless the project or user specifies another model, use the
+   cheapest/simple default and avoid session persistence:
+
+```bash
+pi --model anthropic/claude-haiku-4-5 -e ./my-ext.ts --no-session \
+  -p "Say one word: ok"
+```
+
+This headless test verifies loading, registration, non-TUI guards, and normal
+turn behavior. Do not spend a model call merely to prove TypeScript compiles or
+a handler registered.
+
+For TUI behavior, use a real PTY. Prefer tmux when available:
+
 ```bash
 tmux new-session -d -s ext-test -x 100 -y 30
-tmux send-keys -t ext-test "pi -e ./my-ext.ts" Enter
+tmux send-keys -t ext-test "pi -e ./my-ext.ts --no-session" Enter
 sleep 3 && tmux capture-pane -t ext-test -p
 tmux send-keys -t ext-test "/mycommand" Enter
 sleep 2 && tmux capture-pane -t ext-test -p
 tmux kill-session -t ext-test
 ```
 
-- Non-interactive smoke test: `pi -e ./my-ext.ts -p "prompt"` (no UI; verifies
-  load errors, tool registration, headless behavior).
-- Extension errors are logged and the agent continues, except `tool_call`
-  handler errors which block the tool (fail-safe).
-- Debug raw TUI output: `PI_TUI_WRITE_LOG=/tmp/tui.log pi -e ./ext.ts`.
+If tmux is unavailable, use `script` or a Python `pty` harness; do not treat
+plain piped stdin/stdout as a TUI test. Test narrow and normal terminal widths
+for custom components. Use `PI_TUI_WRITE_LOG=/tmp/tui.log` to inspect raw TUI
+output when rendered frames are ambiguous.
+
+Also verify relevant boundaries:
+
+- extension loaded before and after other chained handlers;
+- print/headless behavior for extensions with UI code;
+- `/reload`, new/resumed/forked sessions when closure or persisted state exists;
+- extension errors: most are logged and execution continues, while `tool_call`
+  handler errors block the tool fail-safe.

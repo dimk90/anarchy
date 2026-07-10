@@ -13,6 +13,7 @@ Using `@earendil-works/pi-tui` and `ctx.ui` from extensions.
 - [Ready-made patterns](#ready-made-patterns)
 - [Keyboard input](#keyboard-input)
 - [Theming and invalidation](#theming-and-invalidation)
+- [Transcript renderers (messages and entries)](#transcript-renderers-messages-and-entries)
 - [Overlays](#overlays)
 - [Custom editor](#custom-editor)
 - [Autocomplete providers](#autocomplete-providers)
@@ -246,6 +247,33 @@ override invalidate(): void {
 
 Not needed when you pass color callbacks (`(t) => theme.fg("accent", t)`) or
 compute themed output fresh in every `render()`.
+
+## Transcript renderers (messages and entries)
+
+Control how extension-created content renders in the chat transcript:
+
+- `pi.registerMessageRenderer(customType, renderer)` — for `pi.sendMessage()`
+  custom messages (participate in LLM context).
+- `pi.registerEntryRenderer(customType, renderer)` — for `pi.appendEntry()`
+  custom entries (TUI-only, NOT in LLM context). Use for durable status
+  cards/logs that should survive resume but never reach the LLM.
+
+```typescript
+import { Box, Text } from "@earendil-works/pi-tui";
+
+pi.registerEntryRenderer("status-card", (entry, { expanded }, theme) => {
+	const data = entry.data as { title: string; count: number };
+	const box = new Box(1, 1, (t) => theme.bg("customMessageBg", t));
+	box.addChild(new Text(`${theme.bold(data.title)}: ${data.count}`));
+	if (expanded) box.addChild(new Text(theme.fg("dim", JSON.stringify(data, null, 2))));
+	return box;
+});
+
+pi.appendEntry("status-card", { title: "Indexed files", count: 17 });
+```
+
+Renderers return a TUI `Component` (or `undefined` to hide). Use the `theme`
+argument, never a captured theme.
 
 ## Overlays
 

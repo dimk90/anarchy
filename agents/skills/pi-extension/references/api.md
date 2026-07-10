@@ -31,6 +31,7 @@ extension commands checked → input → skill/template expansion
             → tool_result → tool_execution_end
    → turn_end]
 → agent_end
+→ agent_settled (no auto-retry/compaction/queued follow-up left)
 ```
 
 Session replacement (`/new`, `/resume`, `/fork`, `/clone`):
@@ -68,10 +69,15 @@ order; several chain like middleware.
 | `user_bash` | `{ operations }` or `{ result }` | Wrap `createLocalBashOperations()` to modify commands. |
 | `resources_discover` | `{ skillPaths?, promptPaths?, themePaths? }` | |
 
-Notification-only (returns ignored): `agent_start`, `agent_end`, `turn_start`,
-`turn_end`, `message_start`, `message_update`, `tool_execution_*`,
-`session_start`, `session_shutdown`, `session_compact`, `session_tree`,
-`model_select`, `thinking_level_select`, `session_info_changed`.
+Notification-only (returns ignored): `agent_start`, `agent_end`,
+`agent_settled`, `turn_start`, `turn_end`, `message_start`, `message_update`,
+`tool_execution_*`, `session_start`, `session_shutdown`, `session_compact`,
+`session_tree`, `model_select`, `thinking_level_select`, `session_info_changed`.
+
+`agent_end` may still be followed by auto-retry, auto-compaction + retry, or
+queued follow-up messages. For "agent is truly done" status integrations use
+`agent_settled`: `ctx.isIdle()` is true there unless another extension started
+a new run.
 
 ## ExtensionContext (ctx)
 
@@ -114,7 +120,7 @@ All session-changing methods return `{ cancelled: boolean }`.
 - `pi.registerFlag(name, { description, type, default })` / `pi.getFlag(name)`
 - `pi.sendMessage({ customType, content, display, details? }, { deliverAs?: "steer"|"followUp"|"nextTurn", triggerTurn? })` — custom message, participates in LLM context
 - `pi.sendUserMessage(content, { deliverAs? })` — as if the user typed it; always triggers a turn; `deliverAs` required while streaming
-- `pi.appendEntry(customType, data?)` — persisted, NOT in LLM context; render with `pi.registerEntryRenderer(customType, renderer)`
+- `pi.appendEntry(customType, data?)` — persisted, NOT in LLM context; render in the transcript with `pi.registerEntryRenderer(customType, (entry, { expanded }, theme) => Component)`
 - `pi.registerMessageRenderer(customType, renderer)` — TUI renderer for `sendMessage` messages
 - `pi.setSessionName(name)` / `pi.getSessionName()` / `pi.setLabel(entryId, label)`
 - `pi.exec(cmd, args, { signal?, timeout? })` → `{ stdout, stderr, code, killed }`
@@ -176,6 +182,13 @@ old session got `session_shutdown` and the new extension instance got
 flushed at startup; later calls apply immediately. For remote model discovery
 use an async factory so models exist for `pi --list-models`. Full model/OAuth
 reference: `docs/custom-provider.md` in the package.
+
+## SDK embedding
+
+When embedding pi via the SDK (`main()` / test harnesses), `extensionFactories`
+accepts `InlineExtension = ExtensionFactory | { name: string; factory:
+ExtensionFactory }`. The named form shows the name in the startup Extensions
+list instead of an anonymous entry. Irrelevant for file-based extensions.
 
 ## Mode behavior
 
