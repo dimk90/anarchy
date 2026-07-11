@@ -11,6 +11,7 @@ Using `@earendil-works/pi-tui` and `ctx.ui` from extensions.
 - [Built-in components](#built-in-components)
 - [Custom components via ctx.ui.custom()](#custom-components-via-ctxuicustom)
 - [Ready-made patterns](#ready-made-patterns)
+- [Pi-native selector style](#pi-native-selector-style)
 - [Keyboard input](#keyboard-input)
 - [Theming and invalidation](#theming-and-invalidation)
 - [Transcript renderers (messages and entries)](#transcript-renderers-messages-and-entries)
@@ -205,6 +206,50 @@ done(null)`, run work with `loader.signal`, `done(data)` when finished.
 
 **Settings toggles**: `new SettingsList(items, height, getSettingsListTheme(),
 onChange, onClose, { enableSearch: true })`.
+
+## Pi-native selector style
+
+Use `/settings` and `/model` as the visual reference for custom selectors. Keep
+native components when they can express the UI; apply this checklist when a
+hierarchical or specialized view requires custom rendering:
+
+- **Theme colors:** draw every colored glyph through the current theme's
+  semantic keys with `theme.fg(...)` (and theme-based colorizers for borders,
+  e.g. `new DynamicBorder((t) => theme.fg("accent", t))`). Never hardcode hex,
+  ANSI escape codes, or named terminal colors so views track the active theme.
+- **Selection:** prefix the selected row with `theme.fg("accent", "→ ")` and
+  color both its label and value with `accent`. Do not apply `selectedBg` or
+  another full-row background.
+- **Alignment:** reserve the cursor column for every row, then add hierarchy
+  indentation after it. Parent and descendant cursors must align vertically.
+- **Sub-headers:** render section sub-headers (e.g. `INITIAL`, `RUNTIME`) bold
+  with `mdHeading` so they read as headings.
+- **Hierarchy:** render main/group rows with `text`, first-level sub-items and
+  unselected values with `muted`, and deeper sub-items with `dim`.
+- **Metadata:** use `dim` for an overflow-only `(current/total)` indicator.
+  Omit the line when every item is visible.
+- **Hints:** compose each hint as dim key + muted description. Prefer
+  `keyHint(binding, description)` or `rawKeyHint("↑↓", "Navigate")` instead
+  of coloring or formatting keys manually. Join multiple hints with ` · `.
+- **Description:** place a short `muted` explanation near the bottom, directly
+  above hints, with one blank row before and after it.
+- **Indentation:** keep headers, sub-headers, and the `→` cursor flush at
+  column 0. Indent the muted description, the `(current/total)` counter, the
+  hint row, and preview body content two spaces (reduce the wrap width to keep
+  wrapped lines within the border).
+- **Casing:** use Title Case for titles, section names, and hint labels
+  (`Context Injections`, `Esc Close`). Keep recognizable identifiers such as
+  `pi` and tool names (`edit`, `web_search`) in their literal casing, and keep
+  longer descriptions (dialog descriptions, warnings, preview meta) in sentence
+  case.
+- **Spacing:** inside borders, keep one blank row at the top and bottom and one
+  after the dialog title. Keep exactly one blank row between the title and the
+  first subheader, and one before later subheaders.
+
+When filling a fixed-height/fullscreen view, put spare rows inside a section
+rather than next to a required separator; otherwise one-row spacing silently
+turns into several blank rows. Every rendered line must still respect the
+supplied width.
 
 ## Keyboard input
 

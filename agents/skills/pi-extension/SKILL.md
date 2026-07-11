@@ -115,6 +115,36 @@ auto-discovered locations, `/reload` hot-reloads the extension.
   `{ cancel: true }`; `message_end` → `{ message }`. Returning `undefined`
   always means "no change". See [references/api.md](references/api.md).
 
+## Pi-Native TUI Style
+
+For custom selector/dialog components, match pi's `/settings` and `/model`
+visual language instead of inventing a new one:
+
+- Always color through the current theme's semantic keys with `theme.fg(...)`
+  (and theme-based colorizers for borders). Never hardcode hex, ANSI escape
+  codes, or named terminal colors, so views track the user's active theme.
+- Use an accent title and fixed-column `→` cursor. Color both the selected label
+  and its value with `accent`; use foreground only, never a full-row background.
+- Render section sub-headers (e.g. `INITIAL`, `RUNTIME`) bold with `mdHeading`.
+- Use `text` for main rows, `muted` for sub-items and unselected values, and
+  `dim` for sub-sub-items and overflow position `(current/total)`.
+- Format hints as dim key + muted description (`rawKeyHint("↑↓", "Navigate")`)
+  and join multiple hints with ` · `. Put a short muted dialog description
+  between blank rows immediately above the hints.
+- Inside bordered dialogs, use one blank row at top/bottom and after the title;
+  keep one blank row before later subheaders. Indent hierarchy after the cursor
+  so the cursor remains in one column.
+- Keep headers, sub-headers, and the `→` cursor flush at column 0; indent the
+  muted description, the `(current/total)` counter, the hint row, and preview
+  body content two spaces.
+- Use Title Case for titles, section names, and hint labels (`Context
+  Injections`, `Esc Close`), but keep recognizable identifiers such as `pi` and
+  tool names (`edit`, `web_search`) in their literal casing and keep longer
+  descriptions in sentence case.
+
+Use `SelectList`/`SettingsList` when they fit. For custom hierarchical views and
+full examples, see [references/tui.md#pi-native-selector-style](references/tui.md#pi-native-selector-style).
+
 ## Modifying an Existing Extension
 
 1. **Read the whole extension first** — factory wiring, closure state, event
