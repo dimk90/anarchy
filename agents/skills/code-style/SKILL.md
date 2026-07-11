@@ -92,3 +92,6 @@ Weak criteria ("make it work") require constant clarification.
   terser form is possible.
 - Comments explain **why**, not **what**: document non-obvious decisions and
   gotchas. No comments restating the code, no commented-out code.
+- Every function and type gets a docstring/doc comment — including private
+  ones, in the language's native doc format (JSDoc, Python docstring, etc.).
+  Document purpose and contract, not a restatement of the signature.
