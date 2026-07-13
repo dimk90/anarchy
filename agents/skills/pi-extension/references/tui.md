@@ -238,10 +238,11 @@ hierarchical or specialized view requires custom rendering:
   hint row, and preview body content two spaces (reduce the wrap width to keep
   wrapped lines within the border).
 - **Casing:** use Title Case for titles, section names, and hint labels
-  (`Context Injections`, `Esc Close`). Keep recognizable identifiers such as
-  `pi` and tool names (`edit`, `web_search`) in their literal casing, and keep
-  longer descriptions (dialog descriptions, warnings, preview meta) in sentence
-  case.
+  (`Context Injections`, `Esc Close`), and conventional keyboard casing for
+  key names (`PgUp/PgDn`, not `Pgup/Pgdn`). Keep recognizable identifiers such
+  as `pi` and tool names (`edit`, `web_search`) in their literal casing, and
+  keep longer descriptions (dialog descriptions, warnings, preview meta) in
+  sentence case.
 - **Spacing:** inside borders, keep one blank row at the top and bottom and one
   after the dialog title. Keep exactly one blank row between the title and the
   first subheader, and one before later subheaders.

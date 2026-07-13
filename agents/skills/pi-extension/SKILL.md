@@ -138,9 +138,10 @@ visual language instead of inventing a new one:
   muted description, the `(current/total)` counter, the hint row, and preview
   body content two spaces.
 - Use Title Case for titles, section names, and hint labels (`Context
-  Injections`, `Esc Close`), but keep recognizable identifiers such as `pi` and
-  tool names (`edit`, `web_search`) in their literal casing and keep longer
-  descriptions in sentence case.
+  Injections`, `Esc Close`), and conventional keyboard casing for key names
+  (`PgUp/PgDn`, not `Pgup/Pgdn`), but keep recognizable identifiers such as
+  `pi` and tool names (`edit`, `web_search`) in their literal casing and keep
+  longer descriptions in sentence case.
 
 Use `SelectList`/`SettingsList` when they fit. For custom hierarchical views and
 full examples, see [references/tui.md#pi-native-selector-style](references/tui.md#pi-native-selector-style).
