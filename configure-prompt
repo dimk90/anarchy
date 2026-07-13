@@ -36,8 +36,8 @@ fish_configure_highlighting() {
         # Syntax highlighting
         # https://fishshell.com/docs/current/interactive.html#syntax-highlighting-variables
         set -U fish_color_normal AAA
-        set -U fish_color_command blue --bold
-        set -U fish_color_operator 0FB              # ( ), { }, ... # brwhite --bold ?
+        set -U fish_color_command 5BF --bold
+        set -U fish_color_operator 0FB --bold       # ( ), { }, ...
         set -U fish_color_param normal              # Disable highlighting
         set -U fish_color_autosuggestion 444
         set -U fish_color_comment 464 --italic
