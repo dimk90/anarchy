@@ -1,6 +1,6 @@
 ---
 name: pi-extension
-description: Create, extend, and modify extensions for the pi coding agent (pi-coding-agent). Use when the user asks to build a pi extension, add a custom tool/command/shortcut/flag, hook agent lifecycle events (tool_call, session_start, before_agent_start, etc.), render custom TUI components, add widgets/status/footer, or change an existing extension. Covers extension folder initialization, modular structure, event contracts, custom tools, and pi TUI usage. Load together with code-style and typescript-code skills.
+description: Create, extend, and modify extensions for the pi coding agent (pi-coding-agent). Use when the user asks to build a pi extension, add a custom tool/command/shortcut/flag/provider, hook agent lifecycle events (tool_call, session_start, before_agent_start, etc.), render custom TUI components, add widgets/status/footer, or change an existing extension. Covers extension structure, event contracts, custom tools and providers, and pi TUI usage. Load together with code-style and typescript-code skills.
 compatibility: Requires pi coding agent. Extensions are TypeScript (ESM), loaded via jiti without compilation.
 ---
 
@@ -16,13 +16,13 @@ pi-specific rules on top of the prerequisites above.
 
 Detailed references (read on demand):
 
-- [references/api.md](references/api.md) — events, return contracts, `ctx`/`pi` API, state, session replacement footguns
-- [references/tools.md](references/tools.md) — custom tools: schemas, execute, errors, truncation, file mutation queue, overriding built-ins
+- [references/api.md](references/api.md) — events, return contracts, `ctx`/`pi` API, providers, state, session replacement footguns
+- [references/tools.md](references/tools.md) — custom tools: schemas, execute, usage, truncation, file mutation queue, dynamic loading, overriding built-ins
 - [references/tui.md](references/tui.md) — TUI components, `ctx.ui`, dialogs, widgets, custom components, theming, key handling
 
 Authoritative sources (when references are not enough): the installed pi package
-ships `docs/extensions.md`, `docs/tui.md`, and ~80 working examples in
-`examples/extensions/`. Locate them:
+ships `docs/extensions.md`, `docs/tui.md`, `docs/custom-provider.md`, and ~80
+working examples in `examples/extensions/`. Locate them:
 
 ```bash
 pi_pkg=$(dirname "$(dirname "$(readlink -f "$(which pi)")")")  # .../pi-coding-agent
@@ -49,9 +49,10 @@ export default function (pi: ExtensionAPI) {
 ```
 
 Available imports: `@earendil-works/pi-coding-agent` (types, helpers),
-`@earendil-works/pi-ai` (`StringEnum`), `@earendil-works/pi-tui` (components),
-`typebox` (schemas), Node built-ins. npm deps work if a `package.json` sits
-next to the extension and `npm install` was run.
+`@earendil-works/pi-ai` (`StringEnum`, provider/API helpers),
+`@earendil-works/pi-tui` (components), `typebox` (schemas), Node built-ins. npm
+deps work if a `package.json` sits next to the extension and `npm install` was
+run.
 
 ## Initializing an Extension Folder
 
@@ -73,10 +74,11 @@ auto-discovered locations, `/reload` hot-reloads the extension.
 
 ## Writing an Extension Step by Step
 
-1. **Clarify behavior** — which lifecycle points, which tools/commands, what
-   UI. Map each requirement to an API: LLM-callable → `registerTool`;
-   user-invoked → `registerCommand`/`registerShortcut`; intercept/observe →
-   `pi.on(event)`; startup config → `registerFlag` or project config file.
+1. **Clarify behavior** — which lifecycle points, tools/commands, providers,
+   and UI. Map each requirement to an API: LLM-callable → `registerTool`;
+   user-invoked → `registerCommand`/`registerShortcut`; model integration →
+   `registerProvider`; intercept/observe → `pi.on(event)`; startup config →
+   `registerFlag` or project config file.
 2. **Find the closest example** in `examples/extensions/README.md` and read it.
 3. **Skeleton first**: factory + event subscriptions with `ctx.ui.notify()`
    stubs. Run `pi -e ./ext.ts` and verify hooks fire.

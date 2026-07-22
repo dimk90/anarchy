@@ -9,6 +9,7 @@
 - [Output truncation](#output-truncation)
 - [File mutation queue](#file-mutation-queue)
 - [Schema evolution (prepareArguments)](#schema-evolution-preparearguments)
+- [Dynamic tool loading](#dynamic-tool-loading)
 - [Overriding built-in tools](#overriding-built-in-tools)
 - [Rendering](#rendering)
 
@@ -39,7 +40,8 @@ const todoTool = defineTool({
 		onUpdate?.({ content: [{ type: "text", text: "Working..." }] });  // streaming progress
 		return {
 			content: [{ type: "text", text: "Done" }],  // sent to LLM
-			details: { todos, nextId },                  // for rendering + state reconstruction
+			details: { todos, nextId },                  // rendering + state reconstruction
+			// usage: nestedModelUsage,                 // nested LLM usage, if any
 		};
 	},
 });
@@ -76,6 +78,9 @@ Signature: `execute(toolCallId, params, signal, onUpdate, ctx)`.
   `pi.exec`, `fetch`, etc.
 - `onUpdate?.({ content, details? })` streams partial results to the TUI
   (`isPartial` in the renderer).
+- Return combined nested LLM `usage` when the tool calls models. Pi persists it
+  and includes it in footer, `/session`, and RPC totals; `tool_result` handlers
+  can inspect or replace it.
 - `terminate: true` on the result hints skipping the follow-up LLM call; takes
   effect only when every tool result in the batch sets it (structured-output
   pattern).
@@ -143,6 +148,31 @@ prepareArguments(args) {
 	return { ...input, edits: [...(input.edits ?? []), { oldText: input.oldText, newText: input.newText }] };
 }
 ```
+
+## Dynamic tool loading
+
+Register all tools up front, keep a small loader/search tool active, and add
+matching tools from that loader's `execute()`:
+
+```typescript
+const active = pi.getActiveTools();
+const added = matches.filter((name) => !active.includes(name));
+pi.setActiveTools([...new Set([...active, ...added])]);
+```
+
+The names must already be registered; unknown names are ignored. Keep the
+change purely additive during loader execution. Pi records added definitions
+on the loader result and exposes them on the next model request. This works for
+every model: supported Anthropic/OpenAI models use native deferred schemas;
+others receive the full active tool list as a safe fallback. Enable
+`compat.supportsToolReferences` or `compat.supportsToolSearch` for a custom
+model only after verifying its endpoint accepts that native protocol.
+
+Keep the loader active for the session and prefer additions over replacements
+to preserve prompt-cache prefixes. Lazily loaded tools should usually omit
+`promptSnippet` and `promptGuidelines`, because activating either changes the
+system prompt even when deferred schemas are supported. See the dynamic-tool
+section in `docs/extensions.md` and the `kimi-deferred-tools.ts` example.
 
 ## Overriding built-in tools
 

@@ -135,28 +135,23 @@ rebuild them.**
 
 ## Custom components via ctx.ui.custom()
 
-Two forms:
-
-1. **Component instance** — returns a handle immediately; you drive the lifecycle:
-
-```typescript
-const handle = ctx.ui.custom(selector);  // { requestRender(), close() }
-selector.onSelect = (item) => { handle.close(); /* resolve */ };
-handle.requestRender();  // after external state changes
-```
-
-2. **Factory** — awaits until `done(value)` is called; receives `tui`, `theme`,
-`keybindings`:
+`ctx.ui.custom()` accepts a factory, waits until `done(value)` is called, and
+returns that value. The factory receives `tui`, `theme`, and `keybindings`:
 
 ```typescript
-const result = await ctx.ui.custom<boolean>((tui, theme, keybindings, done) => {
-	const text = new Text("Enter to confirm, Escape to cancel", 1, 1);
-	text.onKey = (key) => {
-		if (key === "return") done(true);
-		if (key === "escape") done(false);
-		return true;
+import { Key, matchesKey, Text } from "@earendil-works/pi-tui";
+
+const result = await ctx.ui.custom<boolean>((tui, theme, _keybindings, done) => {
+	const text = new Text(theme.fg("accent", "Enter Confirm · Esc Cancel"), 1, 1);
+	return {
+		render: (width) => text.render(width),
+		invalidate: () => text.invalidate(),
+		handleInput: (data) => {
+			if (matchesKey(data, Key.enter)) done(true);
+			else if (matchesKey(data, Key.escape)) done(false);
+			tui.requestRender();
+		},
 	};
-	return text;
 });
 ```
 
@@ -274,7 +269,8 @@ For displayed hints use `keyHint(id, desc)`/`keyText(id)` with namespaced ids
 `theme.fg(color, text)` colors: `text accent muted dim` / `success error
 warning` / `border borderAccent borderMuted` / `toolTitle toolOutput` /
 `toolDiffAdded toolDiffRemoved toolDiffContext` / `userMessageText
-customMessageText customMessageLabel` / `md*` / `syntax*` / `thinking*`.
+customMessageText customMessageLabel` / `md*` / `syntax*` / thinking levels
+through `thinkingMax`.
 `theme.bg(color, text)`: `selectedBg userMessageBg customMessageBg
 toolPendingBg toolSuccessBg toolErrorBg`. Styles: `theme.bold/italic/strikethrough`.
 
@@ -350,7 +346,7 @@ class VimEditor extends CustomEditor {
 	}
 }
 
-ctx.ui.setEditorComponent((tui, theme, keybindings) => new VimEditor(theme, keybindings));
+ctx.ui.setEditorComponent((tui, theme, keybindings) => new VimEditor(tui, theme, keybindings));
 ```
 
 To compose with another extension's editor, capture

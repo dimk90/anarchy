@@ -62,10 +62,10 @@ order; several chain like middleware.
 | `before_provider_request` | replacement payload or `undefined` | Payload-level; not reflected in `ctx.getSystemPrompt()`. |
 | `message_end` | `{ message }` | Replacement must keep the same `role`. |
 | `tool_call` | `{ block: true, reason? }` | `event.input` is mutable — mutate in place to patch args; no re-validation. Narrow built-ins with `isToolCallEventType("bash", event)`; custom tools with explicit type params: `isToolCallEventType<"my_tool", MyToolInput>("my_tool", event)` (export the input type from the defining extension). Handler errors block the tool (fail-safe). |
-| `tool_result` | `{ content?, details?, isError? }` | Partial patch; chains across handlers. Typed guards: `isBashToolResult(event)` etc. |
+| `tool_result` | `{ content?, details?, isError?, usage? }` | Partial patch; chains across handlers. `usage` accounts for nested model work. Typed guards: `isBashToolResult(event)` etc. |
 | `session_before_switch` / `session_before_fork` | `{ cancel: true }` | |
-| `session_before_compact` | `{ cancel: true }` or `{ compaction: { summary, firstKeptEntryId, tokensBefore } }` | `event.reason`: `"manual"\|"threshold"\|"overflow"`. |
-| `session_before_tree` | `{ cancel: true }` or `{ summary }` | |
+| `session_before_compact` | `{ cancel: true }` or `{ compaction: { summary, firstKeptEntryId, tokensBefore, details?, usage? } }` | `event.reason`: `"manual"\|"threshold"\|"overflow"`. |
+| `session_before_tree` | `{ cancel: true }` or `{ summary: { summary, details?, usage? } }` | `usage` is included in session totals. |
 | `user_bash` | `{ operations }` or `{ result }` | Wrap `createLocalBashOperations()` to modify commands. |
 | `resources_discover` | `{ skillPaths?, promptPaths?, themePaths? }` | |
 
@@ -125,10 +125,10 @@ All session-changing methods return `{ cancelled: boolean }`.
 - `pi.setSessionName(name)` / `pi.getSessionName()` / `pi.setLabel(entryId, label)`
 - `pi.exec(cmd, args, { signal?, timeout? })` → `{ stdout, stderr, code, killed }`
 - `pi.getActiveTools()` / `pi.getAllTools()` / `pi.setActiveTools(names)` — enable/disable tools at runtime (built-in and custom)
-- `pi.setModel(model)` (returns `false` without API key), `pi.getThinkingLevel()` / `pi.setThinkingLevel(level)`
+- `pi.setModel(model)` (returns `false` without API key), `pi.getThinkingLevel()` / `pi.setThinkingLevel(level)` (`"off"` through `"max"`)
 - `pi.getCommands()` — commands invokable via prompt, with `sourceInfo` provenance
 - `pi.events` — shared bus for inter-extension communication (`on`/`emit`)
-- `pi.registerProvider(name, config)` / `pi.unregisterProvider(name)`
+- `pi.registerProvider(provider)` / `pi.registerProvider(name, config)` / `pi.unregisterProvider(name)`
 
 ## State management pattern
 
@@ -177,11 +177,64 @@ old session got `session_shutdown` and the new extension instance got
 
 ## Providers
 
-`pi.registerProvider(name, { name?, baseUrl, apiKey, api, headers?, authHeader?, models?, oauth?, streamSimple? })`.
-`apiKey` supports `$ENV_VAR` and `!command`. Factory-time calls are queued and
-flushed at startup; later calls apply immediately. For remote model discovery
-use an async factory so models exist for `pi --list-models`. Full model/OAuth
-reference: `docs/custom-provider.md` in the package.
+Two registration forms are available:
+
+```typescript
+import { createProvider } from "@earendil-works/pi-ai";
+import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+
+// Native provider: prefer for custom auth, model filtering/refresh, or streaming.
+pi.registerProvider(createProvider({
+	id: "local-server",
+	name: "Local Server",
+	baseUrl: "http://localhost:8080/v1",
+	auth: {
+		apiKey: {
+			name: "Local server API key",
+			async login(interaction) {
+				return {
+					type: "api_key",
+					key: await interaction.prompt({ type: "secret", message: "API key" }),
+				};
+			},
+			async resolve({ credential }) {
+				return credential?.key
+					? { auth: { apiKey: credential.key }, source: "stored API key" }
+					: undefined;
+			},
+		},
+	},
+	models: [],
+	api: openAICompletionsApi(),
+}));
+
+// Legacy config: concise proxies, static model lists, and simple OAuth/stream hooks.
+pi.registerProvider("my-proxy", {
+	baseUrl: "https://proxy.example.com",
+	apiKey: "$PROXY_API_KEY",
+	api: "openai-completions",
+	models: [],
+	async refreshModels({ signal }) {
+		signal?.throwIfAborted();
+		return [];
+	},
+});
+```
+
+A complete pi-ai `Provider` exposes native `auth`, `getModels`,
+`refreshModels`, `filterModels`, `stream`, and `streamSimple`; `createProvider`
+builds one from `auth`, `models`, `fetchModels`, `filterModels`, and `api`.
+`models.json` overrides compose above it. The legacy config also supports
+`name`, `headers`, `authHeader`, `oauth`, `streamSimple`, and `refreshModels`.
+Use the refresh
+callback's scoped `context.store` only when a discovered catalog should
+persist.
+
+`apiKey` supports `$ENV_VAR` and `!command`. Factory-time registrations are
+queued and flushed at startup; later calls apply immediately. For one-time
+remote discovery use an async factory so models exist for `pi --list-models`.
+See `docs/custom-provider.md` and the `custom-provider-*` examples for complete
+auth, refresh, and streaming implementations.
 
 ## SDK embedding
 
