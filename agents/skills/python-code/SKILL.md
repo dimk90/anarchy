@@ -34,6 +34,10 @@ here.
   before the closing `"""`. Never a single-line docstring.
 - In a class, `dataclass`, or `NamedTuple`, leave no blank line between the
   docstring and the first field/member.
+- Prefer `:param name:` / `:raises ...:` / `:returns:` Sphinx-style fields
+  for parameter descriptions, edge-case behavior, and constraints. Keep the
+  docstring body as a concise summary; move parameter-related details into
+  the corresponding `:param` block instead of duplicating them in the body.
 
 ## Return Types
 
