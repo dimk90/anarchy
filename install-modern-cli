@@ -48,7 +48,7 @@ fish_add_help_colorization() {
 fzf_configure_default() {
     # Run directory scan with fd by default
     env_set_permanent 'FZF_DEFAULT_COMMAND' \
-        'fd --color=always --hidden --follow -E .git -E .env -E .venv -E .cache'
+        'fd --color=always --hidden --follow -E .git -E .env -E .venv -E .cache -I'
 
     # Note: color theme playground: https://vitormv.github.io/fzf-themes/
     env_set_permanent 'FZF_DEFAULT_OPTS' \

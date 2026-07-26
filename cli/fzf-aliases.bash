@@ -4,7 +4,7 @@ fzf-fd() {
     # load ll alias directly because bash -c will skip loading of .bashrc
     ll_cmd=$(alias ll 2>/dev/null | sed -E "s/^alias ll='(.*)'/\1/")
 
-    fd --color=always --hidden --follow -E .git -E .env -E .venv -E .cache | \
+    fd -I --color=always --hidden --follow -E .git -E .env -E .venv -E .cache | \
         fzf --prompt="Directory> " --preview="bash -c 'if [ -d \"\$0\" ]; then ${ll_cmd:-ls} --color=always \"\$0\"; else bat --style=numbers --color=always \"\$0\" 2>/dev/null || cat \"\$0\"; fi' {}";
 }
 
