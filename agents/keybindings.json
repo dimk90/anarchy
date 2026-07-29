@@ -1,0 +1,6 @@
+{
+	"tui.editor.deleteWordForward": ["ctrl+delete"],
+
+	"app.suspend": [],
+	"tui.editor.undo": ["ctrl+z"]
+}
