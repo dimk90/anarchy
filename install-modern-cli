@@ -410,7 +410,7 @@ main() {
     if [ ${#added[@]} -gt 0 ]; then
         local joined
         joined=$(IFS=,; echo "${added[*]}")
-        printf_action "%b ${STYLE_DIM}auto-added dependencies: ${STYLE_CLR}${joined}${STYLE_DIM} (required by fzf/delta config)\n${STYLE_CLR}" \
+        printf_action "%b ${STYLE_DIM}auto-selected for setup: ${STYLE_CLR}${joined}${STYLE_DIM} (used by fzf/delta configuration)\n${STYLE_CLR}" \
             "$(bullet_info)"
     fi
 
