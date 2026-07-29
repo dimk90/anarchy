@@ -133,6 +133,10 @@ delta_set_theme() {
 
 # shellcheck disable=SC2329
 delta_fzf_integration() {
+    # fzf.fish interpolates this list into a preview command string that fzf
+    # executes via $SHELL -c. Preserve literal quotes through fish's first
+    # parse so "fzf lindworm" remains one argument during the second parse.
+    # regex_sanitize converts `\\"` here to `\"` in config.fish.
     config_set_param ~/.config/fish/config.fish 'set fzf_diff_highlighter delta --paging=never --features \\"fzf lindworm\\"'
 }
 
