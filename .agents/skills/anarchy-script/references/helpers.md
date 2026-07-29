@@ -83,10 +83,10 @@ All printers emit a leading bullet + faint title. Mirror this structure — don'
 |---|---|---|
 | `backup_file` | `path [prefix]` | Creates `path.bakN` (next free N). Echoes the new name to stdout (empty if path didn't exist). Returns 0 on success / no-op, 1 on cp failure. |
 | `remove_line` | `file pattern [prefix] [case_mode]` | Deletes lines matching sed regex `pattern`. `case_mode='i'` for case-insensitive. 0 if file missing or no matches (idempotent). |
-| `replace_line` | `file pattern replacement [prefix]` | sed `s\|pattern\|replacement\|`. |
+| `replace_line` | `file pattern replacement [prefix]` | Replaces each line matching sed regex `pattern` with `replacement` — the whole line, not the matched substring. Returns 1 if the file is missing. |
 | `config_set_param` | `file pattern [section] [prefix]` | Add `pattern` to `file` in `[section]` (e.g. `'options'`, `'Unit'`); creates the section if absent. Without `section`, appends to file. Idempotent — won't duplicate. |
 
-**Critical:** all `pattern` args are **sed regex** with `\|` as the delimiter. Escape these in literal-looking input:
+**Critical:** all `pattern` args are **extended regex** (`sed -E` / `grep -E`). Escape these in literal-looking input:
 
 | Char | Escape |
 |---|---|
@@ -99,7 +99,7 @@ All printers emit a leading bullet + faint title. Mirror this structure — don'
 Examples:
 
 ```bash
-remove_line ~/.config/fish/config.fish 'starship init fish \| source'
+config_set_param ~/.config/fish/config.fish 'zoxide init --cmd j fish \| source'
 config_set_param ~/.bashrc 'eval "\$\(zoxide init --cmd j bash\)"'
 config_set_param '/etc/pacman.conf' '^Color$' 'options' "$(check_sudo)"
 config_set_param '/usr/lib/systemd/system/reflector.service' \

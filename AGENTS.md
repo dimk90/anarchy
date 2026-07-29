@@ -36,7 +36,8 @@ All install/configure scripts share one skeleton: strict mode, source `common` v
 
 - Root scripts: `install-*`, `configure-*`, `create-user`, and `wipe-disk` are the executable entry points
 - `common`: Shared shell library (a file, not a directory)
-- `agents/`: Personal AI agent config and skills
+- `.agents/`: Skills for agents working *on this repo* (e.g. `anarchy-script`)
+- `agents/`: Personal AI agent config and skills, installed *onto the target system*
 - `boot/`: Limine bootloader config, kernel cmdline, pacman hooks
 - `cli/`: Config files for bat, eza, fzf helpers, git theming
 - `doc/`: Step-by-step Arch install guides
@@ -50,7 +51,13 @@ All install/configure scripts share one skeleton: strict mode, source `common` v
 
 ## Testing
 
-Color test scripts can be run directly:
+**Never run `install-*`, `configure-*`, `create-user`, or `wipe-disk` to try out a change.** They act on the real machine — replacing or removing existing configs, installing packages, rewriting bootloader/fstab/disk state — and most of it isn't reversible.
+
+Verify by reading the code, plus `bash -n <script>` and `shellcheck <script>`.
+
+If something genuinely has to execute, test a **small isolated piece** — one `common` helper or one `action_*` call — not a whole script, and point it at **decoy files** in a temp dir instead of real targets like `/etc/...` or `~/.config/...`. Put such scratch harnesses in `test.*` at the repo root; `.gitignore` already covers that pattern, so they stay unpublished.
+
+Only the color test scripts are safe to run as-is:
 ```bash
 ./color-test16          # 16 ANSI colors
 ./color-test256         # 256 colors
@@ -66,15 +73,17 @@ Color test scripts can be run directly:
 
 ## Commit Convention
 
-Commits use the format: `[scope] Description` where scope matches the affected area. Reuse an existing scope — check with:
+Commits use the format: `[scope] Description` where scope matches the affected area. Reuse an existing scope — list them by frequency with:
 ```bash
-git log --format='%s' | grep -oP '^\[[^]]+\]' | sort -u
+git log --format='%s' | grep -oP '^\[[^]]+\]' | sort | uniq -c | sort -rn
 ```
-Common scopes: `[common]`, `[modern-cli]`, `[font]`, `[micro]`, `[boot]`, `[doc]`, `[agents]`.
+Most used: `[common]`, `[modern-cli]`, `[font]`, `[agents]`, `[prompt]`, `[micro]`, `[configure-disk]`, `[vconsole]`, `[boot]`, `[doc]`.
+
+Some areas have both a bare and a `configure-`-prefixed scope (`[vconsole]` / `[configure-vconsole]`, `[boot]` / `[configure-boot]`) — match whatever that area's most recent commits used, don't invent a third variant.
 
 ## Deployment
 
 The repository is served as a Jekyll GitHub Pages site (`_config.yaml`). Scripts are fetched raw from the pages URL, so:
 - Every file in root must be valid for direct shell execution or excluded in `_config.yaml`
-- Don't drop scratch files at the repo root — they get published
+- Don't drop scratch files at the repo root — they get published (except gitignored `test.*`, see [Testing](#testing))
 - New asset directories are reachable at `https://dimk90.github.io/anarchy/<dir>/<file>` automatically, no build step

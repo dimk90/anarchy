@@ -271,11 +271,11 @@ Live examples: [create-user:configure_user_account](../../../create-user) (chpas
 
 ## File / config / env helpers
 
-`config_set_param`, `remove_line`, `replace_line` all take **regex** for their pattern parameter — even when the input "looks literal". You must escape `.`, `|`, `(`, `)`, `$`, `?`, `+`, `*`. Common gotchas:
+`config_set_param`, `remove_line`, `replace_line` all take an **extended regex** (`sed -E` / `grep -E`) for their pattern parameter — even when the input "looks literal". You must escape `.`, `|`, `(`, `)`, `$`, `?`, `+`, `*`. Common gotchas:
 
 ```bash
-# pipe must be \|
-remove_line ~/.config/fish/config.fish 'starship init fish \| source'
+# pipe must be \| — a bare | is ERE alternation and matches far too much
+config_set_param ~/.config/fish/config.fish 'zoxide init --cmd j fish \| source'
 
 # dots in paths must be \.
 config_set_param ~/.bashrc 'source ~/\.config/bash/aliases\.bash'
