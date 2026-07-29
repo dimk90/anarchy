@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.7'
+export COMMON_VERSION='2.8'
 
 
 ## Colors
@@ -531,6 +531,14 @@ request_gum() {
 ## Files & Env
 
 
+# Delimiter for sed addresses built from a caller-supplied pattern.
+# SOH (\x01) can't occur in a pattern and, unlike '|', is not an ERE
+# metacharacter: with '|' as the delimiter, 'sed -E' unescapes '\|' back into
+# alternation, so a pattern like 'starship init fish \| source' silently
+# matches every line containing ' source'.
+export SED_DELIM=$'\001'
+
+
 backup_file() {
     #
     # Create a backup of the given file by appending .bakN
@@ -614,8 +622,8 @@ remove_line() {
     fi
 
     # Remove lines matching the pattern using sed (in-place).
-    # The pattern is surrounded by '|' delimiters to avoid escaping slashes.
-    if ! $prefix sed -i -E "\|${pattern}|${case_mode^^}d" "$file" &>> "$LOG_FILE"; then
+    # The pattern is surrounded by SED_DELIM to avoid escaping slashes.
+    if ! $prefix sed -i -E "\\${SED_DELIM}${pattern}${SED_DELIM}${case_mode^^}d" "$file" &>> "$LOG_FILE"; then
         return 1
     fi
 
@@ -656,7 +664,7 @@ replace_line() {
     fi
 
     # Replace lines matching the pattern using sed
-    if ! $prefix sed -i -E "\|${pattern}|c\\${new_line}" "$file" &>> "$LOG_FILE"; then
+    if ! $prefix sed -i -E "\\${SED_DELIM}${pattern}${SED_DELIM}c\\${new_line}" "$file" &>> "$LOG_FILE"; then
         return 1
     fi
 
