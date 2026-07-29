@@ -71,7 +71,7 @@ fish_install_fzf_plugin() {
     config_set_param ~/.config/fish/config.fish 'fzf_configure_bindings --variables=ctrl-alt-v --history=ctrl-alt-h'
     # Adjust preview command and fd options
     config_set_param ~/.config/fish/config.fish 'set fzf_preview_dir_cmd ll --color=always'
-    config_set_param ~/.config/fish/config.fish 'set fzf_fd_opts --color=always --hidden --follow -E .git -E .env -E .venv -E .cache'
+    config_set_param ~/.config/fish/config.fish 'set fzf_fd_opts --color=always --hidden --follow -E \.git -E \.env -E \.venv -E \.cache'
     # Fix border style for fzf-ps and fzf-history
     # shellcheck disable=SC1003
     sed -i '/--preview-window=/a\            --preview-border="top" \\' \
