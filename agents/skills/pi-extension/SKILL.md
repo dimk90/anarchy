@@ -19,6 +19,7 @@ Detailed references (read on demand):
 - [references/api.md](references/api.md) — events, return contracts, `ctx`/`pi` API, providers, state, session replacement footguns
 - [references/tools.md](references/tools.md) — custom tools: schemas, execute, usage, truncation, file mutation queue, dynamic loading, overriding built-ins
 - [references/tui.md](references/tui.md) — TUI components, `ctx.ui`, dialogs, widgets, custom components, theming, key handling
+- [references/packaging.md](references/packaging.md) — published package layout: `package.json`/`tsconfig` rules, documentation set, release checklist, TUI-capture harness
 
 Authoritative sources (when references are not enough): the installed pi package
 ships `docs/extensions.md`, `docs/tui.md`, `docs/custom-provider.md`, and ~80
@@ -65,6 +66,22 @@ Pick the smallest structure that fits:
 3. **Package** — needs npm deps: add `package.json` with `dependencies` and
    `"pi": { "extensions": ["./index.ts"] }`, run `npm install`. Runtime deps
    must be in `dependencies`, not `devDependencies`.
+4. **Published package** — distributed via npm/git: start from the template in
+   `assets/package-template/` and read
+   [references/packaging.md](references/packaging.md).
+
+```bash
+skill=~/.pi/agent/skills/pi-extension/assets/package-template
+cp -r "$skill/." ./my-ext/ && cd my-ext
+mv gitignore .gitignore && mv gitattributes .gitattributes
+rg '\{\{' .   # replace every placeholder before the first commit
+```
+
+The template ships `package.json` (peer `"*"` + exact pins, `pi` manifest,
+gallery image), `tsconfig.json`, `pnpm-workspace.yaml`, `AGENTS.md`,
+`README.md`, `CHANGELOG.md`, `doc/PLAN.md`, `doc/RELEASE.md`, a factory plus
+pure-command-grammar source pair, a `node:test` unit test, the load-order
+`test/fixtures/marker.ts`, and a tmux view-capture harness.
 
 Extra load paths: `settings.json` `"extensions": ["/path/to/ext.ts"]` and
 `"packages": ["npm:@foo/bar@1.0.0", "git:github.com/user/repo@v1"]`.
@@ -202,6 +219,13 @@ If tmux is unavailable, use `script` or a Python `pty` harness; do not treat
 plain piped stdin/stdout as a TUI test. Test narrow and normal terminal widths
 for custom components. Use `PI_TUI_WRITE_LOG=/tmp/tui.log` to inspect raw TUI
 output when rendered frames are ambiguous.
+
+For repeatable frame captures, adapt `assets/package-template/test/capture-view.sh`:
+it gates startup on the pane's foreground process, gates input on pi's
+completion popup, and copies session files before opening them. When an
+installed copy of the same extension is present, `pi -e .` produces duplicate
+commands suffixed in load order (`/cmd:1` working copy, `/cmd:2` installed) —
+use that to diff working copy against the release.
 
 Also verify relevant boundaries:
 

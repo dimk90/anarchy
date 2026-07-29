@@ -1,0 +1,49 @@
+{
+	"name": "{{package}}",
+	"version": "0.1.0",
+	"description": "{{One-line description of what the extension does}}",
+	"type": "module",
+	"license": "MIT",
+	"author": "{{Author Name}}",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/{{owner}}/{{package}}.git"
+	},
+	"homepage": "https://github.com/{{owner}}/{{package}}#readme",
+	"bugs": {
+		"url": "https://github.com/{{owner}}/{{package}}/issues"
+	},
+	"keywords": [
+		"pi",
+		"pi-extension",
+		"pi-package",
+		"coding-agent"
+	],
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"files": [
+		"src",
+		"README.md"
+	],
+	"scripts": {
+		"test": "node --test test/*.test.ts",
+		"check": "tsc --noEmit && pnpm test"
+	},
+	"pi": {
+		"extensions": [
+			"./src/index.ts"
+		],
+		"image": "https://media.githubusercontent.com/media/{{owner}}/{{package}}/{{commit-sha}}/doc/images/{{package}}.png"
+	},
+	"peerDependencies": {
+		"@earendil-works/pi-coding-agent": "*",
+		"@earendil-works/pi-tui": "*"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "{{pi --version}}",
+		"@earendil-works/pi-tui": "{{pi --version}}",
+		"@types/node": "^22.20.1",
+		"typescript": "^7.0.2"
+	}
+}

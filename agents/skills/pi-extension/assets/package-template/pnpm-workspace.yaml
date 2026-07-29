@@ -1,0 +1,10 @@
+# Approve build scripts of pi's transitive dependencies (pnpm 10 blocks them by
+# default); add entries only for packages pnpm actually reports.
+allowBuilds:
+  '@google/genai': true
+  protobufjs: true
+
+# pi releases often, and the dev pins must match the locally installed pi, so
+# they must not be delayed by a minimum release age policy.
+minimumReleaseAgeExclude:
+  - "@earendil-works/pi-*"
