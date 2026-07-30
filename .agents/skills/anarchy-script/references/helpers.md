@@ -75,7 +75,8 @@ All printers emit a leading bullet + faint title. Mirror this structure — don'
 |---|---|
 | `get_package_manager` | Echoes `pacman` / `apt` / `unknown`. |
 | `is_package_installed pkg [pkg_apt]` | 0 if installed under whichever PM is detected. |
-| `request_gum` | If gum missing, prompt "Let's get some?" and `pacman -Sy gum` / `apt-get install -y gum`. Always at the top of `main`. |
+| `request_gum` | If gum missing, prompt "Let's get some?" and install it: `pacman -Sy gum` on Arch, `install_gum_deb` on Debian/Ubuntu. Returns the installer's exit code. Always at the top of `main`. |
+| `install_gum_deb` | Debian/Ubuntu only: fetches the latest `gum_*.deb` from GitHub releases and `dpkg --install`s it (gum isn't in the apt archives). Called by `request_gum`. |
 
 ## Files
 

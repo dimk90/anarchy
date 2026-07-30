@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.8'
+export COMMON_VERSION='2.9'
 
 
 ## Colors
@@ -496,6 +496,48 @@ is_package_installed() {
 }
 
 
+install_gum_deb() {
+    #
+    # Install gum on Debian/Ubuntu from its official .deb release.
+    # gum is absent from the Debian/Ubuntu archives, so the package is taken
+    # from GitHub releases - it's a static binary without dependencies,
+    # so plain dpkg is enough.
+    # Returns 0 on success, 1 on failure.
+    #
+    # Example:
+    #   install_gum_deb
+    #   assert $? "can't install gum"
+    #
+    local repo_url='https://github.com/charmbracelet/gum'
+
+    # command output is left on the terminal on purpose: this runs before
+    # start_logger, so LOG_FILE is still /dev/null and would swallow errors
+
+    local arch
+    arch=$(dpkg --print-architecture)
+    [ -n "$arch" ] || return 1
+
+    # /releases/latest redirects to the tag page - take the version from it
+    local tag
+    tag=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "${repo_url}/releases/latest")
+    tag="${tag##*/}" # e.g. v0.17.0
+    [ -n "$tag" ] || return 1
+
+    local deb_file
+    deb_file=$(mktemp --suffix=.deb) || return 1
+
+    local status=1
+    if curl -fsSL -o "$deb_file" \
+            "${repo_url}/releases/download/${tag}/gum_${tag#v}_${arch}.deb"; then
+        as_root dpkg --install "$deb_file"
+        status=$?
+    fi
+
+    rm -f "$deb_file"
+    return $status
+}
+
+
 request_gum() {
     #
     # Request user to install gum if it's not already installed.
@@ -510,21 +552,25 @@ request_gum() {
         "${STYLE_CLR}${STYLE_BOLD}${FG_MAGENTA}"                \
         "${STYLE_CLR}${STYLE_DIM}"
 
-    if ask_yn; then
-        case "$(get_package_manager)" in
-            pacman)
-                printf_action "pacman -Sy gum\n"
-                as_root pacman -Sy gum </dev/tty
-                ;;
-            apt)
-                printf_action "apt-get install -y gum\n"
-                as_root apt-get install -y gum </dev/tty
-                ;;
-        esac
-        echo
-    else
-        return 1
-    fi
+    ask_yn || return 1
+
+    local status
+    case "$(get_package_manager)" in
+        pacman)
+            printf_action "pacman -Sy gum\n"
+            as_root pacman -Sy gum </dev/tty
+            status=$?
+            ;;
+        apt)
+            printf_action "gum is not in the apt archives - installing the .deb release\n"
+            install_gum_deb </dev/tty
+            status=$?
+            ;;
+        *)  return 1 ;; # unsupported package manager
+    esac
+    echo
+
+    return $status
 }
 
 
@@ -1182,6 +1228,7 @@ export -f have_privilege
 # Package Management
 export -f get_package_manager
 export -f is_package_installed
+export -f install_gum_deb
 export -f request_gum
 
 # Files & Env
