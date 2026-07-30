@@ -134,7 +134,7 @@ action_require_package package [title_prefix] [package_apt]
 ```
 
 - Spins "checking", short-circuits with `exists` if installed.
-- Otherwise: spins "privilege" → asks for password if needed → spins "installing" → prints `installed`.
+- Otherwise: spins "privilege" → asks for password if needed → (apt only, once per run) spins "refreshing lists" for `apt-get update` → spins "installing" → prints `installed`.
 - On failure, exits via `assert` (don't wrap with your own `assert $?`).
 - For `fd` ↔ `fd-find` style cross-distro names: `action_require_package 'fd' '' 'fd-find'`.
 
