@@ -42,7 +42,7 @@ install_starship() {
     fi
 
     if is_command_available 'starship'; then
-        action_run "Package $(gum style --foreground "$GUM_YELLOW" 'starship')" '' 'exists'
+        action_run "Package ${STYLE_CLR}$(gum style --foreground "$GUM_YELLOW" 'starship')" '' 'exists'
         return $?
     fi
 
@@ -51,7 +51,7 @@ install_starship() {
     action_request_permission 'to install starship'
 
     export -f install_starship_upstream
-    action_run "Install $(gum style --foreground "$GUM_YELLOW" 'starship')$(gum style --faint ' from starship.rs')" \
+    action_run "Install ${STYLE_CLR}$(gum style --foreground "$GUM_YELLOW" 'starship')$(gum style --faint ' from starship.rs')" \
         'install_starship_upstream' 'installed'
 }
 
