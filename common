@@ -461,6 +461,11 @@ have_privilege() {
 ## Package Management
 
 
+# Set to 'yes' once `apt-get update` has run, so a script installing several
+# packages refreshes the lists only on the first install.
+export APT_LISTS_REFRESHED=''
+
+
 get_package_manager() {
     #
     # Detect the available package manager.
@@ -985,6 +990,17 @@ action_require_package() {
         # shellcheck disable=SC2024
         echo "$password" | sudo -Si true &>> "$LOG_FILE"
         assert $? 'privilege request failed'
+    fi
+
+    # Refresh apt package lists once per run - without it the install fails on
+    # a system whose lists are empty or stale. The pacman branch gets this for
+    # free from -Sy, so no refresh phase is needed there.
+    if [ "$(get_package_manager)" = 'apt' ] && [ -z "$APT_LISTS_REFRESHED" ]; then
+        gum spin --align='right'                                                     \
+                 --title "${action_title}$(gum style --faint ' - refreshing lists')" \
+                 -- bash -c "$(check_sudo) apt-get update &>> ${LOG_FILE}"
+        assert $? "can't refresh apt package lists"
+        APT_LISTS_REFRESHED='yes'
     fi
 
     # install package

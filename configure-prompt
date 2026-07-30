@@ -20,6 +20,43 @@ set +o errexit # disable exit on non-zero exit code
 
 
 # shellcheck disable=SC2329
+install_starship_upstream() {
+    curl -fsSL https://starship.rs/install.sh | sh -s -- --yes
+}
+
+
+install_starship() {
+    #
+    # Ensure starship is installed.
+    # Returns 0 on success, non-zero otherwise.
+    #
+    # Ubuntu ships a starship package only since 25.10 (nothing on 24.04 LTS)
+    # and upstream publishes no .deb, so outside Arch we use the official
+    # installer, which puts the binary in /usr/local/bin. dpkg knows nothing
+    # about that install, hence the is_command_available guard instead of
+    # the dpkg-based check inside action_require_package.
+    #
+    if [ "$(get_package_manager)" = 'pacman' ]; then
+        action_require_package 'starship'
+        return $?
+    fi
+
+    if is_command_available 'starship'; then
+        action_run "Package $(gum style --foreground "$GUM_YELLOW" 'starship')" '' 'exists'
+        return $?
+    fi
+
+    # The installer escalates on its own with a bare `sudo`; cache the
+    # credential first so its password prompt can't hide inside the spinner.
+    action_request_permission 'to install starship'
+
+    export -f install_starship_upstream
+    action_run "Install $(gum style --foreground "$GUM_YELLOW" 'starship')$(gum style --faint ' from starship.rs')" \
+        'install_starship_upstream' 'installed'
+}
+
+
+# shellcheck disable=SC2329
 fish_configure_highlighting() {
     # ANSI color codes:
     # https://hexdocs.pm/color_palette/ansi_color_codes.html
@@ -128,7 +165,7 @@ main() {
     ## Starship
 
     printf_section "Starship\n"
-    action_require_package 'starship'
+    install_starship
     assert $? 'failed to install starship'
 
     # Create starship dir for configs
