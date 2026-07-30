@@ -88,7 +88,9 @@ Verify with `rg '\{\{' .` before the first commit.
   `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `typebox`) go in
   `peerDependencies` with `"*"` and are never bundled. Pin the same versions
   exactly in `devDependencies`, matching `pi --version`, so typecheck runs
-  against the pi the user actually runs.
+  against the pi the user actually runs. `"*"` resolves to whatever the running
+  pi ships, so schemas must stay inside the current typebox surface (1.3.x
+  since pi 0.83 — see [tools.md](tools.md#schema-rules) for the removed APIs).
 - Third-party runtime deps go in `dependencies` (pi runs `npm install` on
   install); other pi packages additionally need `bundledDependencies`.
 - `files` should ship `src` and `README.md` only — demo images and GIFs must

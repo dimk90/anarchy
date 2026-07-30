@@ -62,6 +62,13 @@ resources), `renderShell: "self"`, `prepareArguments`.
 ## Schema rules
 
 - Schemas are TypeBox (`typebox`); derive the TS type via `Static<typeof schema>`.
+- **pi 0.83 bundles typebox 1.3.x, which removed `Type.Base`, `Type.Awaited`,
+  `Type.Promise`, `Type.AsyncIterator`, `Type.Iterator`, `Type.Options`, and
+  `Value.Mutate`.** Replace `Type.Base` subclasses with
+  `Type.Refine(Type.Unsafe<T>({...}), check, message)`, model promises and
+  iterators structurally (a promise is an object with `then`), use the `with`
+  keyword instead of `Options` in `Type.Script`, and keep mutation helpers in
+  your own code. Tool parameters need none of the removed types.
 - **String enums must use `StringEnum([...] as const)` from `@earendil-works/pi-ai`.**
   `Type.Union([Type.Literal(...)])` breaks Google's API.
 - Add `{ description }` to every parameter — the LLM reads them.

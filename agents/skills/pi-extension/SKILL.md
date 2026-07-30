@@ -22,13 +22,19 @@ Detailed references (read on demand):
 - [references/packaging.md](references/packaging.md) — published package layout: `package.json`/`tsconfig` rules, documentation set, release checklist, TUI-capture harness
 
 Authoritative sources (when references are not enough): the installed pi package
-ships `docs/extensions.md`, `docs/tui.md`, `docs/custom-provider.md`, and ~80
-working examples in `examples/extensions/`. Locate them:
+ships `CHANGELOG.md`, `docs/extensions.md`, `docs/tui.md`,
+`docs/custom-provider.md`, and ~80 working examples in `examples/extensions/`.
+Locate them:
 
 ```bash
 pi_pkg=$(dirname "$(dirname "$(readlink -f "$(which pi)")")")  # .../pi-coding-agent
 ls "$pi_pkg/docs" "$pi_pkg/examples/extensions"
 ```
+
+`readlink` on a shim script resolves to the shim itself; when `$pi_pkg` has no
+`docs/`, read the `cmd-shim-target=` comment at the end of the shim instead.
+After a pi upgrade, read the `Breaking Changes` section of `$pi_pkg/CHANGELOG.md`
+for the new version before touching extension code.
 
 Prefer copying a close example over writing from scratch — check the table in
 `examples/extensions/README.md` first.
@@ -51,7 +57,8 @@ export default function (pi: ExtensionAPI) {
 
 Available imports: `@earendil-works/pi-coding-agent` (types, helpers),
 `@earendil-works/pi-ai` (`StringEnum`, provider/API helpers),
-`@earendil-works/pi-tui` (components), `typebox` (schemas), Node built-ins. npm
+`@earendil-works/pi-tui` (components), `typebox` (schemas; 1.3.x on pi ≥ 0.83,
+see [references/tools.md](references/tools.md#schema-rules)), Node built-ins. npm
 deps work if a `package.json` sits next to the extension and `npm install` was
 run.
 
