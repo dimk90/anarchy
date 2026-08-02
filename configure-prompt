@@ -16,6 +16,14 @@ source <(echo "$COMMON")
 set +o errexit # disable exit on non-zero exit code
 
 
+## Globals
+
+
+# The FHS location for locally installed fonts: fontconfig scans it by default
+# on both Arch and Ubuntu, and no package manager owns it
+FONT_DIR='/usr/local/share/fonts'
+
+
 ## Routines
 
 
@@ -53,6 +61,85 @@ install_starship() {
     export -f install_starship_upstream
     action_run "Install ${STYLE_CLR}$(gum style --foreground "$GUM_YELLOW" 'starship')$(gum style --faint ' from starship.rs')" \
         'install_starship_upstream' 'installed'
+}
+
+
+install_font() {
+    #
+    # Install a bundled font system-wide, replacing any previously installed copy.
+    #
+    # The existing file is removed up front instead of being backed up:
+    # action_install_file would leave a multi-megabyte .bakN beside it, and
+    # fc-cache indexes every file in the directory, so the backup would show up
+    # as a duplicate face. Losing the old copy if the download then fails is
+    # harmless - it is re-fetchable from the same URL.
+    #
+    # Parameters:
+    #   $1 - font_file - path of the font under font/ in the repo.
+    #
+    # Example:
+    #   install_font 'Iosevka/IosevkaTerm.ttc'
+    #
+    local font_file="$1"
+
+    local font_path="${FONT_DIR}/${font_file##*/}"
+
+    as_root rm -f "$font_path" &>> "$LOG_FILE"
+    assert $? "can't remove existing font: $font_path"
+
+    action_install_file "$font_path" \
+        "https://dimk90.github.io/anarchy/font/${font_file}" \
+        "$(check_sudo)"
+}
+
+
+install_fonts() {
+    #
+    # Offer a system-wide install of the fonts the starship themes rely on.
+    # Returns 0 without touching anything when no font is selected.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   install_fonts
+    #
+    printf_section "Fonts\n"
+
+    local header
+    header=$(prefix_printf "$(bullet_action)" 'Select fonts to install system-wide:\n')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' \
+                            --cursor="      > "       \
+                            --header="${header}"      \
+                            'Iosevka Term' 'Nerd Symbols'); then
+        choices=${choices,,} # lowercase for matching
+    else
+        return 0
+    fi
+
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected fonts: ${STYLE_CLR}${num_choice}\n"
+    [ "$num_choice" -eq 0 ] && return 0
+
+    # fc-cache ships in fontconfig, same package name on Arch and Ubuntu
+    action_require_package 'fontconfig'
+
+    action_request_permission 'to install fonts system-wide'
+
+    action_run "Create ${STYLE_CLR}${FONT_DIR}" \
+        "$(check_sudo) mkdir -p ${FONT_DIR}" 'done'
+    assert $? "can't create font directory: $FONT_DIR"
+
+    # Iosevka Term carries no Nerd Font glyphs; the pure and capsule themes get
+    # theirs from Nerd Symbols, which fontconfig picks up as a fallback
+    grep -q 'iosevka term' <<< "$choices" && install_font 'Iosevka/IosevkaTerm.ttc'
+    grep -q 'nerd symbols' <<< "$choices" && install_font 'NerdSymbols/SymbolsNerdFont.ttf'
+
+    action_run 'Rebuild font cache' "$(check_sudo) fc-cache -f" 'done'
+    assert $? 'failed to rebuild font cache'
 }
 
 
@@ -189,6 +276,10 @@ main() {
     printf_action "Starship theme: ${STYLE_CLR}${choice}\n"
     action_install_file ~/.config/starship/starship.toml \
         "https://dimk90.github.io/anarchy/starship/starship.${choice}.toml"
+
+    ## Fonts
+
+    install_fonts
 
     ## Fish
 
