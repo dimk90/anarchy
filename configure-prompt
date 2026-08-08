@@ -196,7 +196,7 @@ fish_enable_starship() {
 
     # Install starship config selector (autoloaded by fish)
     action_install_file ~/.config/fish/functions/select_starship_config.fish \
-        "https://dimk90.github.io/anarchy/starship/select_starship_config.fish"
+        "https://dimk90.github.io/anarchy/prompt/select_starship_config.fish"
 
     # Remove old starship init to guarantee select_starship_config call before init
     remove_line ~/.config/fish/config.fish 'starship init fish'
@@ -213,7 +213,7 @@ fish_enable_starship() {
 bash_enable_starship() {
     # Download starship config selector function
     action_install_file ~/.config/starship/select_starship_config.bash \
-        "https://dimk90.github.io/anarchy/starship/select_starship_config.bash"
+        "https://dimk90.github.io/anarchy/prompt/select_starship_config.bash"
 
     # Remove old starship init to guarantee select_starship_config call before init
     remove_line ~/.bashrc 'starship init bash'
@@ -262,7 +262,7 @@ main() {
     # Download fallback theme
     printf_action "Fallback theme: ${STYLE_CLR}pure-text\n"
     action_install_file ~/.config/starship/fallback.toml \
-        "https://dimk90.github.io/anarchy/starship/starship.pure-text.toml"
+        "https://dimk90.github.io/anarchy/prompt/starship.pure-text.toml"
 
     # Select & download starship theme
     local header
@@ -275,7 +275,7 @@ main() {
                         'pure' 'capsule' 'pure-text') || choice='pure'
     printf_action "Starship theme: ${STYLE_CLR}${choice}\n"
     action_install_file ~/.config/starship/starship.toml \
-        "https://dimk90.github.io/anarchy/starship/starship.${choice}.toml"
+        "https://dimk90.github.io/anarchy/prompt/starship.${choice}.toml"
 
     ## Fonts
 
