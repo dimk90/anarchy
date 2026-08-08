@@ -5,11 +5,13 @@
 
 Highly disorganized personal configs and install scripts for Arch Linux.  
 
+Badges next to each heading list the distros the script is *tested* on.
+
 
 ## Configs
 
 
-### wipe-disk
+### wipe-disk ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Pre-install cleanup: erase an existing install on the target disk before
 running `configure-disk`. Must be run as root from the live USB. The script
@@ -24,7 +26,7 @@ curl -fsSL https://dimk90.github.io/anarchy/wipe-disk | bash
 This is destructive and irreversible — `wipefs`, `sgdisk --zap-all`, and
 `blkdiscard` cannot be undone. Double-check the target disk before confirming.
 
-### disk
+### disk ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Partition the target disk and prepare mount points for an Arch install
 (GPT + LUKS2 + btrfs subvolumes). Must be run as root from the live USB.
@@ -49,7 +51,7 @@ Resulting layout:
 The encrypted partition is opened as `/dev/mapper/cryptroot`.
 Btrfs is mounted with `noatime,ssd,discard=async,commit=120,compress=zstd:1,space_cache=v2`.
 
-### boot
+### boot ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Set up UEFI boot for an encrypted Arch install — Unified Kernel Image
 (UKI) with the LUKS UUID baked into `/etc/kernel/cmdline`, plus an
@@ -68,7 +70,7 @@ manually). The preset also emits a split `initramfs-linux.img` (paired
 with `vmlinuz-linux` + microcode) that `configure-snapshots` consumes for
 the snapshot boot path.
 
-### snapshots
+### snapshots ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Set up btrfs snapshots with boot-to-snapshot recovery. Installs the
 Limine bootloader (registered as a separate NVRAM entry, ordered *after*
@@ -92,7 +94,7 @@ entry) and, for `home`, `snapper-timeline.timer`. Requires the
 `/etc/kernel/cmdline` from `configure-boot`, and `yay` (`install-yay`). The
 Limine theme (monochrome HiDPI menu with a selectable bitmap font) is optional.
 
-### user
+### user ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Create a new user with home dir, optional `/opt/<user>` workspace, and
 an optional btrfs `@<user>-cache` subvolume mounted at `~/.cache` (no-CoW
@@ -106,7 +108,7 @@ curl -fsSL https://dimk90.github.io/anarchy/create-user | bash
 Run **before** the user's first login — apps populate `~/.cache` on
 startup, and switching to a subvolume after that requires moving files.
 
-### drivers
+### drivers ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Install hardware drivers grouped by category — Video (mesa + Intel GPU),
 Input (libinput + IIO sensors), Power (tuned), Audio (PipeWire + ALSA),
@@ -120,14 +122,14 @@ curl -fsSL https://dimk90.github.io/anarchy/install-drivers | bash
 Vendor-specific GPU packages are installed only on Intel CPUs; AMD/NVIDIA
 hosts get `mesa` plus a warning to install vendor drivers manually.
 
-### vconsole
+### vconsole ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Install and configure keymap, font, and locale for virtual console:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-vconsole | bash
 ```
 
-### micro
+### micro ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white) ![Ubuntu 24.04 LTS](https://img.shields.io/badge/Ubuntu_24.04_LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white)
 
 Install and configure the Micro text editor — settings, keybindings, default
 editor, and clipboard support. The keybindings add a `movelines` Lua plugin that
@@ -137,35 +139,35 @@ Alt+Up:
 curl -fsSL https://dimk90.github.io/anarchy/install-micro | bash
 ```
 
-### pacman
+### pacman ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Enable colors and install `reflector` for automatic mirror ranking:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-pacman | bash
 ```
 
-### yay
+### yay ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Install and configure `yay`:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/install-yay | bash
 ```
 
-### alias
+### alias ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white) ![Ubuntu 24.04 LTS](https://img.shields.io/badge/Ubuntu_24.04_LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white)
 
 Configure alias for common commands:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-alias | bash
 ```
 
-### zram
+### zram ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Configure zram using `zram-generator`:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-zram | bash
 ```
 
-### swap
+### swap ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 
 Create a btrfs `@swap` subvolume at `/swap`, allocate a RAM-sized swap
 file via `btrfs filesystem mkswapfile`, and optionally configure
@@ -180,7 +182,7 @@ from `zram-generator.conf`) and only takes overflow plus the hibernation
 image. Requires an open `/dev/mapper/cryptroot` btrfs filesystem;
 hibernation also requires `/etc/kernel/cmdline` from `configure-boot`.
 
-### prompt
+### prompt ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white) ![Ubuntu 24.04 LTS](https://img.shields.io/badge/Ubuntu_24.04_LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white)
 
 Install and configure `starship` prompt with a TERM-aware fallback for the
 Linux console and a nerd-font variant for modern terminals. Fonts and fish
@@ -190,7 +192,7 @@ picked up front:
 curl -fsSL https://dimk90.github.io/anarchy/configure-prompt | bash
 ```
 
-### modern-cli
+### modern-cli ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white) ![Ubuntu 24.04 LTS](https://img.shields.io/badge/Ubuntu_24.04_LTS-E95420?style=flat-square&logo=ubuntu&logoColor=white)
 
 Install and configure modern CLI replacements (`zoxide`, `bat`, `fd`, `ripgrep`,
 `eza`, `fzf`, `git-delta`, `tldr`, `less`) with aliases, shell integrations,
