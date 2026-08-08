@@ -83,7 +83,9 @@ Some areas have both a bare and a `configure-`-prefixed scope (`[vconsole]` / `[
 
 ## Deployment
 
-The repository is served as a Jekyll GitHub Pages site (`_config.yaml`). Scripts are fetched raw from the pages URL, so:
-- Every file in root must be valid for direct shell execution or excluded in `_config.yaml`
+The repository is served as a static GitHub Pages site — `.nojekyll` at the root disables Jekyll, so every tracked file is published byte-for-byte at its own path. Scripts are fetched raw from the pages URL, so:
+- Every file in root must be valid for direct shell execution, `index.html` aside
 - Don't drop scratch files at the repo root — they get published (except gitignored `test.*`, see [Testing](#testing))
 - New asset directories are reachable at `https://dimk90.github.io/anarchy/<dir>/<file>` automatically, no build step
+- `.md` files (`README.md`, skills, docs) are served as-is, front matter included — no HTML rendering, no `.html` variants
+- `index.html` only redirects the site root to the GitHub repo; without it `/` would 404
