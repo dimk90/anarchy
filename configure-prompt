@@ -23,8 +23,85 @@ set +o errexit # disable exit on non-zero exit code
 # on both Arch and Ubuntu, and no package manager owns it
 FONT_DIR='/usr/local/share/fonts'
 
+# Optional components picked in the up-front menu, lowercased, one per line
+COMPONENTS=''
+
+# Starship theme picked in the up-front menu
+THEME='pure'
+
 
 ## Routines
+
+
+select_components() {
+    #
+    # Ask which optional components to configure and store the answer in
+    # COMPONENTS. Starship itself is not listed - it is the point of the script.
+    # Fish entries are offered only when fish is installed.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   select_components
+    #
+    printf_section "Components\n"
+
+    local items=('Iosevka Term font' 'Nerd Symbols font')
+    is_command_available 'fish' &&
+        items+=('Fish colors' 'Fish greeting' 'Fish key bindings')
+
+    local header
+    header=$(prefix_printf "$(bullet_action)" 'Select optional components:\n')
+
+    local choices
+    if choices=$(gum choose --no-limit --selected='*' \
+                            --cursor="      > "       \
+                            --header="${header}"      \
+                            "${items[@]}"); then
+        COMPONENTS=${choices,,} # lowercase for matching
+    fi
+
+    local num_choice
+    num_choice=$([ -n "$COMPONENTS" ] && wc -l <<< "$COMPONENTS" || echo 0)
+    printf_action "Selected components: ${STYLE_CLR}${num_choice}\n"
+}
+
+
+select_theme() {
+    #
+    # Ask which starship theme to install and store the answer in THEME.
+    # Keeps its default on an aborted menu, so the caller always has a theme.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   select_theme
+    #
+    local header
+    header=$(prefix_printf "$(bullet_action)" 'Select starship theme (default: pure):\n')
+
+    THEME=$(gum choose --cursor="      > "  \
+                       --header="${header}" \
+                       --limit=1            \
+                       'pure' 'capsule' 'pure-text') || THEME='pure'
+    printf_action "Starship theme: ${STYLE_CLR}${THEME}\n"
+}
+
+
+has_component() {
+    #
+    # Check whether a component was selected in the up-front menu.
+    #
+    # Parameters:
+    #   $1 - name - lowercased component name as shown in the menu.
+    #
+    # Example:
+    #   has_component 'fish colors' && configure_colors
+    #
+    grep -q "$1" <<< "$COMPONENTS"
+}
 
 
 # shellcheck disable=SC2329
@@ -95,8 +172,8 @@ install_font() {
 
 install_fonts() {
     #
-    # Offer a system-wide install of the fonts the starship themes rely on.
-    # Returns 0 without touching anything when no font is selected.
+    # Install the fonts selected in the components menu system-wide.
+    # Returns 0 without touching anything when no font was selected.
     #
     # Parameters:
     #   None.
@@ -104,25 +181,9 @@ install_fonts() {
     # Example:
     #   install_fonts
     #
+    has_component 'iosevka term font' || has_component 'nerd symbols font' || return 0
+
     printf_section "Fonts\n"
-
-    local header
-    header=$(prefix_printf "$(bullet_action)" 'Select fonts to install system-wide:\n')
-
-    local choices
-    if choices=$(gum choose --no-limit --selected='*' \
-                            --cursor="      > "       \
-                            --header="${header}"      \
-                            'Iosevka Term' 'Nerd Symbols'); then
-        choices=${choices,,} # lowercase for matching
-    else
-        return 0
-    fi
-
-    local num_choice
-    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected fonts: ${STYLE_CLR}${num_choice}\n"
-    [ "$num_choice" -eq 0 ] && return 0
 
     # fc-cache ships in fontconfig, same package name on Arch and Ubuntu
     action_require_package 'fontconfig'
@@ -135,8 +196,8 @@ install_fonts() {
 
     # Iosevka Term carries no Nerd Font glyphs; the pure and capsule themes get
     # theirs from Nerd Symbols, which fontconfig picks up as a fallback
-    grep -q 'iosevka term' <<< "$choices" && install_font 'Iosevka/IosevkaTerm.ttc'
-    grep -q 'nerd symbols' <<< "$choices" && install_font 'NerdSymbols/SymbolsNerdFont.ttf'
+    has_component 'iosevka term font' && install_font 'Iosevka/IosevkaTerm.ttc'
+    has_component 'nerd symbols font' && install_font 'NerdSymbols/SymbolsNerdFont.ttf'
 
     action_run 'Rebuild font cache' "$(check_sudo) fc-cache -f" 'done'
     assert $? 'failed to rebuild font cache'
@@ -151,12 +212,6 @@ fish_configure_highlighting() {
     # All 'set -U' calls are batched into a single fish invocation to avoid
     # spawning a separate fish process per variable.
     fish -c '
-        # Hide fish greeting
-        set -U fish_greeting ""
-
-        # Set the emoji width (iTerm only?)
-        set -U fish_emoji_width 2
-
         # Syntax highlighting
         # https://fishshell.com/docs/current/interactive.html#syntax-highlighting-variables
         set -U fish_color_normal AAA
@@ -185,6 +240,55 @@ fish_configure_highlighting() {
         set -U fish_pager_color_selected_background --background=AFA
         set -U fish_pager_color_progress black --background=7FF
     '
+}
+
+
+# shellcheck disable=SC2329
+fish_configure_greeting() {
+    # The emoji width rides along: both are cosmetic startup settings the
+    # greeting opt-out covers.
+    fish -c '
+        # Hide fish greeting
+        set -U fish_greeting ""
+
+        # Set the emoji width (iTerm only?)
+        set -U fish_emoji_width 2
+    '
+}
+
+
+fish_install_key_bindings() {
+    #
+    # Install ctrl-arrow word motions and ctrl-backspace/delete word kills.
+    #
+    # fish autoloads a function named fish_user_key_bindings from its functions
+    # directory, so config.fish needs no entry.
+    #
+    # The `bind ctrl-right` key notation arrived in fish 4.0; older fish binds
+    # the literal characters instead, so skip rather than mangle the keymap.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   fish_install_key_bindings
+    #
+    local version
+    # shellcheck disable=SC2016  # $version is a fish variable, expanded by fish
+    version=$(fish -c 'echo $version' 2>> "$LOG_FILE")
+
+    local major="${version%%.*}"
+    if ! [[ "$major" =~ ^[0-9]+$ ]] || [ "$major" -lt 4 ]; then
+        printf_action "%b ${STYLE_DIM}Key bindings need fish 4.0+, found ${STYLE_CLR}%s\n" \
+            "$(bullet_warning)" "${version:-unknown}"
+        return 0
+    fi
+
+    mkdir -p ~/.config/fish/functions
+    assert $? 'failed to create fish functions directory'
+
+    action_install_file ~/.config/fish/functions/fish_user_key_bindings.fish \
+        "https://dimk90.github.io/anarchy/prompt/fish_user_key_bindings.fish"
 }
 
 
@@ -249,6 +353,11 @@ main() {
     start_logger
     printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
 
+    ## Components
+
+    select_components
+    select_theme
+
     ## Starship
 
     printf_section "Starship\n"
@@ -264,18 +373,9 @@ main() {
     action_install_file ~/.config/starship/fallback.toml \
         "https://dimk90.github.io/anarchy/prompt/starship.pure-text.toml"
 
-    # Select & download starship theme
-    local header
-    header=$(prefix_printf "$(bullet_action)" 'Select starship theme (default: pure):\n')
-
-    local choice
-    choice=$(gum choose --cursor="      > "  \
-                        --header="${header}" \
-                        --limit=1            \
-                        'pure' 'capsule' 'pure-text') || choice='pure'
-    printf_action "Starship theme: ${STYLE_CLR}${choice}\n"
+    # Download the selected theme
     action_install_file ~/.config/starship/starship.toml \
-        "https://dimk90.github.io/anarchy/prompt/starship.${choice}.toml"
+        "https://dimk90.github.io/anarchy/prompt/starship.${THEME}.toml"
 
     ## Fonts
 
@@ -286,11 +386,20 @@ main() {
     if is_command_available 'fish'; then
         printf_section "Configure fish\n"
 
-        export -f fish_configure_highlighting
-        action_run 'Configure syntax highlighting' 'fish_configure_highlighting' 'done'
+        if has_component 'fish colors'; then
+            export -f fish_configure_highlighting
+            action_run 'Configure syntax highlighting' 'fish_configure_highlighting' 'done'
+        fi
+
+        if has_component 'fish greeting'; then
+            export -f fish_configure_greeting
+            action_run 'Configure greeting' 'fish_configure_greeting' 'done'
+        fi
 
         export -f fish_enable_starship
         action_run 'Enable starship' 'fish_enable_starship' 'done'
+
+        has_component 'fish key bindings' && fish_install_key_bindings
     fi
 
     ## Bash

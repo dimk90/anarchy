@@ -44,7 +44,7 @@ All install/configure scripts share one skeleton: strict mode, source `common` v
 - `font/`: Iosevka, Nerd Symbols, Noto Emoji fonts; `font/limine/` and `font/psf/` hold console/boot-menu fonts
 - `marimo/`: Marimo notebook config (`pyproject.toml`) and custom CSS styles
 - `micro/`: Micro editor keybindings, settings, and plugins
-- `prompt/`: Shell prompt theme variants (TOML) and selector scripts
+- `prompt/`: Shell prompt theme variants (TOML), selector scripts, fish key bindings
 - `sudo/`: Sudoers drop-ins (proxy env passthrough)
 - `vconsole/`: Custom keyboard layout map
 - `zram/`: Compressed RAM disk config

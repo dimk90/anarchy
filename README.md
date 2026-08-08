@@ -1,5 +1,11 @@
 # Anarchy
 
+[![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg?style=flat-square)](https://opensource.org/licenses/BSD-3-Clause)
+[![GitHub Pages](https://img.shields.io/github/actions/workflow/status/dimk90/anarchy/dynamic%2Fpages%2Fpages-build-deployment?branch=main&label=GitHub%20Pages&style=flat-square)](https://github.com/dimk90/anarchy/actions/workflows/pages-build-deployment)
+[![Deployed](https://img.shields.io/github/deployments/dimk90/anarchy/github-pages?label=Deployed&style=flat-square)](https://dimk90.github.io/anarchy/)
+[![Deployed](https://img.shields.io/github/deployments/dimk90/anarchy/github-pages?label=Deployed&style=flat-square)](https://dimk90.github.io/anarchy/)
+[![pages-build-deployment](https://github.com/dimk90/anarchy/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/dimk90/anarchy/actions/workflows/pages/pages-build-deployment)
+
 Highly disorganized personal configs and install scripts for Arch Linux.  
 
 
@@ -180,7 +186,9 @@ hibernation also requires `/etc/kernel/cmdline` from `configure-boot`.
 ### prompt
 
 Install and configure `starship` prompt with a TERM-aware fallback for the
-Linux console and a nerd-font variant for modern terminals:
+Linux console and a nerd-font variant for modern terminals. Fonts and fish
+tweaks (colors, greeting, ctrl-arrow key bindings) are opt-out components
+picked up front:
 ```bash
 curl -fsSL https://dimk90.github.io/anarchy/configure-prompt | bash
 ```
