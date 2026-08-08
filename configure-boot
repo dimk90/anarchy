@@ -197,7 +197,7 @@ write_cmdline() {
         'done'
     assert $? "can't create /etc/kernel"
 
-    action_run "Write $(gum style --foreground "$GUM_YELLOW" '/etc/kernel/cmdline')"  \
+    action_run "Write ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" '/etc/kernel/cmdline')"  \
         "echo '${cmdline}' | as_root tee /etc/kernel/cmdline > /dev/null"             \
         'done'
     assert $? "can't write /etc/kernel/cmdline"
@@ -221,7 +221,7 @@ write_crypttab() {
     local line="${CRYPT_NAME}  UUID=${part_uuid}  none  luks"
 
     action_request_permission 'for writing /etc/crypttab.initramfs'
-    action_run "Write $(gum style --foreground "$GUM_YELLOW" '/etc/crypttab.initramfs')"  \
+    action_run "Write ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" '/etc/crypttab.initramfs')"  \
         "echo '${line}' | as_root tee /etc/crypttab.initramfs > /dev/null"                \
         'done'
     assert $? "can't write /etc/crypttab.initramfs"
@@ -261,7 +261,7 @@ build_uki() {
     action_require_package 'mkinitcpio'
 
     action_request_permission 'to run mkinitcpio'
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
+    action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
         'as_root mkinitcpio -P'                                                \
         'done'
     assert $? 'mkinitcpio failed'
@@ -272,11 +272,11 @@ build_uki() {
     fi
 
     printf_action "UKI built: ${STYLE_CLR}%b\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$UKI_PATH")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$UKI_PATH")"
 
     if [ -f "$SPLIT_INITRAMFS_PATH" ]; then
         printf_action "Split initramfs: ${STYLE_CLR}%b\n" \
-            "$(gum style --foreground "$GUM_YELLOW" "$SPLIT_INITRAMFS_PATH")"
+            "$(gum style --bold --foreground "$GUM_YELLOW" "$SPLIT_INITRAMFS_PATH")"
     else
         printf_action "%b ${STYLE_DIM}split initramfs ${STYLE_CLR}${SPLIT_INITRAMFS_PATH}${STYLE_DIM} not emitted — Limine's snapshot boot path will be unavailable${STYLE_CLR}\n" \
             "$(bullet_warning)"
@@ -296,7 +296,7 @@ register_uki() {
     action_require_package 'efibootmgr'
 
     action_request_permission 'to add UKI entry to NVRAM'
-    action_run "Register $(gum style --foreground "$GUM_YELLOW" "${UKI_LABEL}")"  \
+    action_run "Register ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "${UKI_LABEL}")"  \
         "as_root efibootmgr --create --disk '${disk}' --part ${part_idx}          \
                             --label '${UKI_LABEL}'                                \
                             --loader '${UKI_LOADER}' --unicode"                   \
@@ -318,7 +318,7 @@ verify_uki_prereqs() {
 
     if is_uefi_boot; then
         printf_action "UEFI boot mode: ${STYLE_CLR}%b\n" \
-            "$(gum style --foreground "$GUM_YELLOW" 'yes')"
+            "$(gum style --bold --foreground "$GUM_YELLOW" 'yes')"
     else
         printf_action "%b ${STYLE_DIM}UEFI boot mode not detected — ${STYLE_CLR}/sys/firmware/efi${STYLE_DIM} missing${STYLE_CLR}\n" \
             "$(bullet_error)"
@@ -327,7 +327,7 @@ verify_uki_prereqs() {
 
     if is_package_installed 'linux'; then
         printf_action "Kernel package: ${STYLE_CLR}%b\n" \
-            "$(gum style --foreground "$GUM_YELLOW" 'linux')"
+            "$(gum style --bold --foreground "$GUM_YELLOW" 'linux')"
     else
         printf_action "%b ${STYLE_DIM}kernel package ${STYLE_CLR}linux${STYLE_DIM} is not installed — ${STYLE_CLR}mkinitcpio -P${STYLE_DIM} has no target${STYLE_CLR}\n" \
             "$(bullet_error)"
@@ -336,7 +336,7 @@ verify_uki_prereqs() {
 
     if is_root_btrfs_subvol_at; then
         printf_action "Root fs: ${STYLE_CLR}%b\n" \
-            "$(gum style --foreground "$GUM_YELLOW" 'btrfs, subvol=@')"
+            "$(gum style --bold --foreground "$GUM_YELLOW" 'btrfs, subvol=@')"
     else
         printf_action "%b ${STYLE_DIM}root is not btrfs subvol=@ — embedded ${STYLE_CLR}rootflags=subvol=@${STYLE_DIM} will not match the live root${STYLE_CLR}\n" \
             "$(bullet_warning)"
@@ -379,7 +379,7 @@ install_edk2_shell() {
     action_request_permission "to copy ${EDK2_SHELL_SRC##*/} to ESP"
     action_run "$(printf '%b%b%b'                                              \
         "$(gum style --faint 'Copy ')"                                         \
-        "$(gum style --foreground "$GUM_YELLOW" "${EDK2_SHELL_SRC##*/}")"      \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "${EDK2_SHELL_SRC##*/}")"      \
         "$(gum style --faint " to ${EDK2_SHELL_DST}")")"                       \
         "as_root cp '${EDK2_SHELL_SRC}' '${EDK2_SHELL_DST}' && as_root sync"   \
         'done'
@@ -388,7 +388,7 @@ install_edk2_shell() {
     action_require_package 'efibootmgr'
 
     action_request_permission 'to add UEFI Shell entry to NVRAM'
-    action_run "Register $(gum style --foreground "$GUM_YELLOW" "${EDK2_SHELL_LABEL}")"  \
+    action_run "Register ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "${EDK2_SHELL_LABEL}")"  \
         "as_root efibootmgr --create --disk '${disk}' --part ${part_idx}                 \
                             --label '${EDK2_SHELL_LABEL}'                                \
                             --loader '${EDK2_SHELL_LOADER}' --unicode"                   \
@@ -460,9 +460,9 @@ main() {
     fi
 
     printf_action "ESP: ${STYLE_CLR}%b ${STYLE_DIM}(disk: ${STYLE_CLR}%b${STYLE_DIM}, part: ${STYLE_CLR}%b${STYLE_DIM})\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$esp_part")"   \
-        "$(gum style --foreground "$GUM_YELLOW" "$esp_disk")"   \
-        "$(gum style --foreground "$GUM_YELLOW" "$esp_idx")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$esp_part")"   \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$esp_disk")"   \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$esp_idx")"
 
     ## UKI
 
@@ -477,7 +477,7 @@ main() {
         fi
 
         printf_action "LUKS: ${STYLE_CLR}%b\n" \
-            "$(gum style --foreground "$GUM_YELLOW" "$crypt_part")"
+            "$(gum style --bold --foreground "$GUM_YELLOW" "$crypt_part")"
 
         verify_uki_prereqs || return 0
 

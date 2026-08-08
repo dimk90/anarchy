@@ -326,9 +326,9 @@ verify_prerequisites() {
         exit 1
     fi
     printf_action "ESP: ${STYLE_CLR}%b ${STYLE_DIM}(disk ${STYLE_CLR}%b${STYLE_DIM}, part ${STYLE_CLR}%b${STYLE_DIM})\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$esp_part")"  \
-        "$(gum style --foreground "$GUM_YELLOW" "$ESP_DISK")"  \
-        "$(gum style --foreground "$GUM_YELLOW" "$ESP_IDX")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$esp_part")"  \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$ESP_DISK")"  \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$ESP_IDX")"
 
     # 4. root is btrfs subvol=@
     export -f is_root_btrfs_subvol_at
@@ -385,7 +385,7 @@ install_aur_tools() {
     # Step of the "Installing Limine" section.
     #
     action_request_permission 'to install AUR packages with yay'
-    action_run "Install $(gum style --foreground "$GUM_YELLOW" "$AUR_TOOLS")"  \
+    action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$AUR_TOOLS")"  \
         "yay -S --needed --noconfirm ${AUR_TOOLS}"                             \
         'done'
     assert $? "can't install AUR snapshot tools"
@@ -570,7 +570,7 @@ register_limine_nvram() {
         printf_action "%b ${STYLE_DIM}entry ${STYLE_CLR}${LIMINE_LABEL}${STYLE_DIM} already present — skipping create${STYLE_CLR}\n" \
             "$(bullet_info)"
     else
-        action_run "Register $(gum style --foreground "$GUM_YELLOW" "$LIMINE_LABEL")"  \
+        action_run "Register ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$LIMINE_LABEL")"  \
             "as_root efibootmgr --create --disk '$ESP_DISK' --part $ESP_IDX            \
                                 --label '$LIMINE_LABEL'                                \
                                 --loader '$LIMINE_LOADER' --unicode"                   \
@@ -725,7 +725,7 @@ configure_snapper_config() {
     local cfg="$1" target="$2" snapdir="$3" subvol="$4" retention_fn="$5"
 
     printf_section "Configuring Snapper for ${STYLE_CLR}%b\n"  \
-        "$(gum style --foreground "$GUM_YELLOW" "$target")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$target")"
 
     action_request_permission "to configure snapper for ${target}"
 

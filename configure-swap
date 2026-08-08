@@ -129,7 +129,7 @@ create_swap_subvolume() {
     # Mount cryptroot top-level (subvolid=5), create @swap, unmount.
     #
     printf_section "Creating ${STYLE_CLR}%b${STYLE_DIM} subvolume\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"
 
     action_request_permission "to create ${SWAP_SUBVOL} subvolume"
 
@@ -138,7 +138,7 @@ create_swap_subvolume() {
         'done'
     assert $? "can't mount cryptroot top-level"
 
-    action_run "Create $(gum style --foreground "$GUM_YELLOW" "$MNT/$SWAP_SUBVOL")"  \
+    action_run "Create ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$MNT/$SWAP_SUBVOL")"  \
         "as_root btrfs subvolume create '$MNT/$SWAP_SUBVOL'"                         \
         'done'
     assert $? "can't create $SWAP_SUBVOL subvolume"
@@ -167,8 +167,8 @@ mount_swap_subvolume() {
     local crypt_uuid="$1"
 
     printf_section "Mounting ${STYLE_CLR}%b${STYLE_DIM} at ${STYLE_CLR}%b\n"  \
-        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"              \
-        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_DIR")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$SWAP_SUBVOL")"              \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$SWAP_DIR")"
 
     local fstab_line="UUID=${crypt_uuid}  ${SWAP_DIR}  btrfs  ${SWAP_BTRFS_OPTS}  0 0"
     local fstab_pattern="^${fstab_line}\$"
@@ -207,12 +207,12 @@ create_swap_file() {
     # Create the swap file via mkswapfile, add fstab entry, swapon -a.
     #
     printf_section "Creating swap file ${STYLE_CLR}%b${STYLE_DIM} (${STYLE_CLR}%b${STYLE_DIM})\n"  \
-        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_FILE")"   \
-        "$(gum style --foreground "$GUM_YELLOW" "$SWAP_SIZE")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$SWAP_FILE")"   \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$SWAP_SIZE")"
 
     action_request_permission 'to create swap file'
 
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'btrfs filesystem mkswapfile')"        \
+    action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'btrfs filesystem mkswapfile')"        \
         "as_root btrfs filesystem mkswapfile --size '$SWAP_SIZE' --uuid clear '$SWAP_FILE'"       \
         'done'
     assert $? "can't create swap file"
@@ -276,13 +276,13 @@ configure_hibernation() {
 
     action_request_permission "to append resume= to ${CMDLINE_FILE}"
     export -f append_resume_to_cmdline
-    action_run "Append resume= to $(gum style --foreground "$GUM_YELLOW" "$CMDLINE_FILE")"  \
+    action_run "Append resume= to ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$CMDLINE_FILE")"  \
         "append_resume_to_cmdline '$CMDLINE_FILE' '$crypt_uuid' '$offset'"                  \
         'done'
     assert $? "can't update $CMDLINE_FILE"
 
     action_request_permission 'to rebuild UKI'
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
+    action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'mkinitcpio -P')"  \
         'as_root mkinitcpio -P'                                               \
         'done'
     assert $? 'mkinitcpio failed'

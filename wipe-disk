@@ -147,7 +147,7 @@ close_mappers() {
     local mapper name
     for mapper in "${mappers[@]}"; do
         name="${mapper##*/}"
-        action_run "Close $(gum style --foreground "$GUM_YELLOW" "$name")"  \
+        action_run "Close ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$name")"  \
             "as_root cryptsetup close '$name'"                              \
             'done'
         assert $? "can't close mapper $name"
@@ -178,7 +178,7 @@ unmount_sources() {
     local i mp
     for ((i = ${#mountpoints[@]} - 1; i >= 0; i--)); do
         mp="${mountpoints[i]}"
-        action_run "Unmount $(gum style --foreground "$GUM_YELLOW" "$mp")"  \
+        action_run "Unmount ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$mp")"  \
             "as_root umount -R '$mp'"                                      \
             'done'
         assert $? "can't unmount $mp"
@@ -194,8 +194,8 @@ wipe_signatures() {
     #
     local disk="$1"
 
-    printf_section "Wiping signatures on %b\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+    printf_section "Wiping signatures on ${STYLE_CLR}%b\n" \
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
 
     local parts=()
     mapfile -t parts < <(list_partitions "$disk")
@@ -208,7 +208,7 @@ wipe_signatures() {
     targets+=" '$disk'"
 
     action_request_permission 'to wipe filesystem signatures'
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'wipefs -a')$(gum style --faint " on ${#parts[@]} partition(s) and disk")"  \
+    action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'wipefs -a')$(gum style --faint " on ${#parts[@]} partition(s) and disk")"  \
         "as_root wipefs -a${targets}"                                                                          \
         'done'
     assert $? 'wipefs failed'
@@ -226,7 +226,7 @@ zap_partition_table() {
 
     action_request_permission 'to zap partition table'
 
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'sgdisk --zap-all')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$disk")"  \
+    action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'sgdisk --zap-all')$(gum style --faint ' on ')$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"  \
         "as_root sgdisk --zap-all '$disk'"                                                                                         \
         'done'
     assert $? 'sgdisk --zap-all failed'
@@ -250,7 +250,7 @@ discard_device() {
 
     action_request_permission 'to discard device blocks'
 
-    if action_run "Run $(gum style --foreground "$GUM_YELLOW" 'blkdiscard -f')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$disk")"  \
+    if action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'blkdiscard -f')$(gum style --faint ' on ')$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"  \
         "as_root blkdiscard -f '$disk'"                                                                                            \
         'done'; then
         # Drain uevents from the TRIM so verify_clean reads fresh /sys.
@@ -264,7 +264,7 @@ discard_device() {
     printf_warning "%b\n" "blkdiscard not supported on this device"
     printf_info "%b %b\n" \
         "fallback (slow):" \
-        "$(gum style --foreground "$GUM_YELLOW" "dd if=/dev/zero of=$disk bs=1M status=progress")"
+        "${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "dd if=/dev/zero of=$disk bs=1M status=progress")"
     echo
     return 1
 }
@@ -295,7 +295,7 @@ verify_clean() {
     sigs_clean=$?
 
     if [ $children_clean -eq 0 ] && [ $sigs_clean -eq 0 ]; then
-        printf_action "%b\n" "$(gum style --foreground "$GUM_ACCENT" 'disk is clean')"
+        printf_action "${STYLE_CLR}%b\n" "$(gum style --bold --foreground "$GUM_ACCENT" 'disk is clean')"
         return 0
     fi
 
@@ -332,7 +332,7 @@ main() {
     [ -z "$disk" ] && return 0
 
     printf_action "Selected: ${STYLE_CLR}%b\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
 
     # Show current layout so the user can double-check the target
     action_request_permission 'to read disk layout'
@@ -346,7 +346,7 @@ main() {
     printf_action "%b ${STYLE_DIM}this will${STYLE_CLR} %b ${STYLE_DIM}on${STYLE_CLR} %b${STYLE_DIM}. Proceed? ${STYLE_CLR}" \
         "$(bullet_warning)"                                              \
         "$(gum style --bold --foreground "$GUM_RED" 'destroy all data')" \
-        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
     ask_yn || return 0
 
     ## Wipe procedure

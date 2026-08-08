@@ -224,7 +224,7 @@ partition_disk() {
     local disk="$1"
 
     printf_section "Partitioning ${STYLE_CLEAR}%b\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
 
     action_request_permission 'to write a new GPT label'
     action_run 'Create GPT label'                 \
@@ -278,13 +278,13 @@ encrypt_root() {
     printf '%s' "$passphrase" \
         | as_root cryptsetup luksFormat --type luks2 --batch-mode --key-file=- "$part" 2>> "$LOG_FILE"
     assert $? 'luksFormat failed'
-    action_run "Run $(gum style --foreground "$GUM_YELLOW" 'cryptsetup luksFormat')$(gum style --faint ' on ')$(gum style --foreground "$GUM_YELLOW" "$part")" \
+    action_run "Run ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'cryptsetup luksFormat')$(gum style --faint ' on ')$(gum style --bold --foreground "$GUM_YELLOW" "$part")" \
         '' 'done'
 
     printf '%s' "$passphrase" \
         | as_root cryptsetup open --batch-mode --key-file=- "$part" "$CRYPT_NAME" 2>> "$LOG_FILE"
     assert $? "can't open $part"
-    action_run "Open $(gum style --foreground "$GUM_YELLOW" "$part")$(gum style --faint ' as ')$(gum style --foreground "$GUM_YELLOW" "$CRYPT_NAME")" \
+    action_run "Open ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$part")$(gum style --faint ' as ')$(gum style --bold --foreground "$GUM_YELLOW" "$CRYPT_NAME")" \
         '' 'done'
 
     # Persist allow-discards on the LUKS header so TRIMs from btrfs
@@ -295,7 +295,7 @@ encrypt_root() {
     local rc=$?
     unset passphrase
     assert $rc "can't persist allow-discards"
-    action_run "Persist $(gum style --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')" \
+    action_run "Persist ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'allow-discards')$(gum style --faint ' on LUKS header')" \
         '' 'done'
 }
 
@@ -308,12 +308,12 @@ format_partitions() {
 
     printf_section "Formatting filesystems\n"
 
-    action_run "Format ESP -> $(gum style --foreground "$GUM_YELLOW" 'fat32')" \
+    action_run "Format ESP -> ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'fat32')" \
         "as_root mkfs.fat -F32 '$esp_part'"                                    \
         'done'
     assert $? "can't format ESP partition"
 
-    action_run "Format rootfs -> $(gum style --foreground "$GUM_YELLOW" 'btrfs')" \
+    action_run "Format rootfs -> ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'btrfs')" \
         "as_root mkfs.btrfs -f -L rootfs '/dev/mapper/${CRYPT_NAME}'"             \
         'done'
     assert $? "can't format rootfs partition"
@@ -539,13 +539,13 @@ main() {
     [ -z "$disk" ] && return 0
 
     printf_action "Selected: ${STYLE_CLR}%b\n" \
-        "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+        "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
 
     # Verify that disk is SSD (mount options below are tuned for non-rotational media)
     export -f is_disk_ssd
     if ! action_run 'Checking media type' "is_disk_ssd ${disk}" 'SSD' 'HDD'; then
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not an SSD\n"  \
-            "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+            "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
         printf_info "%b\n" 'btrfs mount options (ssd, commit=120) are tuned for non-rotational media'
         exit 1
     fi
@@ -554,7 +554,7 @@ main() {
     export -f is_disk_empty
     if ! action_run 'Checking disk' "is_disk_empty ${disk}" 'empty disk' 'not empty'; then
         printf_error "disk ${STYLE_CLR}%b${STYLE_DIM} is not empty\n\n"  \
-            "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+            "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
         printf "%bExisting layout:%b\n" "${STYLE_DIM}" "${STYLE_CLEAR}"
         as_root lsblk "$disk"
         printf_info "%b\n" 'wipe the disk first (e.g. wipefs -a / sgdisk --zap-all) and re-run'
