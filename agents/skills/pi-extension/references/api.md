@@ -61,7 +61,7 @@ order; several chain like middleware.
 | `before_provider_headers` | none | Mutate `event.headers` in place; `null` deletes a header. Fires once per request (not per retry). |
 | `before_provider_request` | replacement payload or `undefined` | Payload-level; not reflected in `ctx.getSystemPrompt()`. |
 | `message_end` | `{ message }` | Replacement must keep the same `role`. |
-| `tool_call` | `{ block: true, reason? }` | `event.input` is mutable — mutate in place to patch args; no re-validation. Narrow built-ins with `isToolCallEventType("bash", event)`; custom tools with explicit type params: `isToolCallEventType<"my_tool", MyToolInput>("my_tool", event)` (export the input type from the defining extension). Handler errors block the tool (fail-safe). |
+| `tool_call` | `{ block: true, reason?, terminate? }` | `event.input` is mutable — mutate in place to patch args; no re-validation. Narrow built-ins with `isToolCallEventType("bash", event)`; custom tools with explicit type params: `isToolCallEventType<"my_tool", MyToolInput>("my_tool", event)` (export the input type from the defining extension). Handler errors block the tool (fail-safe). `terminate` (pi ≥ 0.84.1) applies only to a blocked call and skips the follow-up model call only when every finalized result in the batch terminates — see [tools.md](tools.md#execute-contract). |
 | `tool_result` | `{ content?, details?, isError?, usage? }` | Partial patch; chains across handlers. `usage` accounts for nested model work. Typed guards: `isBashToolResult(event)` etc. |
 | `session_before_switch` / `session_before_fork` | `{ cancel: true }` | |
 | `session_before_compact` | `{ cancel: true }` or `{ compaction: { summary, firstKeptEntryId, tokensBefore, details?, usage? } }` | `event.reason`: `"manual"\|"threshold"\|"overflow"`. |
@@ -78,6 +78,17 @@ Notification-only (returns ignored): `agent_start`, `agent_end`,
 queued follow-up messages. For "agent is truly done" status integrations use
 `agent_settled`: `ctx.isIdle()` is true there unless another extension started
 a new run.
+
+Aborting a run always ends it with a synthetic assistant message that
+`message_start`/`message_end` report and pi persists, but its shape depends on
+where the abort lands. Aborting an open provider stream yields
+`stopReason: "aborted"`; aborting before the stream opens (e.g. from
+`turn_start`) yields `stopReason: "error"` with
+`errorMessage: "This operation was aborted"` on pi ≥ 0.84, because auth
+resolution now honors the request signal and fails during stream setup. An
+extension that hides its own aborted run must rewrite both shapes in
+`message_end`, matched against a run it owns — never against message text —
+and an unsanitized `error` shape additionally feeds pi's auto-retry check.
 
 ## ExtensionContext (ctx)
 

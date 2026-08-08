@@ -90,7 +90,9 @@ Signature: `execute(toolCallId, params, signal, onUpdate, ctx)`.
   can inspect or replace it.
 - `terminate: true` on the result hints skipping the follow-up LLM call; takes
   effect only when every tool result in the batch sets it (structured-output
-  pattern).
+  pattern). A `tool_call` handler can set the same hint while blocking
+  (`{ block: true, terminate: true }`, pi ≥ 0.84.1) so an all-blocked batch
+  also stops without another model call.
 - Tools run with `ExtensionContext` (no session-control methods). To trigger a
   command from a tool, queue it: `pi.sendUserMessage("/cmd", { deliverAs: "followUp" })`.
 

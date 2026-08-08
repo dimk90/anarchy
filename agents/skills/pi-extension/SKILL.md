@@ -136,7 +136,7 @@ auto-discovered locations, `/reload` hot-reloads the extension.
 - **Use `CONFIG_DIR_NAME`** instead of hardcoding `.pi` for project-local paths.
 - **Namespace custom types and status keys** with your extension name
   (`customType: "plan-mode-context"`, `setStatus("my-ext", ...)`).
-- Return contracts matter: `tool_call` → `{ block, reason }`; `input` →
+- Return contracts matter: `tool_call` → `{ block, reason, terminate? }`; `input` →
   `{ action: "continue" | "transform" | "handled" }`; `session_before_*` →
   `{ cancel: true }`; `message_end` → `{ message }`. Returning `undefined`
   always means "no change". See [references/api.md](references/api.md).
@@ -197,7 +197,9 @@ Test in the cheapest layer that proves the behavior:
 1. Run the project typecheck and pure unit tests.
 2. Test lifecycle/event behavior without a provider when possible. Abort a
    synthetic run at `turn_start`; add an `after_provider_response` sentinel
-   when zero provider calls is an invariant.
+   when zero provider calls is an invariant. Assert the resulting assistant
+   message's `stopReason` explicitly — it varies by abort point and pi version
+   (see [references/api.md](references/api.md#event-return-contracts)).
 3. Make a provider-backed smoke test only when output from a real model is
    relevant. Unless the project or user specifies another model, use the
    cheapest/simple default and avoid session persistence:
