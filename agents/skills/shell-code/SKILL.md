@@ -17,9 +17,12 @@ here.
 ## File Layout
 
 - `#!/bin/bash` shebang; target Bash, not POSIX sh.
-- Order applicable elements as: shebang → file header and shell setup → public
-  constants and private module state → functions grouped under `## Section`
-  comment headers → source-time initialization such as traps.
+- Prefer this order: shebang → file header and shell setup → public constants
+  and private module state → public functions → `main` → private functions
+  under `## Internal` → source-time initialization such as traps. This keeps
+  the public API and primary flow before implementation details. In executable
+  scripts, invoke `main "$@"` only after all function definitions. Follow an
+  established layout or source-time dependency when it requires another order.
 - Sourcing already defines variables and functions in the caller's shell. Do
   not export them unless child processes need them; when function export is
   required, put the `export -f` block at file end and mirror the function
