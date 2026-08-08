@@ -1,10 +1,7 @@
 # Anarchy
 
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg?style=flat-square)](https://opensource.org/licenses/BSD-3-Clause)
-[![GitHub Pages](https://img.shields.io/github/actions/workflow/status/dimk90/anarchy/dynamic%2Fpages%2Fpages-build-deployment?branch=main&label=GitHub%20Pages&style=flat-square)](https://github.com/dimk90/anarchy/actions/workflows/pages-build-deployment)
 [![Deployed](https://img.shields.io/github/deployments/dimk90/anarchy/github-pages?label=Deployed&style=flat-square)](https://dimk90.github.io/anarchy/)
-[![Deployed](https://img.shields.io/github/deployments/dimk90/anarchy/github-pages?label=Deployed&style=flat-square)](https://dimk90.github.io/anarchy/)
-[![pages-build-deployment](https://github.com/dimk90/anarchy/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/dimk90/anarchy/actions/workflows/pages/pages-build-deployment)
 
 Highly disorganized personal configs and install scripts for Arch Linux.  
 
