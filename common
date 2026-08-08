@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.9'
+export COMMON_VERSION='2.10'
 
 
 ## Colors
@@ -971,7 +971,7 @@ action_require_package() {
     if is_package_installed "$package" "$package_apt"; then
         printf "%b %b %b\n" "${action_title}"          \
                             "$(gum style --faint '-')" \
-                            "$(gum style --foreground $GUM_ACCENT 'exists')"
+                            "$(gum style --bold --foreground $GUM_ACCENT 'exists')"
         return 0
     fi
 
@@ -1018,7 +1018,7 @@ action_require_package() {
 
     printf "%b %b %b\n" "${action_title}"          \
                         "$(gum style --faint '-')" \
-                        "$(gum style --foreground $GUM_ACCENT 'installed')"
+                        "$(gum style --bold --foreground $GUM_ACCENT 'installed')"
 }
 
 
@@ -1069,10 +1069,10 @@ action_install_file() {
 
     # Move file to the target location
     [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${file_basename}"
-    action_run "$(printf "%b %b %b"                             \
-        "$(gum style --faint 'Install')"                        \
-        "$(gum style --foreground $GUM_YELLOW "$url_basename")" \
-        "$(gum style --faint "to $file_path")${STYLE_DIM}"      \
+    action_run "$(printf "%b %b %b"                                    \
+        "$(gum style --faint 'Install')"                               \
+        "$(gum style --bold --foreground $GUM_YELLOW "$url_basename")" \
+        "$(gum style --faint "to $file_path")${STYLE_DIM}"             \
     )" "$prefix mv $tmpfile $file_path" 'done'
     assert $? "can't move $tmpfile -> $file_path"
 }
@@ -1115,7 +1115,7 @@ action_run() {
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
         printf_action "%b %b %b\n" "$title" "$separator" \
-                      "$(gum style --foreground $GUM_RED "$fail_status")"
+                      "$(gum style --bold --foreground $GUM_RED "$fail_status")"
         return $exit_code
     fi
 
@@ -1124,7 +1124,7 @@ action_run() {
         printf_action "%b\n" "$title"
     else
         printf_action "%b %b %b\n" "$title" "$separator" \
-                      "$(gum style --foreground $GUM_ACCENT "$success_status")"
+                      "$(gum style --bold --foreground $GUM_ACCENT "$success_status")"
     fi
 }
 
@@ -1157,7 +1157,7 @@ action_request_permission() {
 
     printf_action "Request permission%b - %b\n" \
         "$reason_text"                          \
-        "$(gum style --foreground $GUM_ACCENT 'granted')"
+        "${STYLE_CLR}$(gum style --bold --foreground $GUM_ACCENT 'granted')"
 }
 
 
@@ -1196,12 +1196,12 @@ action_set_password() {
 
     if [ "$password" != "$confirm" ]; then
         printf_action "%b %b %b\n" "$title" "$separator" \
-                      "$(gum style --foreground $GUM_RED 'mismatch')" >&2
+                      "$(gum style --bold --foreground $GUM_RED 'mismatch')" >&2
         return 1
     fi
 
     printf_action "%b %b %b\n" "$title" "$separator" \
-                  "$(gum style --foreground $GUM_ACCENT 'done')" >&2
+                  "$(gum style --bold --foreground $GUM_ACCENT 'done')" >&2
 
     echo "$password"
     return 0

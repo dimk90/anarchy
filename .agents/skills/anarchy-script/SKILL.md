@@ -103,7 +103,7 @@ When you need to flag something but more sections/actions must follow, **don't**
 printf_action "%b ${STYLE_DIM}this will${STYLE_CLR} %b ${STYLE_DIM}on${STYLE_CLR} %b${STYLE_DIM}. Proceed? ${STYLE_CLR}" \
     "$(bullet_warning)"                                              \
     "$(gum style --bold --foreground "$GUM_RED" 'destroy all data')" \
-    "$(gum style --foreground "$GUM_YELLOW" "$disk")"
+    "$(gum style --bold --foreground "$GUM_YELLOW" "$disk")"
 ```
 
 #### Don't leave a section empty
@@ -139,7 +139,41 @@ When a lone action is tightly related to an adjacent section, **fold it in** ins
 
 Folding drops the *header*, not the step's guards. **Keep each folded step's own `action_request_permission`** — it's a silent no-op while sudo is cached, but it re-asserts privilege right before that step's work, which matters when a slow earlier action in the same section (e.g. an AUR build via `yay`) can outlast the sudo timestamp and would otherwise drop a raw password prompt into the TUI. See [Privileged commands](#privileged-commands).
 
-### Inline highlights inside titles
+### Color Style
+
+Colors encode UI roles; don't choose them ad hoc:
+
+| Role | Style |
+|---|---|
+| Section bullet `::` | Bold white |
+| Action bullet `->` | Bold green |
+| Titles, separators, supporting prose | Faint default color |
+| Ordinary inline emphasis | Default color after `${STYLE_CLR}` |
+| Yellow highlight (prominent package, path, device, command, or selection) | Bold yellow after `${STYLE_CLR}` |
+| Success / failure status | Bold green / red after `${STYLE_CLR}` |
+| `[WARNING]` / `[ERROR]` / `[INFO]` label | Bold yellow / red / blue with faint brackets |
+| Destructive emphasis | Bold red |
+| Prompt marker, spinner, menu header | White |
+| Menu cursor and selected item | Green |
+| `gum` product name | Bold magenta (brand exception) |
+
+Cyan has no assigned role. Keep it reserved until the palette gains a concrete semantic need.
+
+Color doesn't clear inherited intensity. A yellow highlight inside faint text must clear faint and add bold explicitly:
+
+```bash
+action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$package")$(gum style --faint ' from AUR')" \
+    "yay -S --needed --noconfirm '$package'" 'done'
+```
+
+Success and failure statuses are bold and must not inherit faint. Clear inherited faint first when no styled separator has already reset it:
+
+```bash
+printf_action "Request permission - ${STYLE_CLR}%b\n" \
+    "$(gum style --bold --foreground "$GUM_ACCENT" 'granted')"
+```
+
+### Inline Highlights Inside Titles
 
 To color a value inside a faint title, interrupt with `${STYLE_CLR}` (clear), then re-enter faint after. Example:
 
