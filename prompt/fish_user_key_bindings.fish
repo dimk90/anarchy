@@ -40,7 +40,13 @@ end
 
 function __anarchy_selection_move --description 'Clear the selection, then run the given motion'
     __anarchy_selection_clear
-    commandline -f $argv
+    # Some default motions are plain fish functions rather than special input
+    # functions, so `commandline -f` rejects them; call those as commands.
+    if functions --query $argv[1]
+        $argv
+    else
+        commandline -f $argv
+    end
 end
 
 # A marker left over from the previous command line would make the next
