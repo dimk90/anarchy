@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.12'
+export COMMON_VERSION='2.13'
 
 
 ## Colors
@@ -625,6 +625,31 @@ request_gum() {
 export SED_DELIM=$'\001'
 
 
+pretty_path() {
+    #
+    # Shorten a path for display by replacing the leading home directory with '~'.
+    # The result is meant for output only - never pass it back to a command,
+    # where an unquoted '~' would re-expand against a different HOME (e.g. sudo).
+    #
+    # Parameters:
+    #   $1 - path - path to shorten.
+    #
+    # Example:
+    #   pretty_path "$HOME/.config/bat/config"  ->  ~/.config/bat/config
+    #   pretty_path '/etc/vconsole.conf'        ->  /etc/vconsole.conf
+    #
+    local path="$1"
+    local home="${HOME-}"
+
+    # a '/' home would turn every absolute path into '~/...'
+    if [[ -n $home && $home != '/' && ( $path = "$home" || $path = "$home"/* ) ]]; then
+        path="~${path#"$home"}"
+    fi
+
+    printf '%s\n' "$path"
+}
+
+
 backup_file() {
     #
     # Create a backup of the given file by appending .bakN
@@ -1117,6 +1142,8 @@ action_install_file() {
 
     local url_basename="${file_url##*/}"
     local file_basename="${file_path##*/}"
+    local display_path
+    display_path="$(pretty_path "$file_path")"
 
     # Get unique temp file name
     local tmpfile
@@ -1139,7 +1166,7 @@ action_install_file() {
         [ "${prefix,,}" = 'sudo' ] && action_request_permission "to backup ${file_basename}"
         backup_file=$(backup_file "$file_path" "$prefix")
         assert $? "can't backup: $file_basename"
-        action_run "Backup $file_basename -> $backup_file" "" 'done'
+        action_run "Backup $file_basename -> ${backup_file##*/}" "" 'done'
     fi
 
     # Move file to the target location
@@ -1147,7 +1174,7 @@ action_install_file() {
     action_run "$(printf "%b %b %b"                                    \
         "$(gum style --faint 'Install')"                               \
         "$(gum style --bold --foreground $GUM_YELLOW "$url_basename")" \
-        "$(gum style --faint "to $file_path")${STYLE_DIM}"             \
+        "$(gum style --faint "to $display_path")${STYLE_DIM}"          \
     )" "$prefix mv $tmpfile $file_path" 'done'
     assert $? "can't move $tmpfile -> $file_path"
 }
@@ -1324,6 +1351,7 @@ export -f install_gum_deb
 export -f request_gum
 
 # Files & Env
+export -f pretty_path
 export -f backup_file
 export -f remove_line
 export -f replace_line
