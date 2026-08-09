@@ -68,6 +68,8 @@ main "$@"
 
 `set -o errexit` is on **only during import** — once the script is live, helpers return non-zero on purpose (e.g., to be checked with `assert`). Don't re-enable it inside `main`.
 
+`common` installs the script-wide SIGINT handler during import. Its `gum` wrapper translates Bubble Tea's raw-terminal Ctrl+C status (130) back into SIGINT, so the entire script exits 130 even when the call appears inside `if`, `$(...)`, or `||`. Esc remains ordinary cancellation. Always call `gum` normally; don't bypass the wrapper with `command gum`, reinterpret status 130, or add a competing `trap ... INT` in an entry script.
+
 ## Output flow
 
 The repo has a strict visual hierarchy. Reproduce it; **don't use raw `echo` / `printf`** for user-facing lines. The canonical flow (mirror of the comment under `## Print` in `common`):
@@ -381,7 +383,7 @@ grep -q 'settings'    <<< "$choices" && do_settings
 grep -q 'keybindings' <<< "$choices" && do_keybindings
 ```
 
-For single-select, `--limit=1` and a default fallback via `|| choice='pure'`.
+For single-select, `--limit=1` and a default fallback via `|| choice='pure'`. The fallback applies to Esc and other ordinary cancellation only; Ctrl+C is intercepted by `common` and aborts the whole script with status 130.
 
 ## Filename convention
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.11'
+export COMMON_VERSION='2.12'
 
 
 ## Colors
@@ -129,14 +129,45 @@ is_command_available() {
     #
     local command_name="$1"
 
-    command -v "$command_name" &> /dev/null
+    # Check for an executable rather than a function because the gum wrapper
+    # below intentionally shadows the gum executable.
+    type -P "$command_name" &> /dev/null
+}
+
+
+gum() {
+    #
+    # Run gum while preserving Ctrl+C as a shell interrupt.
+    # Gum reads the terminal in raw mode and reports Ctrl+C as status 130, so
+    # re-raise SIGINT in the top-level script before callers can handle it as
+    # ordinary cancellation.
+    #
+    # Parameters:
+    #   $@ - arguments passed to gum.
+    #
+    # Example:
+    #   choice=$(gum choose 'one' 'two')
+    #
+    local exit_code
+    if command gum "$@"; then
+        return 0
+    else
+        exit_code=$?
+    fi
+
+    if [ "$exit_code" -eq 130 ]; then
+        kill -INT "$$"
+    fi
+
+    return "$exit_code"
 }
 
 
 assert() {
     #
-    # Assert that the given exit code is zero (the first argument);
-    # if not, print the given message and exit with code 1.
+    # Assert that the given exit code is zero (the first argument).
+    # Re-raise status 130 as SIGINT; for other failures, print the given
+    # message and exit with code 1.
     #
     # Example:
     #   as_root pacman -Sy gum
@@ -144,6 +175,10 @@ assert() {
     #
     local exit_code="$1"
     local message="${2-¯\_(ツ)_/¯}"
+
+    if [ "$exit_code" -eq 130 ]; then
+        kill -INT "$$"
+    fi
 
     if [ "$exit_code" -ne 0 ]; then
         printf_error "%b\n" "${message}"
@@ -1258,6 +1293,7 @@ export -f reset_logger
 
 # Common
 export -f is_command_available
+export -f gum
 export -f assert
 export -f regex_sanitize
 
@@ -1302,3 +1338,28 @@ export -f action_install_file
 export -f action_run
 export -f action_request_permission
 export -f action_set_password
+
+
+## Internal
+
+
+# Bash cannot hide private functions; the prefix marks the internal boundary
+_anarchy_handle_interrupt() {
+    #
+    # Print a terminal message and exit with the conventional SIGINT status.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   kill -INT "$$"
+    #
+    printf_error '%b\n' 'interrupted'
+    exit 130
+}
+
+
+## Source-Time Initialization
+
+
+trap '_anarchy_handle_interrupt' INT
