@@ -44,8 +44,8 @@ select_components() {
     #
     # Ask which optional components to configure and store the answer in
     # COMPONENTS. Starship itself is not listed - it is the point of the script.
-    # Fish entries are offered only when fish is installed. Cleanup is offered
-    # only when legacy fish state exists, and is not selected by default.
+    # Shell entries are offered only when that shell is installed. Cleanup is
+    # offered only when legacy fish state exists, and is not selected by default.
     #
     # Parameters:
     #   None.
@@ -60,6 +60,7 @@ select_components() {
         items+=('Fish colors' 'Fish greeting' 'Fish key bindings')
         fish_detect_leftovers
     fi
+    is_command_available 'bash' && items+=('Bash key bindings')
 
     # gum takes a comma-separated list; capture it before appending the cleanup
     # item so every existing component keeps its selected-by-default behavior.
@@ -438,6 +439,37 @@ bash_enable_starship() {
 }
 
 
+# shellcheck disable=SC2329
+bash_install_key_bindings() {
+    #
+    # Make ctrl-backspace delete a word instead of a single character.
+    #
+    # readline binds ctrl-arrow word motions and ctrl-delete word kills itself,
+    # so this is the only gap against the fish key bindings. Terminals send ^H
+    # for ctrl-backspace; under the kitty keyboard protocol it arrives as
+    # \e[127;5u instead, which readline does not understand at all.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   bash_install_key_bindings
+    #
+    # A user ~/.inputrc replaces /etc/inputrc rather than extending it, so one
+    # created here has to pull the system defaults back in. An existing file is
+    # left alone - appending the include would let /etc/inputrc override the
+    # bindings the user put above it.
+    if ! [ -e ~/.inputrc ]; then
+        # shellcheck disable=SC2016  # ERE for config_set_param, $ is the anchor
+        config_set_param ~/.inputrc '\$include /etc/inputrc'
+        assert $? 'failed to include the system inputrc'
+    fi
+
+    config_set_param ~/.inputrc '"\\C-h": backward-kill-word'
+    assert $? 'failed to bind ctrl-backspace'
+}
+
+
 main() {
 
     ## Get gum
@@ -502,6 +534,12 @@ main() {
 
         export -f bash_enable_starship
         action_run 'Enable starship' 'bash_enable_starship' 'done'
+
+        if has_component 'bash key bindings'; then
+            export -f bash_install_key_bindings
+            action_run "Bind ${STYLE_CLR}ctrl-backspace${STYLE_DIM} to word delete" \
+                'bash_install_key_bindings' 'done'
+        fi
     fi
 
     printf_info "Restart your shell to apply the new configuration\n"
