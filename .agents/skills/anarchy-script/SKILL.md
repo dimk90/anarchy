@@ -324,7 +324,7 @@ For backup of an existing file before overwriting, `action_install_file` does it
 
 ### Persistent env / aliases
 
-`env_set_permanent`, `env_unset_permanent`, and `alias_set_permanent` write to `~/.bashrc` and to fish via `set -Ux` / `alias --save`. They print the comma-separated list of shells they wrote to (`fish,bash` / `bash` / empty), and return 0 if at least one shell succeeded. Idiom:
+`env_set_permanent` and `env_unset_permanent` manage exported fish globals through per-variable `conf.d/anarchy-env-*.fish` files and update `~/.bashrc` for bash. `alias_set_permanent` uses fish's file-backed `alias --save` plus `~/.bashrc`. They print the comma-separated list of shells they wrote to (`fish,bash` / `bash` / empty), and return 0 if at least one shell succeeded. Idiom:
 
 ```bash
 local shells

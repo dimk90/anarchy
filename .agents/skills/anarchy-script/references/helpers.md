@@ -111,9 +111,9 @@ config_set_param '/usr/lib/systemd/system/reflector.service' \
 
 | Helper | Signature | Returns / Echoes |
 |---|---|---|
-| `env_set_permanent` | `VAR value` | echoes `fish,bash` / `bash` / `''`. Returns 0 if at least one shell wrote successfully. |
-| `env_unset_permanent` | `VAR` | same return convention; echoes shells that had something to remove. |
-| `alias_set_permanent` | `name command` | same convention. fish via `alias --save`, bash via `~/.bashrc` rewrite. |
+| `env_set_permanent` | `VAR value` | echoes `fish,bash` / `bash` / `''`. Fish writes an exported global to `conf.d/anarchy-env-VAR.fish` and erases a legacy universal of the same name; bash updates `~/.bashrc`. Returns 0 if at least one shell wrote successfully. |
+| `env_unset_permanent` | `VAR` | same return convention; removes both the fish `conf.d` file and any legacy universal, plus the bash entry. |
+| `alias_set_permanent` | `name command` | same convention. fish via file-backed `alias --save`, bash via `~/.bashrc` rewrite. |
 
 The standard idiom captures the shell list and feeds it as the success_status of `action_run`:
 
