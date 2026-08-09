@@ -29,6 +29,13 @@ COMPONENTS=''
 # Starship theme picked in the up-front menu
 THEME='pure'
 
+# Fish conf.d directory, honoring XDG_CONFIG_HOME when set
+FISH_CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d"
+
+# Legacy fish state found before the components menu
+FISH_LEFTOVER_UNIVERSALS=''
+FISH_FROZEN_FILES=()
+
 
 ## Routines
 
@@ -37,7 +44,8 @@ select_components() {
     #
     # Ask which optional components to configure and store the answer in
     # COMPONENTS. Starship itself is not listed - it is the point of the script.
-    # Fish entries are offered only when fish is installed.
+    # Fish entries are offered only when fish is installed. Cleanup is offered
+    # only when legacy fish state exists, and is not selected by default.
     #
     # Parameters:
     #   None.
@@ -48,16 +56,33 @@ select_components() {
     printf_section "Components\n"
 
     local items=('Iosevka Term font' 'Nerd Symbols font')
-    is_command_available 'fish' &&
+    if is_command_available 'fish'; then
         items+=('Fish colors' 'Fish greeting' 'Fish key bindings')
+        fish_detect_leftovers
+    fi
+
+    # gum takes a comma-separated list; capture it before appending the cleanup
+    # item so every existing component keeps its selected-by-default behavior.
+    local selected_items
+    selected_items=$(IFS=,; printf '%s' "${items[*]}")
+
+    if [ -n "$FISH_LEFTOVER_UNIVERSALS" ] || [ "${#FISH_FROZEN_FILES[@]}" -gt 0 ]; then
+        local universal_count=0
+        [ -n "$FISH_LEFTOVER_UNIVERSALS" ] &&
+            universal_count=$(wc -l <<< "$FISH_LEFTOVER_UNIVERSALS")
+
+        printf_action "%b ${STYLE_DIM}Fish leftovers found: ${STYLE_CLR}%d ${STYLE_DIM}universal variables, ${STYLE_CLR}%d ${STYLE_DIM}frozen files; cleanup is opt-in\n" \
+            "$(bullet_warning)" "$universal_count" "${#FISH_FROZEN_FILES[@]}"
+        items+=('Fish leftover cleanup')
+    fi
 
     local header
     header=$(prefix_printf "$(bullet_action)" 'Select optional components:\n')
 
     local choices
-    if choices=$(gum choose --no-limit --selected='*' \
-                            --cursor="      > "       \
-                            --header="${header}"      \
+    if choices=$(gum choose --no-limit --selected="$selected_items" \
+                            --cursor="      > "                 \
+                            --header="${header}"                \
                             "${items[@]}"); then
         COMPONENTS=${choices,,} # lowercase for matching
     fi
@@ -204,56 +229,127 @@ install_fonts() {
 }
 
 
-# shellcheck disable=SC2329
-fish_configure_highlighting() {
-    # ANSI color codes:
-    # https://hexdocs.pm/color_palette/ansi_color_codes.html
+fish_detect_leftovers() {
+    #
+    # Find fish configuration that persists outside the managed conf.d files.
+    # Backup files are ignored because fish does not source them.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   fish_detect_leftovers
+    #
+    # fish < 4.3 keeps its own color and key-binding defaults in universal
+    # scope, so only classify those variables as leftovers on newer versions.
+    # shellcheck disable=SC2016  # $version and $name are fish variables
+    FISH_LEFTOVER_UNIVERSALS=$(fish -c '
+        set version_parts (string split . $version)
+        set defaults_are_global false
+        if test $version_parts[1] -gt 4
+            set defaults_are_global true
+        else if test $version_parts[1] -eq 4; and test $version_parts[2] -ge 3
+            set defaults_are_global true
+        end
 
-    # All 'set -U' calls are batched into a single fish invocation to avoid
-    # spawning a separate fish process per variable.
-    fish -c '
-        # Syntax highlighting
-        # https://fishshell.com/docs/current/interactive.html#syntax-highlighting-variables
-        set -U fish_color_normal AAA
-        set -U fish_color_command 5BF --bold
-        set -U fish_color_operator 0FB --bold       # ( ), { }, ...
-        set -U fish_color_param normal              # Disable highlighting
-        set -U fish_color_autosuggestion 444
-        set -U fish_color_comment 464 --italic
-        set -U fish_color_quote BE7                 # "Text"
-        set -U fish_color_escape 9EC                # "...\n"
-        set -U fish_color_valid_path --underline
-        set -U fish_color_error D55
-        set -U fish_color_end FD6                   # Separators like ; and &
-        set -U fish_color_redirection FD6           # Like >/dev/null
-        set -U fish_color_history_current --bold
-        set -U fish_color_search_match normal       # Disable highlighting
+        for name in (set --universal --names)
+            switch $name
+                case fish_greeting fish_emoji_width
+                    printf "%s\n" $name
+                case "fish_color_*" "fish_pager_color_*" fish_key_bindings
+                    $defaults_are_global; and printf "%s\n" $name
+            end
+        end
+        true
+    ' 2>> "$LOG_FILE")
+    assert $? 'failed to inspect fish universal variables'
 
-        # Pager
-        # https://fishshell.com/docs/current/interactive.html#pager-color-variables
-        set -U fish_pager_color_prefix brwhite --bold
-        set -U fish_pager_color_selected_prefix black
-        set -U fish_pager_color_completion normal
-        set -U fish_pager_color_selected_completion black
-        set -U fish_pager_color_description 555
-        set -U fish_pager_color_selected_description black
-        set -U fish_pager_color_selected_background --background=AFA
-        set -U fish_pager_color_progress black --background=7FF
-    '
+    FISH_FROZEN_FILES=()
+    local filename
+    for filename in fish_frozen_theme.fish fish_frozen_key_bindings.fish; do
+        [[ -f "${FISH_CONF_DIR}/${filename}" ]] &&
+            FISH_FROZEN_FILES+=("${FISH_CONF_DIR}/${filename}")
+    done
 }
 
 
-# shellcheck disable=SC2329
-fish_configure_greeting() {
-    # The emoji width rides along: both are cosmetic startup settings the
-    # greeting opt-out covers.
-    fish -c '
-        # Hide fish greeting
-        set -U fish_greeting ""
+fish_cleanup_leftovers() {
+    #
+    # Erase legacy fish universal settings and remove active frozen migration
+    # files after preserving each file as a numbered backup.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   fish_cleanup_leftovers
+    #
+    local frozen_file
+    for frozen_file in "${FISH_FROZEN_FILES[@]}"; do
+        [[ -f $frozen_file ]] || continue
 
-        # Set the emoji width (iTerm only?)
-        set -U fish_emoji_width 2
-    '
+        local backup_name
+        backup_name=$(backup_file "$frozen_file")
+        assert $? "failed to back up: $frozen_file"
+
+        action_run "Backup ${STYLE_CLR}${frozen_file##*/}${STYLE_DIM} to ${STYLE_CLR}${backup_name##*/}" '' 'done'
+
+        rm -f "$frozen_file" &>> "$LOG_FILE"
+        assert $? "failed to remove: $frozen_file"
+        action_run "Remove ${STYLE_CLR}${frozen_file##*/}" '' 'done'
+    done
+
+    if [ -n "$FISH_LEFTOVER_UNIVERSALS" ]; then
+        local universal_vars=()
+        mapfile -t universal_vars <<< "$FISH_LEFTOVER_UNIVERSALS"
+
+        # shellcheck disable=SC2016  # $argv is a fish variable
+        fish -c 'set --erase --universal $argv' -- "${universal_vars[@]}" &>> "$LOG_FILE"
+        assert $? 'failed to erase fish universal variables'
+        action_run 'Erase fish universal leftovers' '' "${#universal_vars[@]} erased"
+    fi
+
+    fish_detect_leftovers
+    if [ -n "$FISH_LEFTOVER_UNIVERSALS" ] || [ "${#FISH_FROZEN_FILES[@]}" -gt 0 ]; then
+        printf_action "%b ${STYLE_DIM}Some fish leftovers remain; inspect fish config and running sessions\n" \
+            "$(bullet_warning)"
+    fi
+}
+
+
+fish_install_colors() {
+    #
+    # Install managed fish syntax-highlighting and pager colors in global scope.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   fish_install_colors
+    #
+    mkdir -p "$FISH_CONF_DIR"
+    assert $? 'failed to create fish conf.d directory'
+
+    action_install_file "${FISH_CONF_DIR}/anarchy-colors.fish" \
+        'https://dimk90.github.io/anarchy/prompt/fish-colors.fish'
+}
+
+
+fish_install_greeting() {
+    #
+    # Install managed fish greeting and emoji-width settings in global scope.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   fish_install_greeting
+    #
+    mkdir -p "$FISH_CONF_DIR"
+    assert $? 'failed to create fish conf.d directory'
+
+    action_install_file "${FISH_CONF_DIR}/anarchy-greeting.fish" \
+        'https://dimk90.github.io/anarchy/prompt/fish-greeting.fish'
 }
 
 
@@ -386,15 +482,9 @@ main() {
     if is_command_available 'fish'; then
         printf_section "Configure fish\n"
 
-        if has_component 'fish colors'; then
-            export -f fish_configure_highlighting
-            action_run 'Configure syntax highlighting' 'fish_configure_highlighting' 'done'
-        fi
-
-        if has_component 'fish greeting'; then
-            export -f fish_configure_greeting
-            action_run 'Configure greeting' 'fish_configure_greeting' 'done'
-        fi
+        has_component 'fish leftover cleanup' && fish_cleanup_leftovers
+        has_component 'fish colors' && fish_install_colors
+        has_component 'fish greeting' && fish_install_greeting
 
         export -f fish_enable_starship
         action_run 'Enable starship' 'fish_enable_starship' 'done'
