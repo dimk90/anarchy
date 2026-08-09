@@ -96,14 +96,19 @@ function fish_user_key_bindings
     bind ctrl-delete     '__anarchy_selection_kill; or commandline -f kill-word'
     bind alt-delete      '__anarchy_selection_kill; or commandline -f kill-token'
 
+    # Shift+Delete cuts the selection to the system clipboard. Do nothing when
+    # there is no selection instead of copying fish's entire command buffer.
+    bind shift-delete 'set -q __anarchy_selection_active; and fish_clipboard_copy; and __anarchy_selection_kill'
+
     # Typing replaces the selection. The empty key is fish's catch-all for
     # anything without its own binding, which is every ordinary character; the
     # punctuation below needs its own binding because it also expands
-    # abbreviations. ctrl-v is fish_clipboard_paste, ctrl-x copies the
-    # selection on its own already.
+    # abbreviations. ctrl-v and shift-insert paste from the system clipboard;
+    # ctrl-x copies the selection on its own already.
     bind '' __anarchy_selection_kill self-insert
     for key in space ';' '|' '&' '>' '<' ')'
         bind $key __anarchy_selection_kill self-insert expand-abbr
     end
-    bind ctrl-v '__anarchy_selection_kill; fish_clipboard_paste'
+    bind ctrl-v      '__anarchy_selection_kill; fish_clipboard_paste'
+    bind shift-insert '__anarchy_selection_kill; fish_clipboard_paste'
 end
