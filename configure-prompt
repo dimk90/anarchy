@@ -355,13 +355,16 @@ fish_install_greeting() {
 
 fish_install_key_bindings() {
     #
-    # Install ctrl-arrow word motions and ctrl-backspace/delete word kills.
+    # Install text-editor-style selection: shift+motion selects, typing or
+    # pasting replaces the selection, backspace/delete removes it.
     #
     # fish autoloads a function named fish_user_key_bindings from its functions
     # directory, so config.fish needs no entry.
     #
-    # The `bind ctrl-right` key notation arrived in fish 4.0; older fish binds
+    # The `bind shift-left` key notation arrived in fish 4.0; older fish binds
     # the literal characters instead, so skip rather than mangle the keymap.
+    #
+    # Temporary until upstream PR fish-shell#12815 lands - see the file itself.
     #
     # Parameters:
     #   None.
