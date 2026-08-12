@@ -2,6 +2,16 @@
 
 Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lands on `main`.
 
+## `[v2.14]` - 12.08.2026
+
+### New
+* Add `action_start_tui` for shared UI and logger initialization.
+* Add `action_choose_items` and `has_choice` for standard multi-select menus.
+
+### Changed
+* Use the shared startup action in all entry-point scripts.
+* Use the shared selection helpers in all nine standard multi-select menus.
+
 ## `[v2.13]` - 09.08.2026
 
 ### New

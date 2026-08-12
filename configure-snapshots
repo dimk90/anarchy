@@ -212,32 +212,18 @@ select_optional_components() {
     # WANT_FLATTEN, and LIMINE_FONT when the theme is selected.
     # Returns 1 on cancel.
     #
-    local section
-    section=$(prefix_printf "$(bullet_section)" 'Select Optional Components')
-
     local choices
-    if choices=$(gum choose --no-limit --selected='*' --cursor='   > '   \
-                     --header "${section}"                               \
-                     'Home snapshots - timeline config for /home'        \
-                     'Limine theme - monochrome HiDPI menu styling'      \
-                     'Flatten snapshot submenus - drop the redundant //// menu level'); then
-        choices=${choices,,} # convert to lowercase for easier matching
-    else
-        return 1
-    fi
-
-    printf "%s\n" "$section" # repaint header gum cleared on selection
+    choices=$(action_choose_items 'Select Optional Components'                       \
+                  'Home snapshots - timeline config for /home'                       \
+                  'Limine theme - monochrome HiDPI menu styling'                     \
+                  'Flatten snapshot submenus - drop the redundant //// menu level') || return 1
 
     WANT_HOME=false
     WANT_THEME=false
     WANT_FLATTEN=false
-    grep -q 'home snapshots'   <<< "$choices" && WANT_HOME=true
-    grep -q 'limine theme'     <<< "$choices" && WANT_THEME=true
-    grep -q 'flatten snapshot' <<< "$choices" && WANT_FLATTEN=true
-
-    local num_choice
-    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
+    has_choice "$choices" 'home snapshots'   && WANT_HOME=true
+    has_choice "$choices" 'limine theme'     && WANT_THEME=true
+    has_choice "$choices" 'flatten snapshot' && WANT_FLATTEN=true
 
     # The menu font lives in the theme block — only ask when the theme is on.
     if [ "$WANT_THEME" = true ]; then
@@ -851,17 +837,9 @@ main() {
         exit 1
     fi
 
-    ## Get gum
-
-    request_gum
-    assert $? 'no gum - no fun :('
-
     ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     ## Optional components
 

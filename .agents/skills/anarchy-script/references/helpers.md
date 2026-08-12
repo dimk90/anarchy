@@ -27,7 +27,7 @@ All helpers are sourced from the `common` file at the repo root. The local file 
 | `get_logger` | Echo current `LOG_FILE` value. |
 | `reset_logger` | Set `LOG_FILE=/dev/null`. Rare — really only for tests. |
 
-`main` always calls `start_logger` right after the "Starting" section so anything captured by `&>> "$LOG_FILE"` later in the script lands in a real file.
+`action_start_tui` calls `start_logger` after opening the "Starting" section, so anything captured by `&>> "$LOG_FILE"` later in the script lands in a real file.
 
 ## Common
 
@@ -78,7 +78,7 @@ All printers emit a leading bullet + faint title. Mirror this structure — don'
 |---|---|
 | `get_package_manager` | Echoes `pacman` / `apt` / `unknown`. |
 | `is_package_installed pkg [pkg_apt]` | 0 if installed under whichever PM is detected. |
-| `request_gum` | If gum missing, prompt "Let's get some?" and install it: `pacman -Sy gum` on Arch, `install_gum_deb` on Debian/Ubuntu. Returns the installer's exit code. Always at the top of `main`. |
+| `request_gum` | If gum missing, prompt "Let's get some?" and install it: `pacman -Sy gum` on Arch, `install_gum_deb` on Debian/Ubuntu. Returns the installer's exit code. Called by `action_start_tui`. |
 | `install_gum_deb` | Debian/Ubuntu only: fetches the latest `gum_*.deb` from GitHub releases and `dpkg --install`s it (gum isn't in the apt archives). Called by `request_gum`. |
 
 ## Files
@@ -130,6 +130,14 @@ Empty `command` arg = "just print the title with a brief spin" — no work, just
 
 ## Action helpers (gum-based)
 
+### `action_start_tui`
+
+```
+action_start_tui
+```
+
+Requests Gum, opens the "Starting" section, prints `COMMON_VERSION`, starts the logger, and prints `LOG_FILE`. Call once near the top of every entry-point `main`, after any guard that must run before Gum initialization.
+
 ### `action_require_package`
 
 ```
@@ -179,6 +187,22 @@ action_set_password [title]
 ```
 
 Two gum password prompts. On match, echoes the password to stdout, returns 0. On mismatch / cancel, returns 1. UI lines go to stderr so `password=$(action_set_password ...)` captures only the password.
+
+### `action_choose_items`
+
+```
+action_choose_items [--label noun] title item...
+```
+
+Shows a section-level multi-select with every item pre-selected. Repaints the header, prints `Selected <label>: N`, and echoes lowercased selections one per line. UI goes to stderr so `choices=$(action_choose_items ...)` captures only the selection. Returns 1 on cancel; an empty selection returns 0 and an empty string.
+
+### `has_choice`
+
+```
+has_choice choices pattern
+```
+
+Returns 0 when the basic regex `pattern` matches the newline-separated selection. Pass the value returned by `action_choose_items` as `choices`.
 
 ## Style globals
 

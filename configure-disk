@@ -123,29 +123,16 @@ select_subvolumes() {
     # Mandatory subvolumes (@, @home, @log, @cache) are always created.
     # Sets WANT_ROOT_SNAPSHOTS / WANT_HOME_SNAPSHOTS. Returns 1 on cancel.
     #
-    local section
-    section=$(prefix_printf "$(bullet_section)" 'Confirm Snapshot Subvolumes')
-
     local choices
-    if choices=$(gum choose --no-limit --selected='*' --cursor='   > '   \
-                     --header "${section}"                               \
-                     'Root snapshots - @snapshots at /.snapshots'        \
-                     'Home snapshots - @home-snapshots at /home/.snapshots'); then
-        choices=${choices,,} # convert to lowercase for easier matching
-    else
-        return 1
-    fi
-
-    printf "%s\n" "$section" # repaint header gum cleared on selection
+    choices=$(action_choose_items 'Confirm Snapshot Subvolumes'              \
+                  'Root snapshots - @snapshots at /.snapshots'               \
+                  'Home snapshots - @home-snapshots at /home/.snapshots') || return 1
 
     WANT_ROOT_SNAPSHOTS=false
     WANT_HOME_SNAPSHOTS=false
-    grep -q 'root snapshots' <<< "$choices" && WANT_ROOT_SNAPSHOTS=true
-    grep -q 'home snapshots' <<< "$choices" && WANT_HOME_SNAPSHOTS=true
+    has_choice "$choices" 'root snapshots' && WANT_ROOT_SNAPSHOTS=true
+    has_choice "$choices" 'home snapshots' && WANT_HOME_SNAPSHOTS=true
 
-    local num_choice
-    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
     return 0
 }
 
@@ -501,17 +488,9 @@ main() {
         exit 1
     fi
 
-    ## Get gum
-
-    request_gum
-    assert $? 'no gum - no fun :('
-
     ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     ## Required tools
 

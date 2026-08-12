@@ -21,42 +21,18 @@ set +o errexit # disable exit on non-zero exit code
 
 main() {
 
-    ## Get gum
-
-    request_gum
-    assert $? 'no gum - no fun :('
-
     ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     ## Ask user for items to install
 
-    local section
-    section=$(prefix_printf "$(bullet_section)" 'Confirm Items')
-
     local choices
-    if choices=$(gum choose --no-limit --selected='*' \
-                            --cursor="   > "          \
-                            --header "${section}"     \
-                            'Settings' 'Keybindings' 'Default Editor' 'Clipboard Support'); then
-        choices=${choices,,} # convert to lowercase for easier matching
-    else
-        return 0
-    fi
-
-    printf "%s\n" "$section"
-
-    # Print number of selected items
-    local num_choice
-    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
+    choices=$(action_choose_items 'Confirm Items' \
+                  'Settings' 'Keybindings' 'Default Editor' 'Clipboard Support') || return 0
 
     # Empty choice means nothing to do -> exit
-    if [ "$num_choice" -eq 0 ]; then
+    if [ -z "$choices" ]; then
         echo
         return 0
     fi
@@ -69,7 +45,7 @@ main() {
 
     # Install clipboard helpers (xclip for X11, wl-clipboard for Wayland); micro's
     # default clipboard=external shells out to whichever matches the running session
-    if grep -q 'clipboard support' <<< "$choices"; then
+    if has_choice "$choices" 'clipboard support'; then
         action_require_package 'xclip'
         action_require_package 'wl-clipboard'
     fi
@@ -83,7 +59,7 @@ main() {
     local shells
 
     # Install settings file
-    if grep -q 'settings' <<< "$choices"; then
+    if has_choice "$choices" 'settings'; then
         action_install_file "${HOME}/.config/micro/settings.json"  \
                             'https://dimk90.github.io/anarchy/micro/settings.json'
 
@@ -93,7 +69,7 @@ main() {
     fi
 
     # Install keybindings
-    if grep -q 'keybindings' <<< "$choices"; then
+    if has_choice "$choices" 'keybindings'; then
         action_install_file "${HOME}/.config/micro/bindings.json"  \
                             'https://dimk90.github.io/anarchy/micro/bindings.json'
 
@@ -106,7 +82,7 @@ main() {
     fi
 
     # Set as default editor
-    if grep -q 'default editor' <<< "$choices"; then
+    if has_choice "$choices" 'default editor'; then
         shells="$(env_set_permanent 'EDITOR' 'micro')"
         [ -n "$shells" ] && action_run "Set EDITOR to micro for ${STYLE_CLR}${STYLE_BOLD}$shells"
     fi

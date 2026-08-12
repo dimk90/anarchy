@@ -41,9 +41,9 @@ Row numbers are unique across both tables and stable for reference.
 | #   | Done  | Candidate                                                                                                                            | Suggested Name            | Tier | Lines    |
 | --- | ----- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---- | -------- |
 | 13  | `[ ]` | CPU vendor check; byte-identical `install-drivers:22` + `configure-boot:49`                                                          | `is_intel_cpu`            | 1    | 12       |
-| 14  | `[ ]` | `request_gum` + assert + "Starting" + version + `start_logger` + log path; identical in **15/15** scripts                            | `action_start_tui`        | 2    | 165      |
-| 15  | `[ ]` | Multi-select menu: header → `gum choose --no-limit` → lowercase → count → "Selected X: N" → empty-exit; 9 scripts                    | `choose_items`            | 2    | 270      |
-| 16  | `[ ]` | `grep -q 'x' <<< "$choices"` dispatch; local variants `has_component` (`configure-prompt:119`), `add_dep` (`install-modern-cli:343`) | `has_choice`              | 2    | 17       |
+| 14  | `[x]` | `request_gum` + assert + "Starting" + version + `start_logger` + log path; identical in **15/15** scripts                            | `action_start_tui`        | 2    | 165      |
+| 15  | `[x]` | Multi-select menu: header → `gum choose --no-limit` → lowercase → count → "Selected X: N" → empty-exit; 9 scripts                    | `action_choose_items`     | 2    | 270      |
+| 16  | `[x]` | `grep -q 'x' <<< "$choices"` dispatch; local variants `has_component` (`configure-prompt:119`), `add_dep` (`install-modern-cli:343`) | `has_choice`              | 2    | 17       |
 | 17  | `[ ]` | `gum style --bold --foreground "$GUM_YELLOW" X` across 8 scripts                                                                     | `highlight`               | 3    | 58 sites |
 | 18  | `[ ]` | `printf_action "Label: ${STYLE_CLR}%b\n" "$(gum style …)"`; 10 sites                                                                 | `printf_value`            | 3    | 20       |
 | 19  | `[ ]` | `action_run 'Reload …' "$(check_sudo) systemctl daemon-reload" 'done'` + assert; 4 blocks                                            | `action_daemon_reload`    | 3    | 16       |

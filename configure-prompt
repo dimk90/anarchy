@@ -116,20 +116,6 @@ select_theme() {
 }
 
 
-has_component() {
-    #
-    # Check whether a component was selected in the up-front menu.
-    #
-    # Parameters:
-    #   $1 - name - lowercased component name as shown in the menu.
-    #
-    # Example:
-    #   has_component 'fish colors' && configure_colors
-    #
-    grep -q "$1" <<< "$COMPONENTS"
-}
-
-
 # shellcheck disable=SC2329
 install_starship_upstream() {
     curl -fsSL https://starship.rs/install.sh | sh -s -- --yes
@@ -207,7 +193,7 @@ install_fonts() {
     # Example:
     #   install_fonts
     #
-    has_component 'iosevka term font' || has_component 'nerd symbols font' || return 0
+    has_choice "$COMPONENTS" 'iosevka term font' || has_choice "$COMPONENTS" 'nerd symbols font' || return 0
 
     printf_section "Fonts\n"
 
@@ -222,8 +208,8 @@ install_fonts() {
 
     # Iosevka Term carries no Nerd Font glyphs; the pure and capsule themes get
     # theirs from Nerd Symbols, which fontconfig picks up as a fallback
-    has_component 'iosevka term font' && install_font 'Iosevka/IosevkaTerm.ttc'
-    has_component 'nerd symbols font' && install_font 'NerdSymbols/SymbolsNerdFont.ttf'
+    has_choice "$COMPONENTS" 'iosevka term font' && install_font 'Iosevka/IosevkaTerm.ttc'
+    has_choice "$COMPONENTS" 'nerd symbols font' && install_font 'NerdSymbols/SymbolsNerdFont.ttf'
 
     action_run 'Rebuild font cache' "$(check_sudo) fc-cache -f" 'done'
     assert $? 'failed to rebuild font cache'
@@ -472,17 +458,9 @@ bash_install_key_bindings() {
 
 main() {
 
-    ## Get gum
-
-    request_gum
-    assert $? 'no gum - no fun :('
-
     ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     ## Components
 
@@ -517,14 +495,14 @@ main() {
     if is_command_available 'fish'; then
         printf_section "Configure fish\n"
 
-        has_component 'fish leftover cleanup' && fish_cleanup_leftovers
-        has_component 'fish colors' && fish_install_colors
-        has_component 'fish greeting' && fish_install_greeting
+        has_choice "$COMPONENTS" 'fish leftover cleanup' && fish_cleanup_leftovers
+        has_choice "$COMPONENTS" 'fish colors' && fish_install_colors
+        has_choice "$COMPONENTS" 'fish greeting' && fish_install_greeting
 
         export -f fish_enable_starship
         action_run 'Enable starship' 'fish_enable_starship' 'done'
 
-        has_component 'fish key bindings' && fish_install_key_bindings
+        has_choice "$COMPONENTS" 'fish key bindings' && fish_install_key_bindings
     fi
 
     ## Bash
@@ -535,7 +513,7 @@ main() {
         export -f bash_enable_starship
         action_run 'Enable starship' 'bash_enable_starship' 'done'
 
-        if has_component 'bash key bindings'; then
+        if has_choice "$COMPONENTS" 'bash key bindings'; then
             export -f bash_install_key_bindings
             action_run "Bind ${STYLE_CLR}ctrl-backspace${STYLE_DIM} to word delete" \
                 'bash_install_key_bindings' 'done'

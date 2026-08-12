@@ -51,13 +51,9 @@ set +o errexit
 # helper functions here
 
 main() {
-    request_gum
-    assert $? 'no gum - no fun :('
+    ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     # actual work in further sections
     return 0
@@ -353,37 +349,23 @@ action_run 'Enable zoxide for fish' 'fish_enable_zoxide' 'done'
 
 The `# shellcheck disable=SC2329` suppresses the "function never invoked" warning shellcheck emits because the function is called via `bash -c` inside `action_run`.
 
-## Selection menus
+## Selection Menus
 
-For "let the user pick from a list" use `gum choose` with the section bullet as header. `--no-limit --selected='*'` means multi-select with all items pre-selected (the convention for "we'll do all unless you say otherwise"):
+For a standard section-level multi-select with every item pre-selected, use `action_choose_items`. It lowercases the selection, repaints the header, and prints the selected count. The selection is returned on stdout; UI goes to stderr so command substitution captures only data. Cancellation returns 1, while an empty selection returns 0 and an empty string:
 
 ```bash
-local section
-section=$(prefix_printf "$(bullet_section)" 'Confirm Items')
-
 local choices
-if choices=$(gum choose --no-limit --selected='*' \
-                        --cursor="   > "          \
-                        --header "${section}"     \
-                        'Settings' 'Keybindings' 'Default Editor'); then
-    choices=${choices,,}     # lowercase for matching
-else
-    return 0
-fi
+choices=$(action_choose_items 'Confirm Items' \
+              'Settings' 'Keybindings' 'Default Editor') || return 0
+[ -z "$choices" ] && { echo; return 0; }
 
-printf "%s\n" "$section"     # repaint header after gum clears it
-
-local num_choice
-num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-printf_action "Selected items: ${STYLE_CLR}${num_choice}\n"
-[ "$num_choice" -eq 0 ] && return 0
-
-# dispatch
-grep -q 'settings'    <<< "$choices" && do_settings
-grep -q 'keybindings' <<< "$choices" && do_keybindings
+has_choice "$choices" 'settings'    && do_settings
+has_choice "$choices" 'keybindings' && do_keybindings
 ```
 
-For single-select, `--limit=1` and a default fallback via `|| choice='pure'`. The fallback applies to Esc and other ordinary cancellation only; Ctrl+C is intercepted by `common` and aborts the whole script with status 130.
+Pass `--label 'tools'` before the title to render `Selected tools: N` instead of `Selected items: N`.
+
+Use `gum choose` directly when the menu needs a different header level, cursor indent, or selected-default set. For single-select, use `--limit=1` and a default fallback via `|| choice='pure'`. The fallback applies to Esc and other ordinary cancellation only; Ctrl+C is intercepted by `common` and aborts the whole script with status 130.
 
 ## Filename convention
 

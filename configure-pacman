@@ -103,54 +103,32 @@ refresh_mirrorlist() {
 
 main() {
 
-    ## Get gum
-
-    request_gum
-    assert $? 'no gum - no fun :('
-
     ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     ## Ask user for steps to run
 
-    local section
-    section=$(prefix_printf "$(bullet_section)" 'Configure Pacman')
-
     local choices
-    if choices=$(gum choose --no-limit --selected='*' --cursor="   > " \
-                     --header "${section}"  \
-                     'Enable colors'        \
-                     'Enable progress bar'  \
-                     'Set up reflector'     \
-                     'Refresh mirrorlist'); then
-        choices=${choices,,} # convert to lowercase for easier matching
-    else
-        return 0
-    fi
-
-    printf "%s\n" "$section"
-
-    # Print number of selected items
-    local num_choice
-    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected steps: ${STYLE_CLR}${num_choice}\n"
+    choices=$(action_choose_items --label 'steps' \
+                  'Configure Pacman'              \
+                  'Enable colors'                 \
+                  'Enable progress bar'           \
+                  'Set up reflector'              \
+                  'Refresh mirrorlist') || return 0
 
     # Empty choice means nothing to do -> exit
-    if [ "$num_choice" -eq 0 ]; then
+    if [ -z "$choices" ]; then
         echo
         return 0
     fi
 
     ## Run selected steps
 
-    grep -q 'enable colors'       <<< "$choices" && configure_colors
-    grep -q 'enable progress bar' <<< "$choices" && configure_progress_bar
-    grep -q 'set up reflector'    <<< "$choices" && setup_reflector
-    grep -q 'refresh mirrorlist'  <<< "$choices" && refresh_mirrorlist
+    has_choice "$choices" 'enable colors'       && configure_colors
+    has_choice "$choices" 'enable progress bar' && configure_progress_bar
+    has_choice "$choices" 'set up reflector'    && setup_reflector
+    has_choice "$choices" 'refresh mirrorlist'  && refresh_mirrorlist
 
     return 0
 }

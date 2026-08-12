@@ -214,6 +214,24 @@ regex_sanitize() {
 }
 
 
+has_choice() {
+    #
+    # Check whether a selection from action_choose_items matches the pattern.
+    #
+    # Parameters:
+    #   $1 - choices - newline-separated selection to search.
+    #   $2 - pattern - basic regex to look for (usually a lowercased item name).
+    #
+    # Example:
+    #   has_choice "$choices" 'video' && install_video
+    #
+    local choices="$1"
+    local pattern="$2"
+
+    grep -q "$pattern" <<< "$choices"
+}
+
+
 ## Print
 
 
@@ -1037,6 +1055,29 @@ alias_set_permanent() {
 ## TUI - gum-based
 
 
+action_start_tui() {
+    #
+    # Open the script UI: ensure gum is available, announce the common library
+    # version and start the logger. Exits the script when gum is unavailable.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   main() {
+    #       action_start_tui
+    #   }
+    #
+    request_gum
+    assert $? 'no gum - no fun :('
+
+    printf_section "Starting\n"
+    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
+    start_logger
+    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+}
+
+
 action_require_package() {
     #
     # Install a package with interactive UI and privilege handling.
@@ -1339,6 +1380,55 @@ action_set_password() {
 }
 
 
+action_choose_items() {
+    #
+    # Show a multi-select menu with every item pre-selected and print the
+    # selected items, lowercased and newline-separated, to stdout.
+    # UI is written to stderr so stdout carries only the selection.
+    # Returns 1 when the user cancels the menu; an empty selection is not a
+    # failure, so callers deciding "nothing to do" must test the result.
+    #
+    # Parameters:
+    #   --label <noun> - (optional) - noun for the summary line, must come
+    #                    first (default: 'items').
+    #   $1 - title - section title, shown as the menu header.
+    #   $@ - items - menu entries.
+    #
+    # Example:
+    #   local choices
+    #   choices=$(action_choose_items --label 'tools' 'Confirm Tools' \
+    #                 'bat - cat clone' 'fzf - fuzzy finder') || return 0
+    #
+    local label='items'
+    if [ "${1-}" = '--label' ]; then
+        label="$2"
+        shift 2
+    fi
+
+    local title="$1"
+    shift
+
+    local section
+    section=$(prefix_printf "$(bullet_section)" "$title")
+
+    local choices
+    choices=$(gum choose --no-limit --selected='*' \
+                         --cursor='   > '          \
+                         --header "${section}"     \
+                         "$@") || return 1
+    choices=${choices,,} # lowercase for easier matching
+
+    printf "%s\n" "$section" >&2 # repaint header gum cleared on selection
+
+    local num_choice
+    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
+    printf_action "Selected ${label}: ${STYLE_CLR}${num_choice}\n" >&2
+
+    printf "%s\n" "$choices"
+}
+
+
+
 ## Export Functions
 
 
@@ -1352,6 +1442,7 @@ export -f is_command_available
 export -f gum
 export -f assert
 export -f regex_sanitize
+export -f has_choice
 
 # Print
 export -f bullet_section
@@ -1390,12 +1481,14 @@ export -f env_unset_permanent
 export -f alias_set_permanent
 
 # Actions
+export -f action_start_tui
 export -f action_require_package
 export -f action_require_packages
 export -f action_install_file
 export -f action_run
 export -f action_request_permission
 export -f action_set_password
+export -f action_choose_items
 
 
 ## Internal

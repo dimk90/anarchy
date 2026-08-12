@@ -301,17 +301,9 @@ configure_cache_subvolume() {
 
 main() {
 
-    ## Get gum
-
-    request_gum
-    assert $? 'no gum - no fun :('
-
     ## Init
 
-    printf_section "Starting\n"
-    printf_action "Common lib version: ${STYLE_CLR}${COMMON_VERSION}\n"
-    start_logger
-    printf_action "Log started: ${STYLE_CLR}${LOG_FILE}\n"
+    action_start_tui
 
     ## Username
 
@@ -327,33 +319,19 @@ main() {
 
     ## Pick steps
 
-    local section
-    section=$(prefix_printf "$(bullet_section)" 'Confirm Steps')
-
     local choices
-    if choices=$(gum choose --no-limit --selected='*'                  \
-                            --cursor="   > "                           \
-                            --header "${section}"                      \
-                            'Sudo - install + wheel + proxy'           \
-                            'Workspace - /opt/<user>'                  \
-                            'Cache subvolume - btrfs @<user>-cache'); then
-        choices=${choices,,} # lowercase for matching
-    else
-        return 0
-    fi
-
-    printf "%s\n" "$section"
-
-    local num_choice
-    num_choice=$([ -n "$choices" ] && wc -l <<< "$choices" || echo 0)
-    printf_action "Selected optional steps: ${STYLE_CLR}${num_choice}\n"
+    choices=$(action_choose_items --label 'optional steps'  \
+                  'Confirm Steps'                           \
+                  'Sudo - install + wheel + proxy'          \
+                  'Workspace - /opt/<user>'                 \
+                  'Cache subvolume - btrfs @<user>-cache') || return 0
 
     ## Run steps
 
-    grep -q 'sudo'            <<< "$choices" && configure_sudo
+    has_choice "$choices" 'sudo'            && configure_sudo
     configure_user_account "$user"
-    grep -q 'workspace'       <<< "$choices" && configure_opt_dir          "$user"
-    grep -q 'cache subvolume' <<< "$choices" && configure_cache_subvolume  "$user"
+    has_choice "$choices" 'workspace'       && configure_opt_dir          "$user"
+    has_choice "$choices" 'cache subvolume' && configure_cache_subvolume  "$user"
 
     return 0
 }
