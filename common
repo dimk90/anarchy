@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.13'
+export COMMON_VERSION='2.14'
 
 
 ## Colors
@@ -1122,6 +1122,35 @@ action_require_package() {
 }
 
 
+action_require_packages() {
+    #
+    # Print the required-tools section header and install every given package.
+    # Exits with 1 if any package fails to install.
+    #
+    # Parameters:
+    #   --title <title> - (optional) - section title, must come first
+    #                     (default: 'Checking required tools').
+    #   $@ - packages - names of the packages to require (Arch/pacman).
+    #
+    # Example:
+    #   action_require_packages 'parted' 'cryptsetup' 'btrfs-progs'
+    #   action_require_packages --title 'Checking tools' 'gptfdisk' 'cryptsetup'
+    #
+    local title='Checking required tools'
+    if [ "${1-}" = '--title' ]; then
+        title="$2"
+        shift 2
+    fi
+
+    printf_section "${title}\n"
+
+    local package
+    for package in "$@"; do
+        action_require_package "$package"
+    done
+}
+
+
 action_install_file() {
     #
     # Download and install a file to the given destination path.
@@ -1362,6 +1391,7 @@ export -f alias_set_permanent
 
 # Actions
 export -f action_require_package
+export -f action_require_packages
 export -f action_install_file
 export -f action_run
 export -f action_request_permission

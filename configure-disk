@@ -69,20 +69,6 @@ WANT_HOME_SNAPSHOTS=true
 ## Routines
 
 
-require_tools() {
-    #
-    # Ensure all required tools are installed.
-    #
-    printf_section "Checking required tools\n"
-
-    action_require_package 'parted'
-    action_require_package 'cryptsetup'
-    action_require_package 'btrfs-progs'
-    action_require_package 'dosfstools'
-    action_require_package 'arch-install-scripts'  # for genfstab
-}
-
-
 list_disks() {
     #
     # Print available disks (one per line) as: <NAME>|<SIZE>|<MODEL>.
@@ -529,7 +515,12 @@ main() {
 
     ## Required tools
 
-    require_tools
+    # arch-install-scripts provides genfstab
+    action_require_packages 'parted'      \
+                            'cryptsetup'  \
+                            'btrfs-progs' \
+                            'dosfstools'  \
+                            'arch-install-scripts'
 
     ## Select disk
 

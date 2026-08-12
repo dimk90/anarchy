@@ -58,12 +58,6 @@ SWAP_SIZE=''
 ## Routines
 
 
-require_tools() {
-    printf_section "Checking required tools\n"
-    action_require_package 'btrfs-progs'
-}
-
-
 verify_prerequisites() {
     #
     # Run pre-flight checks. Each step is an action_run so the section is
@@ -305,7 +299,7 @@ main() {
 
     ## Required tools
 
-    require_tools
+    action_require_packages 'btrfs-progs'
 
     ## Pre-flight checks (sets CRYPT_UUID)
 

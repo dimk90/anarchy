@@ -33,19 +33,6 @@ set +o errexit # disable exit on non-zero exit code
 ## Routines
 
 
-require_tools() {
-    #
-    # Ensure all required tools are installed.
-    # wipefs, blkdiscard, dmsetup, findmnt, lsblk all ship in util-linux,
-    # which is always present on Arch live ISO and base systems.
-    #
-    printf_section "Checking tools\n"
-
-    action_require_package 'gptfdisk'      # sgdisk
-    action_require_package 'cryptsetup'    # close stale LUKS mappers
-}
-
-
 list_disks() {
     #
     # Print available disks (one per line) as: <NAME>|<SIZE>|<MODEL>.
@@ -322,7 +309,12 @@ main() {
 
     ## Required tools
 
-    require_tools
+    # gptfdisk provides sgdisk, cryptsetup closes stale LUKS mappers.
+    # wipefs, blkdiscard, dmsetup, findmnt, lsblk all ship in util-linux,
+    # which is always present on Arch live ISO and base systems.
+    action_require_packages --title 'Checking tools' \
+                            'gptfdisk'               \
+                            'cryptsetup'
 
     ## Select disk
 
