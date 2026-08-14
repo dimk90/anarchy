@@ -1,6 +1,6 @@
 ---
 name: code-style
-description: Language-agnostic code style and quality conventions for writing or editing source code in any programming language. Use whenever creating new code, refactoring, or reviewing changes — covers naming, comments, simplicity, surgical changes, and verification discipline. Language-specific skills (e.g. a Python skill) layer additional rules on top of this one; load both when working in such a language.
+description: Language-agnostic code style and quality conventions for writing or editing source code in any programming language. Use whenever creating new code, refactoring, or reviewing changes — covers naming, comments, simplicity, function decomposition, surgical changes, and verification discipline. Language-specific skills (e.g. a Python skill) layer additional rules on top of this one; load both when working in such a language.
 ---
 
 # Code Style
@@ -83,15 +83,52 @@ For multi-step tasks, state a brief plan:
 Strong success criteria let you loop independently.
 Weak criteria ("make it work") require constant clarification.
 
-## 5. Naming and Comments
+Keep changes clean under the project's linter and formatter. When flagged
+code is intentional, suppress it at the narrowest scope — a single line —
+with a nearby comment explaining why; never file- or project-wide.
+
+## 5. Function Size and Decomposition
+
+- Split any function that spans multiple phases or responsibilities, or that
+  requires scrolling to understand, into cohesive, verb-led helpers. The
+  caller keeps only concise, high-level orchestration — an entry point like
+  `main` is the usual case, but the rule applies to every function.
+- Split at natural boundaries such as setup, validation, mutation,
+  verification, and reporting — not at an arbitrary line count. Each helper
+  should have one clear contract.
+- Single-use helpers are appropriate when they clarify a long caller. Avoid
+  trivial wrappers and fragmentation that obscure the flow.
+- Preserve observable behavior while refactoring — operation order, outputs,
+  error paths, and mutation boundaries. Verify with the project's checks and
+  representative behavior tests.
+
+## 6. Naming and Comments
 
 - Use descriptive variable names; avoid meaningless short names like `p`, `k`.
   Lambda parameters are a possible exception when the lambda must be compact
   and its meaning is obvious.
+- Name functions after the action they perform, verb-led (`start_logger`,
+  `backup_file`); predicates read as questions (`is_available`,
+  `has_children`).
 - Prefer clean, readable code over compactness — favor clarity even when a
   terser form is possible.
 - Comments explain **why**, not **what**: document non-obvious decisions and
   gotchas. No comments restating the code, no commented-out code.
+- No period at the end of short one- or two-line comments, inline or on their
+  own line. Periods stay in prose that reads as sentences: doc comments, file
+  headers, section preambles, and any multi-sentence comment.
+- When a comment enumerates parallel cases — flags, modes, alternatives — list
+  them one per line in two aligned columns (case, then meaning) under an
+  introductory line ending in `:`, instead of packing them into
+  semicolon-joined prose:
+
+  ```
+  # Retry only when the failure is transient:
+  #   timeout        retry with backoff
+  #   rate-limited   retry after the advertised delay
+  #   auth error     fail immediately
+  ```
+
 - Every function and type gets a docstring/doc comment — including private
   ones, in the language's native doc format (JSDoc, Python docstring, etc.).
   Document purpose and contract, not a restatement of the signature.

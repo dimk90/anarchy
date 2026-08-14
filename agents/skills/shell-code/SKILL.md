@@ -11,8 +11,8 @@ description: Shell/Bash-specific code style and conventions for writing or editi
 
 Bash-specific rules that layer on the general `code-style` skill; it covers
 the language-agnostic baseline (thinking before coding, simplicity, surgical
-changes, verification, naming and comments). Only the shell additions live
-here.
+changes, function decomposition, verification, naming and comment
+conventions). Only the shell additions live here.
 
 ## File Layout
 
@@ -31,12 +31,17 @@ here.
   blank line elsewhere.
 - 4-space indentation.
 
+## Refactoring
+
+- Exit statuses and traps are part of a function's observable behavior —
+  preserve them while refactoring, alongside command order and output. Verify
+  with `bash -n`, ShellCheck, and representative behavior checks.
+
 ## Naming
 
 - Public globals and exported variables: `UPPER_SNAKE_CASE`; locals and
   function parameters: `lower_snake_case`.
-- Functions: `lower_snake_case`, verb-led (`start_logger`, `backup_file`);
-  predicates read as questions (`is_command_available`, `have_privilege`).
+- Functions: `lower_snake_case` (`start_logger`, `is_command_available`).
   Preserve an established public API's casing, such as VHS-style `SetRows`.
 - Related functions share a prefix namespace: `printf_*`, `action_*`, `env_*`.
 - Private functions and private module variables use a project-specific prefix,
@@ -88,18 +93,30 @@ svhs_version() {
 Anything taking an argument, returning a nonzero status, or touching state
 outside the function keeps the full block.
 
-## Comments
+## Constants over Trivial Functions
 
-- No period at the end of short one- or two-line comments, inline or on their
-  own line:
+Do not wrap a fixed value in a function. A parameterless body that only
+prints one literal — an escape sequence, a fixed message — is a named
+constant, not a function: the name carries the same semantics, without a
+docstring block spent per value. Spell escape-sequence constants with
+`$'...'`; a constant also inlines where a handler name would otherwise force
+a function:
 
 ```bash
-# truncate the cast after detaching, tmux writes a final resize event
-sleep 1 # give the recorder time to attach
+# the viewer takes the terminal over; restoring puts every mode back
+_SVHS_WATCH_ENTER=$'\033[?1049h\033[?25l\033[?7l'
+_SVHS_WATCH_RESTORE=$'\033[0m\033[?7h\033[?25h\033[?1049l'
+
+trap 'printf "%s" "$_SVHS_WATCH_RESTORE"' EXIT
+printf '%s' "$_SVHS_WATCH_ENTER"
 ```
 
-- Periods stay in prose that reads as sentences: function docstrings, file
-  headers, section preambles, and any multi-sentence comment.
+- Keep paired constants (enter/restore, on/off) adjacent, so a review can
+  match each mode set against its reset.
+- This does not discourage small functions that do something: predicates,
+  parameterized wrappers, and branching helpers stay functions. A fixed
+  value stays a function only when that function is itself the public API
+  (`svhs_version`).
 
 ## Parameters and Variables
 
@@ -185,9 +202,50 @@ gum spin --align='right'                                             \
          -- sleep "$UI_INTERACTION_DELAY"
 ```
 
+## Embedded Other-Language Scripts
+
+A node, python, or awk program embedded in a script is code, not control flow:
+define it as a `readonly` constant among the other constants and run it with the
+interpreter's `-e`/`-c` flag. Heredocs inside a function break its indentation
+and bury the flow; a named constant keeps the caller one readable line.
+
+- Quote the program with single quotes and use double quotes inside it, so `$`,
+  `${...}`, and backticks stay literal.
+- Document the constant with the inputs it reads, what it writes to stdout, and
+  when it exits nonzero.
+- Add a per-line `# shellcheck disable=SC2016` with a nearby reason when the
+  program contains `$`.
+- Pass data through the environment or positional arguments; never interpolate
+  shell values into the program text.
+
+```bash
+# Reads MAINTAINERS_FILE and NPM_ACCOUNT; fails when the account is
+# not an owner.
+#
+# Literal JS: template placeholders belong to node and must not expand
+# shellcheck disable=SC2016
+readonly _RELEASE_NPM_OWNER_CHECK_SCRIPT='
+    const fs = require("node:fs");
+
+    const account = process.env.NPM_ACCOUNT;
+    const file = process.env.MAINTAINERS_FILE;
+    const maintainers = JSON.parse(fs.readFileSync(file, "utf8"));
+
+    if (!maintainers.some((maintainer) => maintainer?.name === account)) {
+        console.error(`${account} is not a package owner`);
+        process.exit(1);
+    }
+'
+
+NPM_ACCOUNT="$account" MAINTAINERS_FILE="$maintainers_file" \
+    node -e "$_RELEASE_NPM_OWNER_CHECK_SCRIPT" >"$check_log" 2>&1
+```
+
+Inline heredocs remain fine for literal data — a config fragment, a fixture, a
+message body — just not for programs.
+
 ## ShellCheck
 
 - Keep scripts shellcheck-clean.
-- When flagged code is intentional, suppress per-line with
-  `# shellcheck disable=SCxxxx` directly above it — never file-wide — and
-  keep a nearby comment explaining why the pattern is safe.
+- Suppress an intentional finding with `# shellcheck disable=SCxxxx` directly
+  above the flagged line.
