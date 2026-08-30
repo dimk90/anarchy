@@ -1,5 +1,5 @@
 # fish completions for pi - AI coding assistant
-# Generated for pi 0.80.x
+# Generated for pi 0.84.x
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -9,7 +9,7 @@ function __pi_no_subcommand
     set -l cmd (commandline -opc)
     for i in $cmd[2..-1]
         switch $i
-            case install remove uninstall update list config
+            case install remove uninstall update list config auth
                 return 1
         end
     end
@@ -20,11 +20,16 @@ function __pi_using_subcommand
     set -l cmd (commandline -opc)
     for i in $cmd[2..-1]
         switch $i
-            case $argv[1]
+            case $argv
                 return 0
         end
     end
     return 1
+end
+
+function __pi_auth_no_command
+    __pi_using_subcommand auth; or return 1
+    not __pi_using_subcommand print-api-key print-bearer-token check
 end
 
 function __pi_models
@@ -36,7 +41,7 @@ function __pi_providers
 end
 
 function __pi_tools
-    printf '%s\n' read bash edit write grep find ls
+    printf '%s\n' read bash powershell edit write grep find ls
 end
 
 # ---------------------------------------------------------------------------
@@ -50,6 +55,7 @@ complete -c pi -n __pi_no_subcommand -a uninstall -d 'Alias for remove'
 complete -c pi -n __pi_no_subcommand -a update    -d 'Update pi and installed packages'
 complete -c pi -n __pi_no_subcommand -a list      -d 'List installed extensions from settings'
 complete -c pi -n __pi_no_subcommand -a config    -d 'Open TUI to enable/disable package resources'
+complete -c pi -n __pi_no_subcommand -a auth      -d 'Print credentials or check provider readiness'
 
 # install / remove / uninstall options
 complete -c pi -n '__pi_using_subcommand install remove uninstall' -s l -l local      -d 'Install project-locally (.pi/settings.json)'
@@ -60,11 +66,28 @@ complete -c pi -n '__pi_using_subcommand install remove uninstall' -o na -l no-a
 complete -c pi -n '__pi_using_subcommand update' -a 'self pi'          -d 'Update pi itself'
 complete -c pi -n '__pi_using_subcommand update' -l self               -d 'Update pi only'
 complete -c pi -n '__pi_using_subcommand update' -l extensions         -d 'Update installed packages only'
+complete -c pi -n '__pi_using_subcommand update' -l models             -d 'Refresh model catalogs only'
 complete -c pi -n '__pi_using_subcommand update' -l all                -d 'Update pi and installed packages'
 complete -c pi -n '__pi_using_subcommand update' -l extension -r       -d 'Update one package only'
 complete -c pi -n '__pi_using_subcommand update' -l force              -d 'Reinstall pi even if latest'
 complete -c pi -n '__pi_using_subcommand update' -s a -l approve       -d 'Trust project-local files'
 complete -c pi -n '__pi_using_subcommand update' -o na -l no-approve   -d 'Ignore project-local files'
+
+# list / config options
+complete -c pi -n '__pi_using_subcommand list config' -s a -l approve     -d 'Trust project-local files for this command'
+complete -c pi -n '__pi_using_subcommand list config' -o na -l no-approve -d 'Ignore project-local files for this command'
+complete -c pi -n '__pi_using_subcommand config' -s l -l local            -d 'Edit project overrides (.pi/settings.json)'
+
+# auth commands and options
+complete -c pi -n __pi_auth_no_command -a print-api-key      -d 'Print a provider API key'
+complete -c pi -n __pi_auth_no_command -a print-bearer-token -d 'Print an OAuth bearer token (refreshes if expired)'
+complete -c pi -n __pi_auth_no_command -a check              -d 'Check provider credential readiness'
+complete -c pi -n '__pi_using_subcommand auth' -l provider -r -a '(__pi_providers)' -d 'Provider name'
+complete -c pi -n '__pi_using_subcommand auth' -l model    -r -a '(__pi_models)'    -d 'Model pattern or ID'
+complete -c pi -n '__pi_using_subcommand print-bearer-token' -l min-expiry -r -d 'Require token valid for at least this duration'
+complete -c pi -n '__pi_using_subcommand check' -l json        -d 'Emit JSON output'
+complete -c pi -n '__pi_using_subcommand check' -l credentials -d 'Include the credential in the output'
+complete -c pi -n '__pi_using_subcommand check' -l no-refresh  -d "Don't refresh expired OAuth credentials"
 
 # ---------------------------------------------------------------------------
 # Top-level options
@@ -93,7 +116,8 @@ complete -c pi -n __pi_no_subcommand -s nbt -l no-builtin-tools   -d 'Disable bu
 complete -c pi -n __pi_no_subcommand -s t   -l tools         -r -a '(__pi_tools)' -d 'Comma-separated allowlist of tools'
 complete -c pi -n __pi_no_subcommand -s xt  -l exclude-tools -r -a '(__pi_tools)' -d 'Comma-separated denylist of tools'
 
-complete -c pi -n __pi_no_subcommand -l thinking -r -a 'off minimal low medium high xhigh' -d 'Set thinking level'
+complete -c pi -n __pi_no_subcommand -l thinking -r -a 'off minimal low medium high xhigh max' -d 'Set thinking level'
+complete -c pi -n __pi_no_subcommand -l tui-mode -r -a 'regular fullscreen' -d 'TUI mode'
 
 complete -c pi -n __pi_no_subcommand -s e -l extension  -r -F -d 'Load an extension file'
 complete -c pi -n __pi_no_subcommand -s ne -l no-extensions   -d 'Disable extension discovery'
@@ -102,11 +126,22 @@ complete -c pi -n __pi_no_subcommand -s ns -l no-skills       -d 'Disable skills
 complete -c pi -n __pi_no_subcommand -l prompt-template  -r -F -d 'Load a prompt template file or directory'
 complete -c pi -n __pi_no_subcommand -s np -l no-prompt-templates -d 'Disable prompt template discovery'
 complete -c pi -n __pi_no_subcommand -l theme           -r -F -d 'Load a theme file or directory'
+complete -c pi -n __pi_no_subcommand -l use-theme       -r    -d 'Set the initial interactive theme for this run'
 complete -c pi -n __pi_no_subcommand -l no-themes             -d 'Disable themes discovery'
 complete -c pi -n __pi_no_subcommand -s nc -l no-context-files -d 'Disable AGENTS.md and CLAUDE.md discovery'
 
 complete -c pi -n __pi_no_subcommand -l export      -r -F -d 'Export session file to HTML and exit'
 complete -c pi -n __pi_no_subcommand -l list-models -r    -d 'List available models (with optional search)'
+
+complete -c pi -n __pi_no_subcommand -l verbose -d 'Force verbose startup'
+complete -c pi -n __pi_no_subcommand -l offline -d 'Disable startup network operations'
+complete -c pi -n __pi_no_subcommand -s a -l approve     -d 'Trust project-local files for this run'
+complete -c pi -n __pi_no_subcommand -o na -l no-approve -d 'Ignore project-local files for this run'
+
+# Flags registered by the session-manager extension
+complete -c pi -n __pi_no_subcommand -l delete -r -d 'Delete a session by exact ID or unique ID prefix'
+complete -c pi -n __pi_no_subcommand -l force     -d 'Skip the delete confirmation'
+complete -c pi -n __pi_no_subcommand -l purge     -d 'Permanently delete instead of moving to trash'
 
 complete -c pi -n __pi_no_subcommand -s h -l help    -d 'Show help'
 complete -c pi -n __pi_no_subcommand -s v -l version -d 'Show version number'

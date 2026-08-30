@@ -1,5 +1,5 @@
 # bash completion for pi - AI coding assistant
-# Generated for pi 0.80.x
+# Generated for pi 0.84.x
 
 _pi_models() {
     command pi --list-models 2>/dev/null | tail -n +2 | awk '{print $1"/"$2}'
@@ -21,14 +21,14 @@ _pi() {
         cword=$COMP_CWORD
     fi
 
-    local subcommands="install remove uninstall update list config"
-    local tools="read bash edit write grep find ls"
+    local subcommands="install remove uninstall update list config auth"
+    local tools="read bash powershell edit write grep find ls"
 
     # Detect an active subcommand
     local subcmd="" i
     for ((i=1; i < cword; i++)); do
         case "${words[i]}" in
-            install|remove|uninstall|update|list|config)
+            install|remove|uninstall|update|list|config|auth)
                 subcmd="${words[i]}"; break ;;
         esac
     done
@@ -42,7 +42,9 @@ _pi() {
         --mode)
             COMPREPLY=( $(compgen -W "text json rpc" -- "$cur") ); return ;;
         --thinking)
-            COMPREPLY=( $(compgen -W "off minimal low medium high xhigh" -- "$cur") ); return ;;
+            COMPREPLY=( $(compgen -W "off minimal low medium high xhigh max" -- "$cur") ); return ;;
+        --tui-mode)
+            COMPREPLY=( $(compgen -W "regular fullscreen" -- "$cur") ); return ;;
         --tools|-t|--exclude-tools|-xt)
             COMPREPLY=( $(compgen -W "$tools" -- "$cur") ); return ;;
         --session-dir)
@@ -50,6 +52,8 @@ _pi() {
         --extension|-e|--skill|--prompt-template|--theme|--session|--fork|--export|--append-system-prompt)
             COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
         --api-key|--system-prompt|--models|--name|-n|--session-id|--list-models)
+            return ;;
+        --use-theme|--min-expiry|--delete)
             return ;;
     esac
 
@@ -63,23 +67,49 @@ _pi() {
             return ;;
         update)
             if [[ "$cur" == -* ]]; then
-                COMPREPLY=( $(compgen -W "--self --extensions --all --extension --force -a --approve -na --no-approve" -- "$cur") )
+                COMPREPLY=( $(compgen -W "--self --extensions --models --all --extension --force -a --approve -na --no-approve" -- "$cur") )
             else
                 COMPREPLY=( $(compgen -W "self pi" -- "$cur") )
             fi
             return ;;
-        list|config)
+        list)
+            [[ "$cur" == -* ]] && COMPREPLY=( $(compgen -W "-a --approve -na --no-approve" -- "$cur") )
+            return ;;
+        config)
+            [[ "$cur" == -* ]] && COMPREPLY=( $(compgen -W "-l --local -a --approve -na --no-approve" -- "$cur") )
+            return ;;
+        auth)
+            local authcmd="" j
+            for ((j=1; j < cword; j++)); do
+                case "${words[j]}" in
+                    print-api-key|print-bearer-token|check)
+                        authcmd="${words[j]}"; break ;;
+                esac
+            done
+            if [[ "$cur" == -* ]]; then
+                local auth_opts="--provider --model"
+                case "$authcmd" in
+                    print-bearer-token) auth_opts+=" --min-expiry" ;;
+                    check)              auth_opts+=" --json --credentials --no-refresh" ;;
+                esac
+                COMPREPLY=( $(compgen -W "$auth_opts" -- "$cur") )
+            elif [[ -z "$authcmd" ]]; then
+                COMPREPLY=( $(compgen -W "print-api-key print-bearer-token check" -- "$cur") )
+            fi
             return ;;
     esac
 
     if [[ "$cur" == -* ]]; then
+        # --delete/--force/--purge come from the session-manager extension
         local opts="--provider --model --models --api-key --system-prompt \
 --append-system-prompt --mode --print -p --continue -c --resume -r \
 --session --session-id --fork --session-dir --no-session --name -n \
 --no-tools -nt --no-builtin-tools -nbt --tools -t --exclude-tools -xt \
 --thinking --extension -e --no-extensions -ne --skill --no-skills -ns \
---prompt-template --no-prompt-templates -np --theme --no-themes \
---no-context-files -nc --export --list-models --help -h --version -v"
+--prompt-template --no-prompt-templates -np --theme --use-theme --no-themes \
+--no-context-files -nc --export --list-models --verbose --tui-mode \
+--approve -a --no-approve -na --offline \
+--delete --force --purge --help -h --version -v"
         COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
         return
     fi
