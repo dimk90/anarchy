@@ -1,0 +1,19 @@
+{
+  "backends": {
+    "exa_mcp": {
+      "enabled": true
+    },
+    "duckduckgo": {
+      "enabled": true
+    },
+    "jina": {
+      "enabled": true
+    },
+    "marginalia": {
+      "enabled": true
+    },
+    "searxng": {
+      "enabled": true
+    }
+  }
+}

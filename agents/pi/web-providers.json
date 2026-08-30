@@ -1,0 +1,13 @@
+{
+  "tools": {
+    "contents": "exa",
+    "search": "exa"
+  },
+  "providers": {
+    "exa": {
+      "credentials": {
+        "api": "8d0fbd61-6fdc-4fe6-a708-709db827d920"
+      }
+    }
+  }
+}

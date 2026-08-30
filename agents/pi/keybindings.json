@@ -1,0 +1,9 @@
+{
+	"tui.editor.deleteWordForward": ["ctrl+delete"],
+
+	"app.suspend": [],
+	"tui.editor.undo": ["ctrl+z"],
+
+	"tui.altScreen.top": ["ctrl+home"],
+	"tui.altScreen.bottom": ["ctrl+end"]
+}
