@@ -1,0 +1,477 @@
+#!/bin/bash
+#
+# Mirror the live pi configuration into agents/ and regenerate manifest.txt.
+# Run this maintenance script from a repository checkout; it sources the local
+# common library for the same gum UI as configure-pi.
+#
+
+# Treat unset variables and failed pipeline stages as errors
+set -o nounset
+set -o pipefail
+
+
+## Imports
+
+
+set -o errexit # fail when the local common library can't be loaded
+
+REPO_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# Dynamic checkout path; shellcheck can't resolve REPO_DIR
+# shellcheck disable=SC1091
+source "${REPO_DIR}/common"
+
+set +o errexit # routines report failures through assert
+
+
+## Constants
+
+
+# Published configuration tree and the manifest configure-pi downloads
+AGENTS_DIR="${REPO_DIR}/agents"
+MANIFEST_FILE="${AGENTS_DIR}/manifest.txt"
+GATHER_SCRIPT_NAME="${BASH_SOURCE[0]##*/}"
+
+# pi configuration sources
+PI_DIR="${HOME}/.pi/agent"
+SKILLS_DIR="${PI_DIR}/skills"
+BASH_COMPLETION_FILE="${HOME}/.local/share/bash-completion/completions/pi"
+FISH_COMPLETION_FILE="${HOME}/.config/fish/completions/pi.fish"
+
+
+## Globals
+
+
+# Scratch paths populated by main and exported for action_run's subshells
+WORK_DIR=''
+STAGE_DIR=''
+CONFIG_FILES=''
+CHANGES_FILE=''
+WARNINGS_FILE=''
+STAGED_MANIFEST=''
+
+
+## Routines
+
+
+count_label() {
+    #
+    # Echo a count with a correctly pluralized noun.
+    #
+    # Parameters:
+    #   $1 - count - how many.
+    #   $2 - noun - singular noun.
+    #   $3 - plural - (optional) - plural noun (default: noun with an 's').
+    #
+    # Example:
+    #   count_label 3 'change'          # -> 3 changes
+    #   count_label 0 'entry' 'entries' # -> no entries
+    #
+    local count="$1"
+    local noun="$2"
+    local plural="${3:-${noun}s}"
+
+    case $count in
+        0) printf 'no %s\n' "$plural"            ;;
+        1) printf '1 %s\n' "$noun"               ;;
+        *) printf '%s %s\n' "$count" "$plural" ;;
+    esac
+}
+
+
+list_files() {
+    #
+    # Print every regular file below a directory as a sorted relative path.
+    #
+    # Parameters:
+    #   $1 - root - directory to list.
+    #
+    # Example:
+    #   list_files "$STAGE_DIR"
+    #
+    local root="$1"
+
+    find "$root" -type f -printf '%P\n' | LC_ALL=C sort
+}
+
+
+build_config_list() {
+    #
+    # Write every gatherable ~/.pi/agent config path to CONFIG_FILES.
+    # Package stores, caches, logs, credentials and machine-local state are
+    # excluded; skills and AGENTS.md are gathered separately.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   build_config_list || exit 1
+    #
+    local discovered="${WORK_DIR}/discovered-config"
+    find "$PI_DIR"                                                              \
+         -type d \( -name 'sessions' -o -name 'npm' -o -name 'opt-extensions' \
+                     -o -name 'git' -o -name 'logs' -o -name 'skills' \) -prune \
+         -o -type f -printf '%P\n' > "$discovered" || return 1
+
+    local rel
+    while IFS= read -r rel; do
+        case $rel in
+            # Public GitHub Pages must never receive these:
+            #   auth.json                   provider tokens
+            #   web-providers.json          search provider API key
+            #   models-store.json           model cache
+            #   usage-extension-cache.json  usage cache
+            #   trust.json                  trusted local directories
+            auth.json|web-providers.json|models-store.json|usage-extension-cache.json|trust.json) ;;
+            AGENTS.md|*.jsonl|*.log) ;;
+            *) printf '%s\n' "$rel" ;;
+        esac
+    done < "$discovered" | LC_ALL=C sort > "$CONFIG_FILES"
+}
+
+
+stage_file() {
+    #
+    # Copy one file into the staging tree under its agents/ relative path.
+    # Symlinks are dereferenced so GitHub Pages always publishes real files.
+    #
+    # Parameters:
+    #   $1 - source - file to copy.
+    #   $2 - rel - destination relative to agents/.
+    #
+    # Example:
+    #   stage_file "${PI_DIR}/settings.json" 'pi/settings.json'
+    #
+    local source="$1"
+    local rel="$2"
+    local destination="${STAGE_DIR}/${rel}"
+
+    mkdir -p "$(dirname "$destination")" || return 1
+    cp -L "$source" "$destination"
+}
+
+
+stage_fixed_file() {
+    #
+    # Stage an optional fixed-path source. When it is unavailable, preserve
+    # the existing agents/ copy and record a warning instead of deleting it.
+    #
+    # Parameters:
+    #   $1 - source - file to gather.
+    #   $2 - rel - destination relative to agents/.
+    #
+    # Example:
+    #   stage_fixed_file "$FISH_COMPLETION_FILE" 'pi/cli.fish'
+    #
+    local source="$1"
+    local rel="$2"
+
+    if [ -f "$source" ]; then
+        stage_file "$source" "$rel"
+        return $?
+    fi
+
+    if [ -f "${AGENTS_DIR}/${rel}" ]; then
+        stage_file "${AGENTS_DIR}/${rel}" "$rel" || return 1
+        printf '%s not found, kept the copy in agents/\n' "$source" >> "$WARNINGS_FILE"
+    else
+        printf '%s not found, nothing gathered\n' "$source" >> "$WARNINGS_FILE"
+    fi
+}
+
+
+# Runs inside action_run
+# shellcheck disable=SC2329
+gather_config() {
+    #
+    # Stage every path selected by build_config_list under pi/.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   gather_config || exit 1
+    #
+    local rel
+    while IFS= read -r rel; do
+        stage_file "${PI_DIR}/${rel}" "pi/${rel}" || return 1
+    done < "$CONFIG_FILES"
+}
+
+
+# Runs inside action_run
+# shellcheck disable=SC2329
+gather_skills() {
+    #
+    # Stage all skills while dereferencing symlinks, including links inside a
+    # skill such as SKILL.md pointing back to the project that owns it.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   gather_skills || exit 1
+    #
+    mkdir -p "${STAGE_DIR}/skills" || return 1
+    cp -rL "${SKILLS_DIR}/." "${STAGE_DIR}/skills/"
+}
+
+
+# Runs inside action_run
+# shellcheck disable=SC2329
+gather_fixed_files() {
+    #
+    # Stage the global AGENTS.md and pi's bash and fish completions.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   gather_fixed_files || exit 1
+    #
+    stage_fixed_file "${PI_DIR}/AGENTS.md" 'AGENTS.md' || return 1
+    stage_fixed_file "$BASH_COMPLETION_FILE" 'pi/cli.bash' || return 1
+    stage_fixed_file "$FISH_COMPLETION_FILE" 'pi/cli.fish'
+}
+
+
+plan_changes() {
+    #
+    # Compare staging with agents/ and write '+', '~' and '-' records to
+    # CHANGES_FILE. manifest.txt and this script remain unmanaged.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   plan_changes || exit 1
+    #
+    : > "$CHANGES_FILE" || return 1
+
+    local rel destination
+    while IFS= read -r rel; do
+        destination="${AGENTS_DIR}/${rel}"
+
+        if [ ! -f "$destination" ]; then
+            printf '+ %s\n' "$rel" >> "$CHANGES_FILE"
+        elif ! cmp -s "${STAGE_DIR}/${rel}" "$destination"; then
+            printf '~ %s\n' "$rel" >> "$CHANGES_FILE"
+        fi
+    done < <(list_files "$STAGE_DIR")
+
+    while IFS= read -r rel; do
+        case $rel in
+            manifest.txt|"$GATHER_SCRIPT_NAME") continue ;;
+        esac
+
+        [ -f "${STAGE_DIR}/${rel}" ] || printf -- '- %s\n' "$rel" >> "$CHANGES_FILE"
+    done < <(list_files "$AGENTS_DIR")
+}
+
+
+# Runs inside action_run
+# shellcheck disable=SC2329
+apply_changes() {
+    #
+    # Apply CHANGES_FILE to agents/ and prune directories left empty by stale
+    # files. Git retains removed files in history if a deletion was wrong.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   apply_changes || exit 1
+    #
+    local mark rel destination
+    while read -r mark rel; do
+        destination="${AGENTS_DIR}/${rel}"
+
+        case $mark in
+            '+'|'~')
+                mkdir -p "$(dirname "$destination")" || return 1
+                cp "${STAGE_DIR}/${rel}" "$destination" || return 1
+                ;;
+            '-')
+                rm -f "$destination" || return 1
+                ;;
+        esac
+    done < "$CHANGES_FILE"
+
+    find "$AGENTS_DIR" -mindepth 1 -type d -empty -delete
+}
+
+
+# Runs inside action_run
+# shellcheck disable=SC2329
+write_manifest() {
+    #
+    # Replace manifest.txt with the sorted list of staged files when changed.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   write_manifest || exit 1
+    #
+    cmp -s "$STAGED_MANIFEST" "$MANIFEST_FILE" && return 0
+    cp "$STAGED_MANIFEST" "$MANIFEST_FILE"
+}
+
+
+print_changes() {
+    #
+    # Render the planned changes as compact, colored +/~/- marker lines.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   print_changes
+    #
+    [ -s "$CHANGES_FILE" ] || return 0
+
+    printf_action "Changes:\n"
+
+    local mark rel color
+    while read -r mark rel; do
+        case $mark in
+            '+') color=$GUM_ACCENT ;;
+            '~') color=$GUM_YELLOW ;;
+            *)   color=$GUM_RED    ;;
+        esac
+
+        gum style --margin='0 0 0 8' -- \
+            "$(gum style --bold --foreground "$color" "$mark") $(gum style --faint "$rel")" \
+            || return 1
+    done < "$CHANGES_FILE"
+}
+
+
+print_warnings() {
+    #
+    # Print missing optional-source warnings at the end of the run.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   print_warnings
+    #
+    local message
+    while IFS= read -r message; do
+        printf_warning "%s\n" "$message"
+    done < "$WARNINGS_FILE"
+}
+
+
+main() {
+
+    ## Init
+
+    if ! is_command_available 'gum'; then
+        printf_error "gum is required: pacman -S gum\n"
+        exit 1
+    fi
+    action_start_tui
+
+    ## Verify sources before any mutation
+
+    printf_section "Verifying Prerequisites\n"
+
+    # Literal command strings: action_run's child shell expands exported paths
+    # shellcheck disable=SC2016
+    action_run "Pi config directory ${STYLE_CLR}$(pretty_path "$PI_DIR")" \
+               '[ -d "$PI_DIR" ]' 'present' 'missing'
+    assert $? "pi configuration directory not found: ${PI_DIR}"
+
+    # shellcheck disable=SC2016
+    action_run "Skills directory ${STYLE_CLR}$(pretty_path "$SKILLS_DIR")" \
+               '[ -d "$SKILLS_DIR" ]' 'present' 'missing'
+    assert $? "skills directory not found: ${SKILLS_DIR}"
+
+    ## Prepare scratch state
+
+    WORK_DIR=$(mktemp -d)
+    assert $? "can't create a temporary directory"
+    trap 'rm -rf "$WORK_DIR"' EXIT
+
+    STAGE_DIR="${WORK_DIR}/stage"
+    CONFIG_FILES="${WORK_DIR}/config-files"
+    CHANGES_FILE="${WORK_DIR}/changes"
+    WARNINGS_FILE="${WORK_DIR}/warnings"
+    STAGED_MANIFEST="${WORK_DIR}/manifest.txt"
+
+    mkdir -p "$STAGE_DIR"
+    assert $? "can't create the staging directory"
+    : > "$WARNINGS_FILE"
+
+    build_config_list
+    assert $? "can't inspect ${PI_DIR}"
+
+    local config_count skill_count fixed_count
+    config_count=$(grep -c . "$CONFIG_FILES" || true)
+    skill_count=$(find "$SKILLS_DIR" -mindepth 1 -maxdepth 1 -printf '.' | wc -c)
+    fixed_count=0
+    [ -f "${PI_DIR}/AGENTS.md" ] && fixed_count=$((fixed_count + 1))
+    [ -f "$BASH_COMPLETION_FILE" ] && fixed_count=$((fixed_count + 1))
+    [ -f "$FISH_COMPLETION_FILE" ] && fixed_count=$((fixed_count + 1))
+
+    ## Gather the live configuration
+
+    printf_section "Gathering pi Configuration\n"
+
+    action_run 'Gather config files' 'gather_config' \
+               "$(count_label "$config_count" 'file')"
+    assert $? "can't gather pi config files"
+
+    action_run 'Gather skills' 'gather_skills' \
+               "$(count_label "$skill_count" 'skill')"
+    assert $? "can't gather pi skills"
+
+    action_run 'Gather AGENTS.md and completions' 'gather_fixed_files' \
+               "$(count_label "$fixed_count" 'file')"
+    assert $? "can't gather AGENTS.md and completions"
+
+    ## Mirror the staged tree and update its manifest
+
+    printf_section "Updating agents/\n"
+
+    plan_changes
+    assert $? "can't compare staging with ${AGENTS_DIR}"
+
+    local change_count change_status
+    change_count=$(grep -c . "$CHANGES_FILE" || true)
+    change_status=$(count_label "$change_count" 'change')
+
+    action_run 'Sync files' 'apply_changes' "$change_status"
+    assert $? "can't update ${AGENTS_DIR}"
+    print_changes
+    assert $? "can't render the change list"
+
+    list_files "$STAGE_DIR" > "$STAGED_MANIFEST"
+    assert $? "can't build manifest.txt"
+
+    local manifest_status entry_count
+    entry_count=$(grep -c . "$STAGED_MANIFEST" || true)
+    manifest_status=$(count_label "$entry_count" 'entry' 'entries')
+    cmp -s "$STAGED_MANIFEST" "$MANIFEST_FILE" && manifest_status='unchanged'
+
+    action_run 'Update manifest.txt' 'write_manifest' "$manifest_status"
+    assert $? "can't update ${MANIFEST_FILE}"
+
+    ## Finish
+
+    print_warnings
+    printf_info "%s in agents/, review them with git diff\n" \
+        "$(count_label "$entry_count" 'file')"
+
+    return 0
+}
+
+
+export AGENTS_DIR MANIFEST_FILE PI_DIR SKILLS_DIR BASH_COMPLETION_FILE FISH_COMPLETION_FILE
+export GATHER_SCRIPT_NAME WORK_DIR STAGE_DIR CONFIG_FILES CHANGES_FILE WARNINGS_FILE
+export STAGED_MANIFEST
+export -f stage_file stage_fixed_file gather_config gather_skills gather_fixed_files
+export -f apply_changes write_manifest
+
+main "$@"
