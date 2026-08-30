@@ -1,0 +1,392 @@
+#!/bin/bash
+
+# Treat unset variables as an error and exit immediately
+set -o nounset
+
+
+## Imports
+
+
+set -o errexit # exit on non-zero exit code
+
+COMMON=$(curl -fsSL "https://dimk90.github.io/anarchy/common")
+# shellcheck source=common
+source <(echo "$COMMON")
+
+set +o errexit # disable exit on non-zero exit code
+
+
+## Constants
+
+
+# Published agents/ tree and the manifest listing every file under it.
+# GitHub Pages serves no directory index, so the manifest is the only way
+# to discover the skill files.
+AGENTS_URL='https://dimk90.github.io/anarchy/agents'
+MANIFEST_URL="${AGENTS_URL}/manifest.txt"
+
+# pi npm package, installed globally with pnpm
+PI_PACKAGE='@earendil-works/pi-coding-agent'
+
+# pi reads settings, keybindings, extension configs, AGENTS.md and skills from here
+PI_DIR="${HOME}/.pi/agent"
+SKILLS_DIR="${PI_DIR}/skills"
+
+# pnpm home: 'pnpm add -g' refuses to link binaries until PNPM_HOME is set and
+# its bin directory is on PATH. pnpm <= 10 links into PNPM_HOME itself,
+# pnpm >= 11 into PNPM_HOME/bin - both end up on PATH.
+PNPM_DIR="${HOME}/.local/share/pnpm"
+
+# Startup lines that put the pnpm bin directories on PATH, written as ERE for
+# config_set_param, which sanitizes the pattern back into the line it appends.
+# bash spells the path out because env_set_permanent rewrites its PNPM_HOME
+# export at the end of ~/.bashrc on every run - a $PNPM_HOME reference here
+# would end up above its own definition. fish loads conf.d before config.fish,
+# so there $PNPM_HOME is always set already. Both must reach the rc file
+# unexpanded, hence the single quotes and the SC2016 suppressions.
+# shellcheck disable=SC2016
+PNPM_PATH_BASH='export PATH="\$HOME/\.local/share/pnpm:\$HOME/\.local/share/pnpm/bin:\$PATH"'
+# shellcheck disable=SC2016
+PNPM_PATH_FISH='fish_add_path "\$PNPM_HOME"'
+# shellcheck disable=SC2016
+PNPM_PATH_FISH_BIN='fish_add_path "\$PNPM_HOME/bin"'
+
+# Per-user completion targets - no root required
+BASH_COMPLETION_FILE="${HOME}/.local/share/bash-completion/completions/pi"
+FISH_COMPLETION_FILE="${HOME}/.config/fish/completions/pi.fish"
+
+
+## Globals
+
+
+# Manifest content: newline-separated paths relative to agents/.
+# Populated by download_manifest, consumed by every install step.
+MANIFEST=''
+
+# Backup root for replaced skill directories, set by install_skills.
+# Lives beside skills/, since a *.bakN inside it would be picked up by pi
+# as a duplicate skill.
+SKILLS_BACKUP_DIR=''
+
+
+## Routines
+
+
+ensure_pnpm() {
+    #
+    # Install pnpm globally with npm when missing and put its global bin
+    # directories on PATH, both for this run and for future shell sessions.
+    # Exits with 1 when the install fails.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   ensure_pnpm
+    #
+    if is_command_available 'pnpm'; then
+        action_run "Check ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'pnpm')" \
+            '' 'exists'
+    else
+        action_request_permission 'to install pnpm globally'
+        action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'pnpm')$(gum style --faint ' with npm')" \
+            "$(check_sudo) npm install -g pnpm" 'installed'
+        assert $? 'npm failed to install pnpm'
+    fi
+
+    # pnpm resolves its global bin directory from PNPM_HOME and refuses to link
+    # binaries that aren't reachable, so both must apply to the current process
+    export PNPM_HOME="$PNPM_DIR"
+    export PATH="${PNPM_DIR}:${PNPM_DIR}/bin:${PATH}"
+
+    local shells
+    shells=$(env_set_permanent 'PNPM_HOME' "$PNPM_DIR")
+    [ -n "$shells" ] && action_run "Set PNPM_HOME for ${STYLE_CLR}${STYLE_BOLD}${shells}"
+
+    export -f pnpm_add_to_path
+    action_run 'Add pnpm bin directories to PATH' 'pnpm_add_to_path' 'done'
+    assert $? "can't add pnpm to PATH"
+}
+
+
+# Runs inside action_run, so common's exported helpers do the work
+# shellcheck disable=SC2329
+pnpm_add_to_path() {
+    #
+    # Add the pnpm bin directories to the PATH of bash and, when installed,
+    # fish. Idempotent - config_set_param skips lines that are already there.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   pnpm_add_to_path
+    #
+    config_set_param ~/.bashrc "$PNPM_PATH_BASH" || return 1
+
+    is_command_available 'fish' || return 0
+
+    mkdir -p ~/.config/fish || return 1
+    config_set_param ~/.config/fish/config.fish "$PNPM_PATH_FISH" || return 1
+    config_set_param ~/.config/fish/config.fish "$PNPM_PATH_FISH_BIN"
+}
+
+
+install_pi() {
+    #
+    # Install pi globally with pnpm, pulling in pnpm itself when missing.
+    # Re-running upgrades pi to the latest published version.
+    # Exits with 1 when the install fails.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   install_pi
+    #
+    printf_section "Installing Pi\n"
+
+    ensure_pnpm
+
+    # --ignore-scripts: pi needs no lifecycle scripts and they'd run unvetted
+    action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$PI_PACKAGE")$(gum style --faint ' with pnpm')" \
+        "pnpm add -g --ignore-scripts ${PI_PACKAGE}" 'installed'
+    assert $? 'pnpm failed to install pi'
+}
+
+
+download_manifest() {
+    #
+    # Download the list of published agent files into MANIFEST.
+    # Exits with 1 when the manifest is unreachable or empty.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   download_manifest
+    #
+    MANIFEST=$(curl -fsSL "$MANIFEST_URL" 2>> "$LOG_FILE")
+
+    local count
+    count=$(printf '%s\n' "$MANIFEST" | grep -c .)
+
+    if ! action_run 'Download file manifest' \
+                    "[ ${count} -gt 0 ]"     \
+                    "${count} files"         \
+                    'unavailable'; then
+        printf_error "can't download ${MANIFEST_URL}\n"
+        exit 1
+    fi
+}
+
+
+manifest_dest() {
+    #
+    # Echo the install destination of a manifest path, or an empty line for
+    # files this script doesn't install.
+    #
+    # Parameters:
+    #   $1 - rel - file path relative to agents/.
+    #
+    # Example:
+    #   dest=$(manifest_dest 'pi/settings.json')  # -> ~/.pi/agent/settings.json
+    #
+    local rel="$1"
+
+    case $rel in
+        # completions belong to the shell, not to pi's config directory
+        pi/cli.bash) printf '%s\n' "$BASH_COMPLETION_FILE" ;;
+        pi/cli.fish) printf '%s\n' "$FISH_COMPLETION_FILE" ;;
+        AGENTS.md)   printf '%s\n' "${PI_DIR}/AGENTS.md"   ;;
+        pi/*)        printf '%s\n' "${PI_DIR}/${rel#pi/}"  ;;
+        *)           printf '\n'                           ;;
+    esac
+}
+
+
+install_group() {
+    #
+    # Install every manifest entry matching the given extended regex.
+    # Exits with 1 when a file can't be placed.
+    #
+    # Parameters:
+    #   $1 - pattern - ERE matched against the manifest paths.
+    #
+    # Example:
+    #   install_group '^pi/extensions/'
+    #
+    local pattern="$1"
+
+    local rel dest
+    while IFS= read -r rel; do
+        dest=$(manifest_dest "$rel")
+        [ -z "$dest" ] && continue
+
+        mkdir -p "${dest%/*}"
+        assert $? "can't create ${dest%/*}"
+
+        action_install_file "$dest" "${AGENTS_URL}/${rel}"
+    done < <(printf '%s\n' "$MANIFEST" | grep -E "$pattern")
+}
+
+
+install_config() {
+    #
+    # Install the selected pi configuration files.
+    #
+    # Parameters:
+    #   $1 - choices - selection returned by action_choose_items.
+    #
+    # Example:
+    #   install_config "$choices"
+    #
+    local choices="$1"
+
+    printf_section "Configuring Pi\n"
+
+    download_manifest
+
+    # anchored patterns: a bare 'settings' also matches 'extension settings'
+    has_choice "$choices" '^settings$'           && install_group '^pi/settings\.json$'
+    has_choice "$choices" '^keybindings$'        && install_group '^pi/keybindings\.json$'
+    has_choice "$choices" '^extension settings$' && install_group '^pi/extensions/'
+    has_choice "$choices" '^global agents'       && install_group '^AGENTS\.md$'
+
+    if has_choice "$choices" '^cli completions$'; then
+        # without bash-completion the installed completion file is never sourced
+        action_require_package 'bash-completion'
+        install_group '^pi/cli\.'
+    fi
+}
+
+
+next_backup_dir() {
+    #
+    # Echo the next free <path>.bakN name. Companion to common's backup_file,
+    # which handles regular files only.
+    #
+    # Parameters:
+    #   $1 - path - path to derive the backup name from.
+    #
+    # Example:
+    #   backup_dir=$(next_backup_dir "$SKILLS_DIR")
+    #
+    local path="$1"
+
+    local idx=1
+    while [ -e "${path}.bak${idx}" ]; do
+        ((idx++))
+    done
+
+    printf '%s\n' "${path}.bak${idx}"
+}
+
+
+# Runs inside action_run, so it sees exported state only
+# shellcheck disable=SC2329
+install_skill() {
+    #
+    # Download every file of one skill into pi's skills directory, preserving
+    # the skill's internal layout.
+    #
+    # Parameters:
+    #   $1 - skill - skill directory name under agents/skills.
+    #
+    # Example:
+    #   install_skill 'code-style'
+    #
+    local skill="$1"
+
+    # replace rather than overwrite, so files dropped upstream don't linger
+    local skill_dir="${SKILLS_DIR}/${skill}"
+    if [ -d "$skill_dir" ]; then
+        mkdir -p "$SKILLS_BACKUP_DIR" || return 1
+        mv "$skill_dir" "${SKILLS_BACKUP_DIR}/${skill}" || return 1
+    fi
+
+    local rel
+    while IFS= read -r rel; do
+        mkdir -p "${PI_DIR}/${rel%/*}" || return 1
+        curl -fsSL "${AGENTS_URL}/${rel}" -o "${PI_DIR}/${rel}" || return 1
+    done < <(printf '%s\n' "$MANIFEST" | grep -E "^skills/${skill}/")
+
+    return 0
+}
+
+
+install_skills() {
+    #
+    # Install every published skill, one action per skill.
+    # Exits with 1 when a skill can't be installed.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   install_skills
+    #
+    printf_section "Installing Skills\n"
+
+    SKILLS_BACKUP_DIR=$(next_backup_dir "$SKILLS_DIR")
+
+    export AGENTS_URL MANIFEST PI_DIR SKILLS_DIR SKILLS_BACKUP_DIR
+    export -f install_skill
+
+    local skill count status
+    while IFS= read -r skill; do
+        count=$(printf '%s\n' "$MANIFEST" | grep -c "^skills/${skill}/")
+        status="${count} files"
+        [ "$count" -eq 1 ] && status='1 file'
+
+        action_run "Install skill ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$skill")" \
+            "install_skill '${skill}'" "$status"
+        assert $? "can't install skill: ${skill}"
+    done < <(printf '%s\n' "$MANIFEST" | grep -E '^skills/' | cut -d '/' -f 2 | sort -u)
+
+    [ -d "$SKILLS_BACKUP_DIR" ] &&
+        printf_action "Replaced skills backed up to ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$(pretty_path "$SKILLS_BACKUP_DIR")")\n"
+
+    return 0
+}
+
+
+main() {
+
+    ## Init
+
+    action_start_tui
+
+    ## Ask user for configuration to install
+
+    local choices
+    choices=$(action_choose_items 'Confirm Items' \
+                  'Settings'                      \
+                  'Keybindings'                   \
+                  'Extension Settings'            \
+                  'Skills'                        \
+                  'Global AGENTS.md'              \
+                  'CLI Completions') || return 0
+
+    ## Required tools
+
+    action_require_packages --title 'Required Tools' 'nodejs' 'npm'
+
+    ## Install pi itself - always, so a re-run doubles as an upgrade
+
+    install_pi
+
+    ## Install selected configuration
+
+    if [ -n "$choices" ]; then
+        install_config "$choices"
+        has_choice "$choices" '^skills$' && install_skills
+    fi
+
+    printf_info "Restart your shell to pick up PNPM_HOME and the updated PATH\n"
+
+    return 0
+}
+
+
+main "$@"
