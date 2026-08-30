@@ -87,6 +87,21 @@ Keep changes clean under the project's linter and formatter. When flagged
 code is intentional, suppress it at the narrowest scope — a single line —
 with a nearby comment explaining why; never file- or project-wide.
 
+### Completion handoff
+
+After completing a relatively large, self-contained requested feature, fix, or
+change:
+
+- If `CHANGELOG.md` exists, add a concise entry to its appropriate unreleased
+  section; do not create the file when absent.
+- Suggest a concise git commit message in the final response; do not commit
+  unless asked.
+- Keep both the changelog message and commit message at most 100 characters,
+  following the repository's existing conventions.
+
+Skip this handoff for small edits, partial work, discussion, and review-only
+tasks, or when the user asks not to do it.
+
 ## 5. Function Size and Decomposition
 
 - Split any function that spans multiple phases or responsibilities, or that

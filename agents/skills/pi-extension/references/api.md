@@ -7,6 +7,7 @@ doc in the installed package.
 
 - [Event lifecycle](#event-lifecycle)
 - [Event return contracts](#event-return-contracts)
+- [UI prompt lifecycle](#ui-prompt-lifecycle)
 - [ExtensionContext (ctx)](#extensioncontext-ctx)
 - [ExtensionCommandContext](#extensioncommandcontext)
 - [ExtensionAPI (pi) methods](#extensionapi-pi-methods)
@@ -42,6 +43,11 @@ Others: `session_before_compact`/`session_compact`, `session_before_tree`/`sessi
 `model_select`, `thinking_level_select`, `session_info_changed`, `user_bash`.
 Exit fires `session_shutdown`.
 
+On pi ≥ 0.84.4, auto-compaction may run after a tool batch and before the next
+assistant response in the same active run. The normal
+`session_before_compact` → `session_compact|session_compact_failed` lifecycle
+still wraps it.
+
 Parallel tool mode (default): `tool_execution_start` in source order,
 `tool_result`/`tool_execution_end` in completion order, final toolResult
 messages later in source order. `tool_call` handlers may not see sibling tool
@@ -70,9 +76,10 @@ order; several chain like middleware.
 | `resources_discover` | `{ skillPaths?, promptPaths?, themePaths? }` | |
 
 Notification-only (returns ignored): `agent_start`, `agent_end`,
-`agent_settled`, `turn_start`, `turn_end`, `message_start`, `message_update`,
-`tool_execution_*`, `session_start`, `session_shutdown`, `session_compact`,
-`session_tree`, `model_select`, `thinking_level_select`, `session_info_changed`.
+`agent_settled`, `ui_prompt_start`, `ui_prompt_end`, `turn_start`, `turn_end`,
+`message_start`, `message_update`, `tool_execution_*`, `session_start`,
+`session_shutdown`, `session_compact`, `session_tree`, `model_select`,
+`thinking_level_select`, `session_info_changed`.
 
 `agent_end` may still be followed by auto-retry, auto-compaction + retry, or
 queued follow-up messages. For "agent is truly done" status integrations use
@@ -89,6 +96,18 @@ resolution now honors the request signal and fails during stream setup. An
 extension that hides its own aborted run must rewrite both shapes in
 `message_end`, matched against a run it owns — never against message text —
 and an unsanitized `error` shape additionally feeds pi's auto-retry check.
+
+## UI prompt lifecycle
+
+On pi ≥ 0.84.4, `ui_prompt_start` and `ui_prompt_end` bracket blocking
+extension calls to `ctx.ui.select()`, `confirm()`, `input()`, `editor()`, and
+`custom()`. Each event has `reason: "ui_prompt"`, a `kind` naming the method,
+and an optional `title` (`custom` has none).
+
+Nested or overlapping prompts are coalesced into one outer waiting span.
+Handlers are best-effort and are not awaited before the prompt opens or closes,
+so use these events for host/status reporting, not ordering-sensitive setup or
+cleanup.
 
 ## ExtensionContext (ctx)
 
@@ -129,7 +148,10 @@ All session-changing methods return `{ cancelled: boolean }`.
 - `pi.registerCommand(name, { description, handler, getArgumentCompletions? })` — handler `(args: string, ctx: ExtensionCommandContext)`. Duplicate names get `:1`, `:2` suffixes.
 - `pi.registerShortcut(keyId, { description, handler })` — e.g. `"ctrl+shift+p"` or `Key.ctrlAlt("p")`
 - `pi.registerFlag(name, { description, type, default })` / `pi.getFlag(name)`
-- `pi.sendMessage({ customType, content, display, details? }, { deliverAs?: "steer"|"followUp"|"nextTurn", triggerTurn? })` — custom message, participates in LLM context
+- `pi.sendMessage({ customType, content, display, details? }, { deliverAs?: "steer"|"followUp"|"nextTurn", triggerTurn? })` — custom message, participates in LLM context.
+  On pi ≥ 0.84.4, a message sent with `triggerTurn: false` during a run is
+  appended only after that turn's tool-result messages; do not expect immediate
+  session insertion.
 - `pi.sendUserMessage(content, { deliverAs? })` — as if the user typed it; always triggers a turn; `deliverAs` required while streaming
 - `pi.appendEntry(customType, data?)` — persisted, NOT in LLM context; render in the transcript with `pi.registerEntryRenderer(customType, (entry, { expanded }, theme) => Component)`
 - `pi.registerMessageRenderer(customType, renderer)` — TUI renderer for `sendMessage` messages

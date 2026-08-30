@@ -56,6 +56,10 @@ Timed auto-dismiss: `{ timeout: 5000 }` shows a countdown. To distinguish
 timeout from user cancel, pass your own `AbortSignal` and check
 `controller.signal.aborted` after.
 
+On pi ≥ 0.84.4, these dialogs and `ctx.ui.custom()` automatically emit
+`ui_prompt_start`/`ui_prompt_end`; status integrations can observe the
+coalesced waiting span described in [api.md](api.md#ui-prompt-lifecycle).
+
 ## Status, widgets, footer, working indicator
 
 ```typescript

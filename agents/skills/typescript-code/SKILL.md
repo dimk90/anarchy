@@ -16,6 +16,16 @@ formatter/linter config always wins over the defaults below.
 
 - Tabs for indentation, line width 120, double quotes, semicolons.
 - Numeric separators for large literals: `2_147_483_647`.
+- When a call exceeds the line width, break arguments one per line, or keep
+  short leading arguments on the call line and break the rest — pick whichever
+  reads better:
+
+  ```ts
+  reportCommandMessage(context,
+  	`Configuration already exists; left unchanged: ${filePath}`,
+  	"warning",
+  );
+  ```
 
 ## Modules and Imports
 
