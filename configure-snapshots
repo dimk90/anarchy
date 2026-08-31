@@ -24,6 +24,12 @@ set +o errexit # disable exit on non-zero exit code
 UKI_PATH='/boot/EFI/Linux/arch-linux.efi'
 UKI_LABEL='Arch Linux (UKI)'
 
+# Split boot artifacts //Current points at — and so does every snapshot entry
+# limine-snapper-sync clones from it. vmlinuz-linux ships with the linux
+# package, initramfs-linux.img is the mkinitcpio preset's default_image, and
+# intel-ucode.img comes from intel-ucode.
+SPLIT_BOOT_FILES=('/boot/vmlinuz-linux' '/boot/initramfs-linux.img' '/boot/intel-ucode.img')
+
 # Limine bootloader binary + NVRAM entry
 LIMINE_LABEL='Limine (Snapshots)'
 LIMINE_EFI_SRC='/usr/share/limine/BOOTX64.EFI'
@@ -31,7 +37,7 @@ LIMINE_EFI_DST='/boot/EFI/limine/limine_x64.efi'
 LIMINE_LOADER='\EFI\limine\limine_x64.efi'
 
 # Canonical Limine config (the deep copy under EFI/limine/ goes stale silently
-# and must be removed — limine-snapper-sync only updates the root one).
+# and must be moved aside — limine-snapper-sync only updates the root one).
 LIMINE_CONF='/boot/limine.conf'
 DEEP_LIMINE_CONF='/boot/EFI/limine/limine.conf'
 
@@ -56,8 +62,10 @@ LIMINE_FLATTEN_HOOK_URL="${BASE_URL}/boot/80-limine-flatten-snapshots"
 # Limine menu bitmap fonts (deployed to the ESP root; theme term_font picks one)
 LIMINE_FONT_BASE_URL="${BASE_URL}/font/limine"   # /<name>-8x16.bin
 
-# AUR companions: snapshot→Limine entry sync and kernel-update hook
-AUR_TOOLS='limine-snapper-sync limine-mkinitcpio-hook'
+# AUR companion: turns each new snapper snapshot into a Limine boot entry.
+# limine-mkinitcpio-hook is deliberately left out — it provides (and conflicts
+# with) limine-entry-tool, which the Secure Boot step installs on its own.
+AUR_SYNC_TOOL='limine-snapper-sync'
 
 
 ## Globals (set at runtime)
@@ -186,12 +194,13 @@ apply_root_retention() {
 apply_home_retention() {
     #
     # Retention for the 'home' config: timeline is the only trigger, daily
-    # granularity with weekly + monthly fallback, pacman irrelevant.
+    # granularity with weekly + monthly fallback. Nothing opts out of pacman
+    # here — snap-pac only snapshots the config named 'root' by default, and
+    # snapper rejects keys outside snapper-configs(5) as invalid configdata.
     #
     as_root snapper -c home set-config \
         ALLOW_GROUPS=wheel             \
         SYNC_ACL=yes                   \
-        PACMAN_PRE_POST=no             \
         NUMBER_CLEANUP=no              \
         TIMELINE_CREATE=yes            \
         TIMELINE_CLEANUP=yes           \
@@ -243,9 +252,9 @@ select_optional_components() {
 install_limine() {
     #
     # Everything Limine under one section: the official package, the AUR
-    # companions, the bootloader binary + its pacman hook, limine.conf, the
-    # menu font, the NVRAM entry, /etc/default/limine, and the post.d boot
-    # hooks. Each step keeps its own
+    # companion, the bootloader binary + its pacman hook, limine.conf, the stale
+    # deep-config eviction, the menu font, the NVRAM entry, /etc/default/limine,
+    # and the post.d boot hooks. Each step keeps its own
     # action_request_permission — a silent no-op while sudo is cached, but it
     # re-asserts privilege right before its work (the AUR build can outlast the
     # sudo timestamp) and documents that step's intent.
@@ -254,9 +263,10 @@ install_limine() {
 
     action_require_package 'limine'
 
-    install_aur_tools
+    install_sync_tool
     install_limine_bootloader
     write_limine_config
+    move_deep_config_aside
     deploy_menu_font
     register_limine_nvram
     install_sync_defaults
@@ -335,7 +345,21 @@ verify_prerequisites() {
         exit 1
     fi
 
-    # 6. kernel cmdline present (written by configure-boot) — fills //Current
+    # 6. split boot artifacts present — //Current boots them, and every snapshot
+    #    entry limine-snapper-sync writes is a clone of //Current
+    local missing='' file
+    for file in "${SPLIT_BOOT_FILES[@]}"; do
+        as_root test -f "$file" || missing="${missing}${missing:+, }${file##*/}"
+    done
+    if ! action_run 'Split boot artifacts (kernel, initramfs, microcode)'  \
+                    "[ -z '$missing' ]"                                   \
+                    'present'                                             \
+                    "missing ${missing}"; then
+        printf_error "%s missing from the ESP - //Current and every snapshot entry boot them (re-run configure-boot)\n" "$missing"
+        exit 1
+    fi
+
+    # 7. kernel cmdline present (written by configure-boot) — fills //Current
     if ! action_run "Kernel cmdline ${STYLE_CLR}/etc/kernel/cmdline"  \
                     'as_root test -s /etc/kernel/cmdline'             \
                     'present'                                         \
@@ -344,7 +368,7 @@ verify_prerequisites() {
         exit 1
     fi
 
-    # 7. cryptroot mapper present — its UUID anchors the holder fstab lines, and
+    # 8. cryptroot mapper present — its UUID anchors the holder fstab lines, and
     #    holders are siblings on this btrfs. (Missing holders are provisioned
     #    later, so there's no fstab-presence gate here.)
     if ! action_run "Cryptroot mapper ${STYLE_CLR}${CRYPT_DEV}"  \
@@ -364,17 +388,17 @@ verify_prerequisites() {
 }
 
 
-install_aur_tools() {
+install_sync_tool() {
     #
-    # Build + install the AUR companions with yay (runs as the normal user;
-    # yay shells out to sudo pacman internally, so cache the password first).
-    # Step of the "Installing Limine" section.
+    # Build + install the AUR snapshot-sync companion with yay (runs as the
+    # normal user; yay shells out to sudo pacman internally, so cache the
+    # password first). Step of the "Installing Limine" section.
     #
     action_request_permission 'to install AUR packages with yay'
-    action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$AUR_TOOLS")"  \
-        "yay -S --needed --noconfirm ${AUR_TOOLS}"                             \
+    action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$AUR_SYNC_TOOL")"  \
+        "yay -S --needed --noconfirm ${AUR_SYNC_TOOL}"                             \
         'done'
-    assert $? "can't install AUR snapshot tools"
+    assert $? "can't install ${AUR_SYNC_TOOL}"
 }
 
 
@@ -441,10 +465,9 @@ fill_kernel_cmdline() {
 write_limine_config() {
     #
     # Assemble limine.conf (theme first when selected, then settings + boot
-    # entries), fill //Current's kernel_cmdline from /etc/kernel/cmdline, then
-    # drop the stale deep config under EFI/limine/. Confirms + backs up an
-    # existing config first. Step of
-    # the "Installing Limine" section.
+    # entries) and fill //Current's kernel_cmdline from /etc/kernel/cmdline.
+    # Confirms + backs up an existing config first. Step of the
+    # "Installing Limine" section.
     #
     action_request_permission 'to write /boot/limine.conf'
 
@@ -489,11 +512,41 @@ write_limine_config() {
         'done'
     assert $? "can't install $LIMINE_CONF"
     rm -f "$conf_tmp"
+}
 
-    action_run "Remove stale ${STYLE_CLR}${DEEP_LIMINE_CONF}"  \
-        "as_root rm -f '$DEEP_LIMINE_CONF'"                    \
+
+move_deep_config_aside() {
+    #
+    # Rename an existing /boot/EFI/limine/limine.conf out of the way. Limine
+    # prefers <EFI app dir>/limine.conf over the partition root, but
+    # limine-snapper-sync only updates the root one — a surviving deep copy is
+    # what actually boots, and it goes stale (kernel panic) the moment a
+    # snapshot is created. Renamed rather than deleted so a hand-written config
+    # isn't lost. Runs on every path, including the "keep the existing config"
+    # one, so the deep copy can't outlive a re-run. Step of the
+    # "Installing Limine" section.
+    #
+    action_request_permission 'to move the stale deep Limine config aside'
+
+    # /boot is root-only (umask 0077), so every existence test needs root.
+    if ! as_root test -e "$DEEP_LIMINE_CONF"; then
+        action_run "Stale ${STYLE_CLR}${DEEP_LIMINE_CONF}" '' 'absent'
+        return 0
+    fi
+
+    local idx=1
+    while as_root test -e "${DEEP_LIMINE_CONF}.bak${idx}"; do
+        ((idx++))
+    done
+
+    local backup="${DEEP_LIMINE_CONF}.bak${idx}"
+    action_run "Move ${STYLE_CLR}${DEEP_LIMINE_CONF}${STYLE_DIM} aside"  \
+        "as_root mv '$DEEP_LIMINE_CONF' '$backup'"                       \
         'done'
-    assert $? "can't remove $DEEP_LIMINE_CONF"
+    assert $? "can't move $DEEP_LIMINE_CONF aside"
+
+    printf_action "%b ${STYLE_DIM}deep config renamed to ${STYLE_CLR}${backup}${STYLE_DIM} — it would have overridden ${STYLE_CLR}${LIMINE_CONF}${STYLE_CLR}\n" \
+        "$(bullet_warning)"
 }
 
 
@@ -578,8 +631,9 @@ register_limine_nvram() {
 
 install_sync_defaults() {
     #
-    # /etc/default/limine drives limine-snapper-sync + limine-mkinitcpio-hook.
-    # Step of the "Installing Limine" section.
+    # /etc/default/limine drives limine-snapper-sync (and limine-entry-tool once
+    # the Secure Boot step installs it). Step of the "Installing Limine"
+    # section.
     #
     action_request_permission 'to write /etc/default/limine'
     action_install_file '/etc/default/limine' "$LIMINE_DEFAULT_URL" "$(check_sudo)"
@@ -781,21 +835,42 @@ configure_snapper_config() {
 
 enable_limine_snapper_sync() {
     #
-    # Run an initial sync (best-effort) and enable the inotify-driven service
-    # that turns each new snapshot into a Limine boot entry. Folds under the
-    # "Configuring Snapper for /" section (prints no header of its own).
+    # Run an initial sync and enable the inotify-driven service that turns each
+    # new snapshot into a Limine boot entry. Folds under the "Configuring
+    # Snapper for /" section (prints no header of its own).
     #
     action_request_permission 'to enable limine-snapper-sync'
 
-    # May find nothing to do before the first snapshot — never fatal.
-    action_run 'Run initial sync (best-effort)'   \
-        'as_root limine-snapper-sync || true'     \
+    # No snapshots exist yet, so this writes no entries — it's the check that the
+    # config parses and TARGET_OS_NAME resolves to an entry holding a //Current
+    # kernel node. Fatal: arming the watcher and snap-pac on top of a config the
+    # tool can't read yields snapshots with no boot entry.
+    action_run 'Run initial sync'      \
+        'as_root limine-snapper-sync'  \
         'done'
+    assert $? 'limine-snapper-sync failed - check TARGET_OS_NAME and the //Current kernel entry'
 
     action_run 'Enable limine-snapper-sync.service'                  \
         'as_root systemctl enable --now limine-snapper-sync.service' \
         'enabled'
     assert $? "can't enable limine-snapper-sync.service"
+}
+
+
+enable_cleanup_timer() {
+    #
+    # snapper-cleanup.timer runs the cleanup algorithms (NUMBER_*,
+    # EMPTY_PRE_POST_*, TIMELINE_CLEANUP) over every config — without it the
+    # retention policy is written but never enforced. Enabled here rather than
+    # with the timeline timer because root's retention is mandatory while /home
+    # is opt-in. Folds under the "Configuring Snapper for /" section (prints no
+    # header of its own).
+    #
+    action_request_permission 'to enable snapper-cleanup.timer'
+    action_run 'Enable snapper-cleanup.timer'                  \
+        'as_root systemctl enable --now snapper-cleanup.timer' \
+        'enabled'
+    assert $? "can't enable snapper-cleanup.timer"
 }
 
 
@@ -858,10 +933,12 @@ main() {
     # Retention helpers run inside action_run's bash -c subshell — export them.
     export -f apply_root_retention apply_home_retention
 
-    # root (mandatory): enable_limine_snapper_sync + install_snap_pac print no
-    # header — they fold under "Configuring Snapper for /". snap-pac is last.
+    # root (mandatory): enable_limine_snapper_sync, enable_cleanup_timer and
+    # install_snap_pac print no header — they fold under "Configuring Snapper
+    # for /". snap-pac is last.
     configure_snapper_config 'root' '/' '/.snapshots' '@snapshots' 'apply_root_retention'
     enable_limine_snapper_sync
+    enable_cleanup_timer
     install_snap_pac
 
     # home (optional): enable_timeline_timer folds under its section.
