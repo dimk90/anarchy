@@ -76,9 +76,9 @@ Set up btrfs snapshots with boot-to-snapshot recovery. Installs the
 Limine bootloader (registered as a separate NVRAM entry, ordered *after*
 the UKI so the UKI stays the default), its AUR companions
 (`limine-snapper-sync`, `limine-mkinitcpio-hook`), and `snapper` +
-`snap-pac`. Configures a mandatory `root` snapshot config (pacman-triggered
-via snap-pac, no timeline, 20-snapshot rollback window) and an optional
-`home` config (timeline-driven — daily/weekly/monthly), provisioning the
+`snap-pac`. Both targets are selectable: a `root` config (pacman-triggered
+via snap-pac, no timeline, 20-snapshot rollback window) and a `home` config
+(timeline-driven — daily/weekly/monthly), provisioning the
 `@snapshots`/`@home-snapshots` holder subvolumes and their fstab entries
 if missing. Must be run as a non-root user (AUR tools can't build as root):
 ```bash
@@ -93,6 +93,10 @@ entry) and, for `home`, `snapper-timeline.timer`. Requires the
 `configure-disk` layout (open `cryptroot`, btrfs `subvol=@`), the UKI and
 `/etc/kernel/cmdline` from `configure-boot`, and `yay` (`install-yay`). The
 Limine theme (monochrome HiDPI menu with a selectable bitmap font) is optional.
+
+Only `root` snapshots boot through Limine, so deselecting that target skips
+the whole bootloader half — a `home`-only run needs neither UEFI, nor a UKI,
+nor `yay`, and configures just snapper plus its timers.
 
 ### user ![Arch Linux](https://img.shields.io/badge/Arch_Linux-1793D1?style=flat-square&logo=archlinux&logoColor=white)
 

@@ -2,6 +2,11 @@
 
 Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lands on `main`.
 
+## `[v2.15]` - 31.08.2026
+
+### Changed
+* Make root snapshots opt-out in `configure-snapshots`; a home-only run skips Limine and snap-pac.
+
 ### Fixed
 * Test file existence under `$prefix` in `backup_file`, `remove_line`, `replace_line` and `action_install_file`.
 * Install files with `cp --remove-destination` and mode `0644` instead of `mv`, so a privileged destination is root-owned.
