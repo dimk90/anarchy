@@ -4,8 +4,12 @@ Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lan
 
 ## `[v2.15]` - 31.08.2026
 
+### New
+* Add `_common_file_exists` - prefix-aware existence test that never prompts for a password.
+
 ### Changed
 * Make root snapshots opt-out in `configure-snapshots`; a home-only run skips Limine and snap-pac.
+* Rename the internal function prefix from `_anarchy_` to `_common_`; `_anarchy_handle_interrupt` follows.
 
 ### Fixed
 * Test file existence under `$prefix` in `backup_file`, `remove_line`, `replace_line` and `action_install_file`.
