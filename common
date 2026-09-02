@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.14'
+export COMMON_VERSION='2.15'
 
 
 ## Colors
@@ -687,8 +687,10 @@ backup_file() {
     local filename="$1"
     local prefix="${2-}"
 
-    # If the target file does not exist, there's nothing to back up.
-    if [[ ! -f $filename ]]; then
+    # If the target file does not exist, there's nothing to back up. Tested under
+    # $prefix: the file may sit in a root-only directory (the ESP is mounted
+    # umask=0077), where a bare test reports 'missing' and skips the backup.
+    if ! $prefix test -f "$filename"; then
         echo ''  # return empty string
         return 0 # no error
     fi
@@ -697,7 +699,7 @@ backup_file() {
     local idx=1
     local backup_name="${filename}.bak${idx}"
 
-    while [[ -f $backup_name ]]; do
+    while $prefix test -f "$backup_name"; do
         ((idx++))
         backup_name="${filename}.bak${idx}"
     done
@@ -745,8 +747,8 @@ remove_line() {
         assert 1 'parameters <file> and <pattern> are required'
     fi
 
-    # Check if file exists
-    if [[ ! -f $file ]]; then
+    # Check if file exists (under $prefix - it may be in a root-only directory)
+    if ! $prefix test -f "$file"; then
         return 0 # not a file -> no lines -> done
     fi
 
@@ -787,8 +789,8 @@ replace_line() {
         assert 1 "parameters <file>, <pattern>, and <new_line> are required"
     fi
 
-    # Check if file exists
-    if [[ ! -f $file ]]; then
+    # Check if file exists (under $prefix - it may be in a root-only directory)
+    if ! $prefix test -f "$file"; then
         return 1 # file not found
     fi
 
@@ -1196,6 +1198,7 @@ action_install_file() {
     #
     # Download and install a file to the given destination path.
     # If a file already exists at the destination, a backup will be created.
+    # The installed file is owned by the account $prefix elevates to, mode 0644.
     # Exits with status 1 on failure.
     #
     # Parameters:
@@ -1230,23 +1233,34 @@ action_install_file() {
         'done'
     assert $? "can't download keymap file"
 
-    # Backup existing file (if exists)
-    if [ -f "$file_path" ]; then
-        # Check if sudo required
-        [ "${prefix,,}" = 'sudo' ] && action_request_permission "to backup ${file_basename}"
+    # Every step below runs under $prefix, the existence test included, so ask
+    # for the password first - a bare 'sudo test' would drop a raw prompt into
+    # the middle of the styled UI.
+    [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${file_basename}"
+
+    # Backup existing file (if exists). Tested under $prefix - the destination
+    # may be in a root-only directory (e.g. the ESP, mounted umask=0077).
+    if $prefix test -f "$file_path"; then
         backup_file=$(backup_file "$file_path" "$prefix")
         assert $? "can't backup: $file_basename"
         action_run "Backup $file_basename -> ${backup_file##*/}" "" 'done'
     fi
 
-    # Move file to the target location
-    [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${file_basename}"
+    # Copy the file to the target location. mktemp yields a 0600 file owned by
+    # the caller and a cross-filesystem 'mv' preserves both, which would leave
+    # root-owned configs writable by the user - so set the mode on the temp and
+    # let the privileged copy create the destination. The mode has to be set
+    # here rather than on the destination: chmod on vfat (the ESP) returns
+    # EPERM. --remove-destination also repairs files a previous run mis-owned.
+    chmod 0644 "$tmpfile"
+    assert $? "can't set mode on $tmpfile"
+
     action_run "$(printf "%b %b %b"                                    \
         "$(gum style --faint 'Install')"                               \
         "$(gum style --bold --foreground $GUM_YELLOW "$url_basename")" \
         "$(gum style --faint "to $display_path")${STYLE_DIM}"          \
-    )" "$prefix mv $tmpfile $file_path" 'done'
-    assert $? "can't move $tmpfile -> $file_path"
+    )" "$prefix cp --remove-destination $tmpfile $file_path" 'done'
+    assert $? "can't install $tmpfile -> $file_path"
 }
 
 
