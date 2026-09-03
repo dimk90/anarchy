@@ -1234,20 +1234,30 @@ action_install_file() {
     #
     # Download and install a file to the given destination path.
     # If a file already exists at the destination, a backup will be created.
-    # The installed file is owned by the account $prefix elevates to, mode 0644.
+    # The installed file is owned by the account $prefix elevates to, mode $4.
+    # The default '0644' suits every path used here. Pass '0600' only for a
+    # destination that genuinely has to be private.
     # Exits with status 1 on failure.
+    #
+    # Note:
+    #   A remote content is public (it is fetched over HTTPS from the pages site)
+    #   and system destinations such as /usr/local/share/fonts must stay readable
+    #   by every user that is why '0644' - default mode.
     #
     # Parameters:
     #   $1 - file_path - destination path for the file.
     #   $2 - file_url - URL to download the file from.
     #   $3 - prefix - (optional) - prefix command (e.g., 'sudo').
+    #   $4 - mode - (optional) - mode of the installed file (default: 0644).
     #
     # Example:
     #   action_install_file '/etc/vconsole.conf' 'https://example.com/vconsole.conf' 'sudo'
+    #   action_install_file ~/.config/app/secret.conf "$SECRET_URL" '' '0600'
     #
     local file_path="$1"
     local file_url="$2"
     local prefix="${3-}"
+    local mode="${4-0644}"
 
     local url_basename="${file_url##*/}"
     local file_basename="${file_path##*/}"
@@ -1284,18 +1294,20 @@ action_install_file() {
 
     # Copy the file to the target location. mktemp yields a 0600 file owned by
     # the caller and a cross-filesystem 'mv' preserves both, which would leave
-    # root-owned configs writable by the user - so set the mode on the temp and
-    # let the privileged copy create the destination. The mode has to be set
+    # root-owned configs unreadable to anyone else - so set the mode on the temp
+    # and let the privileged copy create the destination. The mode has to be set
     # here rather than on the destination: chmod on vfat (the ESP) returns
-    # EPERM. --remove-destination also repairs files a previous run mis-owned.
-    chmod 0644 "$tmpfile"
-    assert $? "can't set mode on $tmpfile"
+    # EPERM. 'cp' masks a newly created destination with the caller's umask, so
+    # pin it - under umask 077 the destination would silently come out 0600.
+    # --remove-destination also repairs files a previous run mis-owned.
+    chmod "$mode" "$tmpfile"
+    assert $? "can't set mode $mode on $tmpfile"
 
     action_run "$(printf "%b %b %b"                                    \
         "$(gum style --faint 'Install')"                               \
         "$(gum style --bold --foreground $GUM_YELLOW "$url_basename")" \
         "$(gum style --faint "to $display_path")${STYLE_DIM}"          \
-    )" "$prefix cp --remove-destination $tmpfile $file_path" 'done'
+    )" "umask 022; $prefix cp --remove-destination $tmpfile $file_path" 'done'
     assert $? "can't install $tmpfile -> $file_path"
 
     # 'cp' keeps the temp file, unlike the 'mv' this used to be, and every call

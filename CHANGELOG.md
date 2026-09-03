@@ -6,6 +6,7 @@ Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lan
 
 ### New
 * Add `file_exists` - prefix-aware existence test that never prompts for a password.
+* Add an optional `mode` parameter to `action_install_file` (default `0644`).
 
 ### Changed
 * Make root snapshots opt-out in `configure-snapshots`; a home-only run skips Limine and snap-pac.
@@ -13,7 +14,8 @@ Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lan
 
 ### Fixed
 * Test file existence under `$prefix` in `backup_file`, `remove_line`, `replace_line` and `action_install_file`.
-* Install files with `cp --remove-destination` and mode `0644` instead of `mv`, so a privileged destination is root-owned.
+* Install files with `cp --remove-destination` instead of `mv`, so a privileged destination is root-owned.
+* Pin the umask of the install copy, so a restrictive caller umask cannot narrow the requested mode.
 
 ## `[v2.14]` - 12.08.2026
 
