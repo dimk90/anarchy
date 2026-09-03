@@ -85,6 +85,7 @@ All printers emit a leading bullet + faint title. Mirror this structure — don'
 
 | Helper | Signature | Notes |
 |---|---|---|
+| `file_exists` | `path [prefix]` | 0 if `path` is a regular file, tested under `prefix` so a file in a root-only dir is seen. With `prefix='sudo'` and no privilege granted yet, falls back to an unprivileged test instead of prompting — request the permission first when the privileged answer matters. |
 | `backup_file` | `path [prefix]` | Creates `path.bakN` (next free N). Echoes the new name to stdout (empty if path didn't exist). Returns 0 on success / no-op, 1 on cp failure. |
 | `remove_line` | `file pattern [prefix] [case_mode]` | Deletes lines matching sed regex `pattern`. `case_mode='i'` for case-insensitive. 0 if file missing or no matches (idempotent). |
 | `replace_line` | `file pattern replacement [prefix]` | Replaces each line matching sed regex `pattern` with `replacement` — the whole line, not the matched substring. Returns 1 if the file is missing. |

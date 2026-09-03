@@ -643,6 +643,39 @@ request_gum() {
 export SED_DELIM=$'\001'
 
 
+file_exists() {
+    #
+    # Check whether a regular file exists, testing under the given prefix so
+    # that a file in a root-only directory is seen (the ESP is mounted
+    # umask=0077, where an unprivileged test reports every file as missing).
+    #
+    # Falls back to an unprivileged test when the prefix is 'sudo' and the
+    # privilege has not been granted yet: sudo would ask for a password from
+    # wherever the caller runs - inside an action_run spinner or a command
+    # substitution - where the prompt is invisible and cannot be answered.
+    # Callers wanting the privileged answer request the privilege first.
+    #
+    # Parameters:
+    #   $1 - filename - file to check.
+    #   $2 - prefix - (optional) - prefix command (e.g., 'sudo').
+    #
+    # Example:
+    #   if file_exists "$file" 'sudo'; then ...
+    #
+    local filename="$1"
+    local prefix="${2-}"
+
+    if [ "${prefix,,}" = 'sudo' ] && ! have_privilege; then
+        [[ -f $filename ]]
+        return
+    fi
+
+    # unquoted on purpose: the prefix is a command word, or nothing at all,
+    # which leaves a plain test
+    $prefix test -f "$filename"
+}
+
+
 pretty_path() {
     #
     # Shorten a path for display by replacing the leading home directory with '~'.
@@ -674,7 +707,7 @@ backup_file() {
     # where N is the next available number.
     #
     # The prefix applies to the existence tests too, so a file in a root-only
-    # directory is seen and backed up (see _common_file_exists).
+    # directory is seen and backed up (see file_exists).
     #
     # Parameters:
     #   $1 - filename - file to backup.
@@ -691,7 +724,7 @@ backup_file() {
     local prefix="${2-}"
 
     # If the target file does not exist, there's nothing to back up
-    if ! _common_file_exists "$filename" "$prefix"; then
+    if ! file_exists "$filename" "$prefix"; then
         echo ''  # return empty string
         return 0 # no error
     fi
@@ -700,7 +733,7 @@ backup_file() {
     local idx=1
     local backup_name="${filename}.bak${idx}"
 
-    while _common_file_exists "$backup_name" "$prefix"; do
+    while file_exists "$backup_name" "$prefix"; do
         ((idx++))
         backup_name="${filename}.bak${idx}"
     done
@@ -722,7 +755,7 @@ remove_line() {
     # The pattern matching is case sensitive by default.
     # Return 0 if the file does not exist or if no matching lines are found.
     # The prefix applies to the existence test too, so a file in a root-only
-    # directory is seen (see _common_file_exists).
+    # directory is seen (see file_exists).
     #
     # Parameters:
     #   $1 - file - file to modify.
@@ -750,7 +783,7 @@ remove_line() {
         assert 1 'parameters <file> and <pattern> are required'
     fi
 
-    if ! _common_file_exists "$file" "$prefix"; then
+    if ! file_exists "$file" "$prefix"; then
         return 0 # not a file -> no lines -> done
     fi
 
@@ -768,7 +801,7 @@ replace_line() {
     #
     # Replace lines matching a given pattern in a file with a new line.
     # The prefix applies to the existence test too, so a file in a root-only
-    # directory is seen (see _common_file_exists).
+    # directory is seen (see file_exists).
     #
     # Parameters:
     #   $1 - file - file to modify.
@@ -793,7 +826,7 @@ replace_line() {
         assert 1 "parameters <file>, <pattern>, and <new_line> are required"
     fi
 
-    if ! _common_file_exists "$file" "$prefix"; then
+    if ! file_exists "$file" "$prefix"; then
         return 1 # file not found
     fi
 
@@ -1238,12 +1271,12 @@ action_install_file() {
 
     # Every step below runs under $prefix, the existence test included, so ask
     # for the password here, inside the styled UI. Without a granted privilege
-    # _common_file_exists falls back to an unprivileged test and would report
+    # file_exists falls back to an unprivileged test and would report
     # a file in a root-only directory as missing, skipping its backup.
     [ "${prefix,,}" = 'sudo' ] && action_request_permission "to install ${file_basename}"
 
     # Backup existing file (if exists)
-    if _common_file_exists "$file_path" "$prefix"; then
+    if file_exists "$file_path" "$prefix"; then
         backup_file=$(backup_file "$file_path" "$prefix")
         assert $? "can't backup: $file_basename"
         action_run "Backup $file_basename -> ${backup_file##*/}" "" 'done'
@@ -1455,40 +1488,6 @@ action_choose_items() {
 ## Internal
 
 
-# Bash cannot hide private functions; the prefix marks the internal boundary
-_common_file_exists() {
-    #
-    # Check whether a regular file exists, testing under the given prefix so
-    # that a file in a root-only directory is seen (the ESP is mounted
-    # umask=0077, where an unprivileged test reports every file as missing).
-    #
-    # Falls back to an unprivileged test when the prefix is 'sudo' and the
-    # privilege has not been granted yet: sudo would ask for a password from
-    # wherever the caller runs - inside an action_run spinner or a command
-    # substitution - where the prompt is invisible and cannot be answered.
-    # Callers wanting the privileged answer request the privilege first.
-    #
-    # Parameters:
-    #   $1 - filename - file to check.
-    #   $2 - prefix - (optional) - prefix command (e.g., 'sudo').
-    #
-    # Example:
-    #   if _common_file_exists "$file" 'sudo'; then ...
-    #
-    local filename="$1"
-    local prefix="${2-}"
-
-    if [ "${prefix,,}" = 'sudo' ] && ! have_privilege; then
-        [[ -f $filename ]]
-        return
-    fi
-
-    # unquoted on purpose: the prefix is a command word, or nothing at all,
-    # which leaves a plain test
-    $prefix test -f "$filename"
-}
-
-
 _common_handle_interrupt() {
     #
     # Print a terminal message and exit with the conventional SIGINT status.
@@ -1546,6 +1545,7 @@ export -f install_gum_deb
 export -f request_gum
 
 # Files & Env
+export -f file_exists
 export -f pretty_path
 export -f backup_file
 export -f remove_line
@@ -1564,9 +1564,6 @@ export -f action_run
 export -f action_request_permission
 export -f action_set_password
 export -f action_choose_items
-
-# Internal
-export -f _common_file_exists
 
 
 ## Source-Time Initialization
