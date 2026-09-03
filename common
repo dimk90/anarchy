@@ -1226,7 +1226,7 @@ action_install_file() {
     tmpfile="$(mktemp)"
     assert $? "can't create temporary file"
 
-    # Register cleanup trap
+    # Register cleanup trap for the paths that bail out early (assert exits).
     # shellcheck disable=SC2064
     trap "rm -f $tmpfile" EXIT
 
@@ -1264,6 +1264,12 @@ action_install_file() {
         "$(gum style --faint "to $display_path")${STYLE_DIM}"          \
     )" "$prefix cp --remove-destination $tmpfile $file_path" 'done'
     assert $? "can't install $tmpfile -> $file_path"
+
+    # 'cp' keeps the temp file, unlike the 'mv' this used to be, and every call
+    # re-registers the trap above - so only the last temp would ever be swept.
+    # Clean up here and drop the now-stale trap.
+    rm -f "$tmpfile"
+    trap - EXIT
 }
 
 
