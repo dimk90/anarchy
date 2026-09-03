@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.15'
+export COMMON_VERSION='2.16'
 
 
 ## Colors
@@ -863,6 +863,12 @@ config_set_param() {
     local param="$2"
     local section="${3-}"
     local prefix="${4-}"
+
+    # Check if both parameters are provided. An empty param would match every
+    # line in the grep below and silently report the parameter as already set.
+    if [[ -z $file || -z $param ]]; then
+        assert 1 'parameters <file> and <param> are required'
+    fi
 
     # Check if parameter already exists
     if ${prefix} grep -q -E "${param}" "${file}"; then

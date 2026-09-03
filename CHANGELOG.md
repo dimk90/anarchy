@@ -2,6 +2,12 @@
 
 Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lands on `main`.
 
+## `[v2.16]` - 03.09.2026
+
+### Fixed
+* Reject an empty pattern in `config_set_param` - it matched every line and reported the param as set.
+
+
 ## `[v2.15]` - 31.08.2026
 
 ### New
