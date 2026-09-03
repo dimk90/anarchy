@@ -44,12 +44,14 @@ PNPM_DIR="${HOME}/.local/share/pnpm"
 # would end up above its own definition. fish loads conf.d before config.fish,
 # so there $PNPM_HOME is always set already. Both must reach the rc file
 # unexpanded, hence the single quotes and the SC2016 suppressions.
+# Exported because pnpm_add_to_path reads them from the bash -c subshell
+# action_run spawns, which inherits exported state only.
 # shellcheck disable=SC2016
-PNPM_PATH_BASH='export PATH="\$HOME/\.local/share/pnpm:\$HOME/\.local/share/pnpm/bin:\$PATH"'
+export PNPM_PATH_BASH='export PATH="\$HOME/\.local/share/pnpm:\$HOME/\.local/share/pnpm/bin:\$PATH"'
 # shellcheck disable=SC2016
-PNPM_PATH_FISH='fish_add_path "\$PNPM_HOME"'
+export PNPM_PATH_FISH='fish_add_path "\$PNPM_HOME"'
 # shellcheck disable=SC2016
-PNPM_PATH_FISH_BIN='fish_add_path "\$PNPM_HOME/bin"'
+export PNPM_PATH_FISH_BIN='fish_add_path "\$PNPM_HOME/bin"'
 
 # Per-user completion targets - no root required
 BASH_COMPLETION_FILE="${HOME}/.local/share/bash-completion/completions/pi"
