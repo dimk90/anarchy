@@ -349,6 +349,27 @@ action_run 'Enable zoxide for fish' 'fish_enable_zoxide' 'done'
 
 The `# shellcheck disable=SC2329` suppresses the "function never invoked" warning shellcheck emits because the function is called via `bash -c` inside `action_run`.
 
+### Export the State Too, Not Just the Function
+
+`action_run` executes its command as `bash -c "$command &>> $LOG_FILE"` — a **fresh child shell that inherits exported state only**. `export -f` carries the function body across; it carries neither the script globals the body reads nor other script-local functions it calls. Export every dependency before invoking `action_run`.
+
+Don't expect `set -o nounset` to catch a missing export. The child starts without `-u`, so an unset variable expands to `''`. That empty value may still produce exit status 0, letting the action print its green success status while doing the wrong thing or nothing at all. Some helpers reject empty required arguments, but never rely on the callee to detect missing state.
+
+```bash
+# Wrong: only the function reaches the child shell
+PNPM_PATH_BASH='export PATH="\$HOME/\.local/share/pnpm:\$PATH"'
+export -f pnpm_add_to_path
+
+# Right: export the value at its definition and every function dependency
+# shellcheck disable=SC2016
+export PNPM_PATH_BASH='export PATH="\$HOME/\.local/share/pnpm:\$PATH"'
+export -f pnpm_add_to_path
+
+action_run 'Add pnpm bin directories to PATH' 'pnpm_add_to_path' 'done'
+```
+
+Before wiring up `action_run`, inspect the complete call tree: export each script global with `export NAME`, export each script-local function with `export -f name`, and either export caller-computed values or pass controlled values as quoted arguments in the command string. Helpers from `common` are already exported.
+
 ## Selection Menus
 
 For a standard section-level multi-select with every item pre-selected, use `action_choose_items`. It lowercases the selection, repaints the header, and prints the selected count. The selection is returned on stdout; UI goes to stderr so command substitution captures only data. Cancellation returns 1, while an empty selection returns 0 and an empty string:

@@ -46,6 +46,10 @@ DEEP_LIMINE_CONF='/boot/EFI/limine/limine.conf'
 # the dir, isn't installed until the Secure Boot step.
 BOOT_HOOKS_DIR='/etc/boot/hooks/post.d'
 
+# Drop-in that pulls snapper-timeline.timer from hourly to daily creation
+TIMELINE_DROPIN_DIR='/etc/systemd/system/snapper-timeline.timer.d'
+TIMELINE_DROPIN='daily.conf'
+
 # Encrypted btrfs holding @ and the snapshot holders - must match configure-disk.
 CRYPT_NAME='cryptroot'
 CRYPT_DEV="/dev/mapper/${CRYPT_NAME}"
@@ -58,6 +62,7 @@ LIMINE_HOOK_URL="${BASE_URL}/boot/99-limine.hook"
 LIMINE_DEFAULT_URL="${BASE_URL}/boot/limine.default"
 LIMINE_STRIP_HOOK_URL="${BASE_URL}/boot/81-limine-strip-resume"
 LIMINE_FLATTEN_HOOK_URL="${BASE_URL}/boot/80-limine-flatten-snapshots"
+TIMELINE_DROPIN_URL="${BASE_URL}/snapper/timeline-daily.conf"
 
 # Limine menu bitmap fonts (deployed to the ESP root; theme term_font picks one)
 LIMINE_FONT_BASE_URL="${BASE_URL}/font/limine"   # /<name>-8x16.bin
@@ -88,6 +93,11 @@ ESP_IDX=''
 
 # Cryptroot UUID for the holder fstab lines (set in verify_prerequisites)
 CRYPT_UUID=''
+
+# Owned temporary resources; their EXIT trap is armed only while they are live
+# because common's action_install_file manages its own EXIT trap.
+_SNAPSHOTS_TEMP_FILE=''
+_SNAPSHOTS_TOP=''
 
 
 ## Routines
@@ -518,7 +528,8 @@ fill_kernel_cmdline() {
     cmdline=$(as_root cat /etc/kernel/cmdline 2>>"$LOG_FILE") || return 1
     [ -n "$cmdline" ] || return 1
     body=$(< "$conf") || return 1
-    printf '%s\n' "${body/"$placeholder"/$cmdline}" > "$conf"
+    # Quote the replacement itself: outer quotes do not suppress patsub_replacement
+    printf '%s\n' "${body/"$placeholder"/"$cmdline"}" > "$conf"
 }
 
 
@@ -553,9 +564,10 @@ write_limine_config() {
     fi
 
     # Assemble into a temp: theme leads (if selected), settings + entries follow.
-    local conf_tmp
-    conf_tmp=$(mktemp)
+    trap '_snapshots_cleanup' EXIT
+    _SNAPSHOTS_TEMP_FILE=$(mktemp)
     assert $? "can't create temporary file"
+    local conf_tmp="$_SNAPSHOTS_TEMP_FILE"
 
     export -f build_limine_conf
     action_run 'Assemble limine.conf'                                                        \
@@ -574,6 +586,9 @@ write_limine_config() {
         'done'
     assert $? "can't install $LIMINE_CONF"
     rm -f "$conf_tmp"
+    assert $? "can't remove $conf_tmp"
+    _SNAPSHOTS_TEMP_FILE=''
+    trap - EXIT
 }
 
 
@@ -719,8 +734,8 @@ install_boot_hooks() {
     # limine.conf: 81-limine-strip-resume (always - idempotent, a no-op without
     # hibernation) and, when selected, 80-limine-flatten-snapshots. Must land
     # before the initial sync so the first written config is already scrubbed.
-    # action_install_file neither creates the dir nor sets the exec bit, so do
-    # both here. Step of the "Installing Limine" section.
+    # Backups must be non-executable or end in .disabled: upstream executes
+    # every other executable file in post.d. Step of "Installing Limine".
     #
     action_request_permission 'to install limine post.d hooks'
 
@@ -731,36 +746,60 @@ install_boot_hooks() {
 
     # strip-resume: always (hibernation safety; harmless when no resume= present)
     local strip_dst="${BOOT_HOOKS_DIR}/81-limine-strip-resume"
-    action_install_file "$strip_dst" "$LIMINE_STRIP_HOOK_URL" "$(check_sudo)"
-    action_run "Make ${STYLE_CLR}${strip_dst##*/}${STYLE_DIM} executable"  \
-        "as_root chmod +x '$strip_dst'"                                    \
-        'done'
-    assert $? "can't chmod +x $strip_dst"
+    install_boot_hook "$strip_dst" "$LIMINE_STRIP_HOOK_URL"
 
-    # flatten: optional
+    # Deselecting must also disable the hook and stale copies from earlier runs
+    local flat_dst="${BOOT_HOOKS_DIR}/80-limine-flatten-snapshots"
     if [ "$WANT_FLATTEN" = true ]; then
-        local flat_dst="${BOOT_HOOKS_DIR}/80-limine-flatten-snapshots"
-        action_install_file "$flat_dst" "$LIMINE_FLATTEN_HOOK_URL" "$(check_sudo)"
-        action_run "Make ${STYLE_CLR}${flat_dst##*/}${STYLE_DIM} executable"  \
-            "as_root chmod +x '$flat_dst'"                                    \
-            'done'
-        assert $? "can't chmod +x $flat_dst"
+        install_boot_hook "$flat_dst" "$LIMINE_FLATTEN_HOOK_URL"
+    else
+        action_run 'Disable snapshot menu flattening'             \
+            "_snapshots_disable_hook_copies '$flat_dst' true"     \
+            'disabled'
+        assert $? "can't disable $flat_dst"
     fi
 }
 
 
-# shellcheck disable=SC2329
-fstab_append() {
+install_boot_hook() {
     #
-    # Append a line to /etc/fstab unless a line matching the regex pattern is
-    # already present. prefix (e.g. sudo) elevates the read + append.
+    # Download a hook before changing its live copy, then install it executable.
+    # Keep backups excluded from hook execution, including legacy .bakN copies.
+    # Exits through assert on failure and removes the download through EXIT.
     #
-    local pattern="$1"
-    local line="$2"
-    local prefix="${3-}"
+    # Parameters:
+    #   $1 - dest - hook destination.
+    #   $2 - url - hook download URL.
+    #
+    # Example:
+    #   install_boot_hook "$strip_dst" "$LIMINE_STRIP_HOOK_URL"
+    #
+    local dest="$1" url="$2"
 
-    ${prefix} grep -qE "${pattern}" /etc/fstab && return 0
-    printf '\n%s\n' "${line}" | ${prefix} tee -a /etc/fstab &>> "$LOG_FILE"
+    action_request_permission 'to install a Limine boot hook'
+    trap '_snapshots_cleanup' EXIT
+    _SNAPSHOTS_TEMP_FILE=$(mktemp)
+    assert $? "can't create temporary hook file"
+
+    action_run "Download ${STYLE_CLR}${dest##*/}"                       \
+        "curl -fsSL '$url' -o '$_SNAPSHOTS_TEMP_FILE'"                   \
+        'done'
+    assert $? "can't download $url"
+
+    action_run "Back up ${STYLE_CLR}${dest##*/}${STYLE_DIM} safely"     \
+        "_snapshots_backup_hook '$dest'"                               \
+        'done'
+    assert $? "can't back up $dest or disable its old hook copies"
+
+    action_run "Install ${STYLE_CLR}${dest##*/}"                        \
+        "$(check_sudo) install -m 0755 '$_SNAPSHOTS_TEMP_FILE' '$dest'"  \
+        'done'
+    assert $? "can't install $dest"
+
+    rm -f "$_SNAPSHOTS_TEMP_FILE"
+    assert $? "can't remove $_SNAPSHOTS_TEMP_FILE"
+    _SNAPSHOTS_TEMP_FILE=''
+    trap - EXIT
 }
 
 
@@ -775,15 +814,29 @@ ensure_holder() {
     #
     local subvol="$1" snapdir="$2"
 
+    action_request_permission 'to provision the snapshot holder'
+
+    # Validate active fields before any Snapper creation/deletion. Comments and
+    # other mountpoints are not entries for this holder; conflicts are not edited.
+    action_run "Validate fstab entry for ${STYLE_CLR}${snapdir}"                     \
+        "_snapshots_ensure_fstab '/etc/fstab' '$subvol' '$snapdir' '$CRYPT_UUID' check" \
+        'valid or absent'                                                             \
+        'missing file or conflicting entry'
+    assert $? "check /etc/fstab: $snapdir needs one btrfs entry with UUID=$CRYPT_UUID and subvol=$subvol"
+
     # Create the sibling subvolume if absent. It can't be made from inside @, so
     # mount the btrfs top-level (subvolid=5) at a temp mountpoint.
-    if as_root btrfs subvolume list / 2>>"$LOG_FILE" | grep -qE "[[:space:]]path ${subvol}$"; then
+    local subvolumes
+    subvolumes=$(as_root btrfs subvolume list / 2>>"$LOG_FILE")
+    assert $? "can't list btrfs subvolumes"
+    if grep -qE "[[:space:]]path ${subvol}$" <<< "$subvolumes"; then
         printf_action "%b ${STYLE_DIM}subvolume ${STYLE_CLR}${subvol}${STYLE_DIM} exists${STYLE_CLR}\n" \
             "$(bullet_info)"
     else
-        local top
-        top=$(mktemp -d)
+        trap '_snapshots_cleanup' EXIT
+        _SNAPSHOTS_TOP=$(mktemp -d)
         assert $? "can't create temp mountpoint"
+        local top="$_SNAPSHOTS_TOP"
 
         action_run "Mount cryptroot top-level at ${STYLE_CLR}${top}"  \
             "as_root mount -o subvolid=5 '$CRYPT_DEV' '$top'"         \
@@ -802,19 +855,16 @@ ensure_holder() {
         assert $? "can't unmount $top"
 
         rmdir "$top" 2>>"$LOG_FILE"
+        assert $? "can't remove $top"
+        _SNAPSHOTS_TOP=''
+        trap - EXIT
     fi
 
-    # Add the fstab entry if missing. btrfs-wide options are inherited from @'s
-    # mount, so only subvol= + noatime are needed. Tolerate a slash-prefixed
-    # subvol=/@... that genfstab/configure-disk may already have written.
-    local fstab_line="UUID=${CRYPT_UUID}  ${snapdir}  btrfs  subvol=${subvol},noatime  0 0"
-    local fstab_pattern="subvol=/?${subvol}([,[:space:]]|\$)"
-
-    export -f fstab_append
-    action_run "Add fstab entry for ${STYLE_CLR}${snapdir}"             \
-        "fstab_append '${fstab_pattern}' '${fstab_line}' $(check_sudo)" \
+    # Do not leave a boot-time mount entry pointing at a subvolume creation that failed
+    action_run "Ensure fstab entry for ${STYLE_CLR}${snapdir}"                  \
+        "_snapshots_ensure_fstab '/etc/fstab' '$subvol' '$snapdir' '$CRYPT_UUID'" \
         'done'
-    assert $? "can't add fstab entry for $snapdir"
+    assert $? "can't ensure fstab entry for $snapdir - check for conflicting entries"
 
     action_run 'Reload systemd unit cache'      \
         "$(check_sudo) systemctl daemon-reload" \
@@ -823,11 +873,85 @@ ensure_holder() {
 }
 
 
+validate_holder_path() {
+    #
+    # Refuse conflicting mounts or nonempty nested layouts before provisioning.
+    # Empty remnants of interrupted setup can be safely cleared later.
+    #
+    # Parameters:
+    #   $1 - snapdir - intended holder mountpoint.
+    #   $2 - subvol - expected sibling name on CRYPT_UUID.
+    #
+    # Example:
+    #   validate_holder_path /.snapshots @snapshots
+    #
+    local snapdir="$1" subvol="$2"
+
+    action_request_permission 'to inspect the snapshot holder'
+    if as_root mountpoint -q "$snapdir"; then
+        action_run "Validate mounted holder ${STYLE_CLR}${snapdir}"               \
+            "_snapshots_is_holder_mounted '$snapdir' '$subvol' '$CRYPT_UUID'"      \
+            'correct'                                                              \
+            'wrong filesystem or subvolume'
+        assert $? "$snapdir is not $subvol on UUID=$CRYPT_UUID - resolve the mount manually"
+    else
+        action_run "Check unmounted holder path ${STYLE_CLR}${snapdir}"  \
+            "_snapshots_is_empty_snapdir '$snapdir'"                      \
+            'empty or absent'                                             \
+            'nonempty or unavailable'
+        assert $? "$snapdir contains data or cannot be inspected - resolve the layout manually"
+    fi
+}
+
+
+mount_holder() {
+    #
+    # Mount the sibling for both new and existing configs, then verify its
+    # actual filesystem and subvolume before permissions or retention change.
+    # Only empty nested remnants are removed; existing snapshots are preserved.
+    #
+    # Parameters:
+    #   $1 - snapdir - holder mountpoint with a validated fstab entry.
+    #   $2 - subvol - expected sibling name on CRYPT_UUID.
+    #
+    # Example:
+    #   mount_holder /home/.snapshots @home-snapshots
+    #
+    local snapdir="$1" subvol="$2"
+
+    action_request_permission 'to mount the snapshot holder'
+    if ! as_root mountpoint -q "$snapdir"; then
+        action_run "Clear empty nested holder ${STYLE_CLR}${snapdir}"  \
+            "_snapshots_remove_empty_snapdir '$snapdir'"                \
+            'done'                                                       \
+            'not empty or unavailable'
+        assert $? "can't clear $snapdir - preserve existing data and resolve the layout manually"
+
+        action_run "Create mountpoint ${STYLE_CLR}${snapdir}"  \
+            "$(check_sudo) mkdir '$snapdir'"                    \
+            'done'
+        assert $? "can't create $snapdir"
+
+        action_run "Mount sibling holder at ${STYLE_CLR}${snapdir}"  \
+            "$(check_sudo) mount --target '$snapdir'"                 \
+            'done'
+        assert $? "can't mount $snapdir - check its fstab entry"
+    fi
+
+    action_run "Verify sibling holder at ${STYLE_CLR}${snapdir}"             \
+        "_snapshots_is_holder_mounted '$snapdir' '$subvol' '$CRYPT_UUID'"      \
+        'correct'                                                              \
+        'wrong filesystem or subvolume'
+    assert $? "$snapdir is not $subvol on UUID=$CRYPT_UUID - resolve the mount manually"
+}
+
+
 configure_snapper_config() {
     #
     # Create a snapper config, swap snapper's throwaway nested .snapshots for
     # the sibling holder, set permissions, and apply retention. Provisions the
-    # holder first. Idempotent: skips the create dance when the config exists.
+    # holder first. Existing configs skip only creation, never holder validation
+    # or mounting. Nonempty nested layouts are refused, not migrated.
     #
     #   $1 cfg          - snapper config name (root | home)
     #   $2 target       - subvolume mountpoint (/ | /home)
@@ -848,7 +972,8 @@ configure_snapper_config() {
         action_require_package 'snapper'
     fi
 
-    # Make sure the holder subvolume + its fstab line exist before the dance.
+    # Refuse wrong mounts and data that a sibling mount would otherwise hide
+    validate_holder_path "$snapdir" "$subvol"
     ensure_holder "$subvol" "$snapdir"
 
     if as_root snapper list-configs 2>>"$LOG_FILE" | grep -qw "$cfg"; then
@@ -857,34 +982,27 @@ configure_snapper_config() {
     else
         # If the holder is currently mounted (pre-provisioned), unmount it so
         # create-config can make - and we can delete - its throwaway subvol.
-        if mountpoint -q "$snapdir"; then
-            action_run "Unmount sibling holder ${STYLE_CLR}${snapdir}"   \
-                "as_root umount '$snapdir' && as_root rm -rf '$snapdir'" \
-                'done'                                                   \
+        if as_root mountpoint -q "$snapdir"; then
+            action_run "Unmount sibling holder ${STYLE_CLR}${snapdir}"  \
+                "$(check_sudo) umount '$snapdir'"                        \
+                'done'                                                  \
                 'busy'
             assert $? "can't unmount $snapdir"
         fi
+
+        action_run "Clear empty mountpoint ${STYLE_CLR}${snapdir}"  \
+            "_snapshots_remove_empty_snapdir '$snapdir'"            \
+            'done'                                                   \
+            'not empty or unavailable'
+        assert $? "can't clear $snapdir - preserve existing data and resolve the layout manually"
 
         action_run "Create snapper config ${STYLE_CLR}${cfg}"   \
             "as_root snapper -c '$cfg' create-config '$target'" \
             'done'
         assert $? "can't create snapper config $cfg"
-
-        action_run "Delete throwaway subvolume ${STYLE_CLR}${snapdir}"  \
-            "as_root btrfs subvolume delete '$snapdir'"                 \
-            'done'
-        assert $? "can't delete throwaway subvolume at $snapdir"
-
-        action_run "Create mountpoint ${STYLE_CLR}${snapdir}"  \
-            "as_root mkdir '$snapdir'"                         \
-            'done'
-        assert $? "can't create $snapdir"
-
-        action_run "Mount sibling holder at ${STYLE_CLR}${snapdir}"  \
-            "as_root mount '$snapdir'"                               \
-            'done'
-        assert $? "can't mount $snapdir (is the fstab entry present?)"
     fi
+
+    mount_holder "$snapdir" "$subvol"
 
     action_run "Set ${STYLE_CLR}${snapdir}${STYLE_DIM} ownership and mode"  \
         "as_root chmod 750 '$snapdir' && as_root chown :wheel '$snapdir'"   \
@@ -964,10 +1082,28 @@ install_snap_pac() {
 enable_timeline_timer() {
     #
     # One timer walks every config with TIMELINE_CREATE=yes (just 'home' here).
-    # Folds under the "Configuring Snapper for /home" section (prints no header
-    # of its own).
+    # The drop-in lands first: the timer ships OnCalendar=hourly, and the home
+    # config's TIMELINE_LIMIT_* only steer cleanup, so without it snapper
+    # creates 24 snapshots a day for cleanup to prune 23 back out. Folds under
+    # the "Configuring Snapper for /home" section (prints no header of its own).
     #
     action_request_permission 'to enable snapper-timeline.timer'
+
+    action_run "Create ${STYLE_CLR}${TIMELINE_DROPIN_DIR}"  \
+        "as_root mkdir -p '${TIMELINE_DROPIN_DIR}'"         \
+        'done'
+    assert $? "can't create ${TIMELINE_DROPIN_DIR}"
+
+    action_install_file "${TIMELINE_DROPIN_DIR}/${TIMELINE_DROPIN}" \
+                        "$TIMELINE_DROPIN_URL"                      \
+                        "$(check_sudo)"
+
+    # Picks up the drop-in on a re-run, where the timer is already loaded
+    action_run 'Reload systemd manager configuration'  \
+        'as_root systemctl daemon-reload'              \
+        'done'
+    assert $? "can't reload the systemd manager configuration"
+
     action_run 'Enable snapper-timeline.timer'                  \
         'as_root systemctl enable --now snapper-timeline.timer' \
         'enabled'
@@ -1038,5 +1174,236 @@ main() {
     return 0
 }
 
+
+## Internal
+
+
+# Bash cannot hide these helpers; the prefix marks script-private implementation.
+
+_snapshots_ensure_fstab() {
+    #
+    # Ensure exactly one active UUID-based btrfs entry at the requested target.
+    # Append a missing entry unless mode is check; reject duplicates, wrong
+    # sources/types/subvolumes, or unreadable files without rewriting. libmount parses
+    # comments and escaped fields, rather than a regex scanning arbitrary text.
+    #
+    # Parameters:
+    #   $1 - fstab - mount table to read and append to.
+    #   $2 - subvol - expected sibling subvolume name.
+    #   $3 - snapdir - exact mountpoint.
+    #   $4 - uuid - expected filesystem UUID.
+    #   $5 - mode - (optional) - append (default) or check without writing.
+    #
+    # Example:
+    #   _snapshots_ensure_fstab /etc/fstab @snapshots /.snapshots "$CRYPT_UUID"
+    #
+    local fstab="$1" subvol="$2" snapdir="$3" uuid="$4" mode="${5-append}"
+    local entries source fstype options option
+    local found=false
+    local -a mount_options
+
+    as_root test -r "$fstab" || return 1
+    if entries=$(as_root findmnt --fstab --tab-file "$fstab" --raw --noheadings  \
+                    --output SOURCE,FSTYPE,OPTIONS --mountpoint "$snapdir"   \
+                    2>&1); then
+        [[ $entries != *$'\n'* ]] || return 1 # duplicate mountpoint or parser diagnostic
+        read -r source fstype options <<< "$entries"
+        [[ $source = "UUID=${uuid}" && $fstype = 'btrfs' ]] || return 1
+        IFS=',' read -r -a mount_options <<< "$options"
+        for option in "${mount_options[@]}"; do
+            [[ $option = subvol=* ]] || continue
+            [[ $found = false ]] || return 1
+            [[ $option = "subvol=${subvol}" || $option = "subvol=/${subvol}" ]] || return 1
+            found=true
+        done
+        [[ $found = true ]] || return 1
+        return 0
+    else
+        [[ $? -eq 1 && -z $entries ]] || return 1
+    fi
+
+    # findmnt returns 1 without output when the exact target has no active entry
+    [[ $mode = check ]] && return 0
+    printf '\nUUID=%s  %s  btrfs  subvol=%s,noatime  0 0\n' "$uuid" "$snapdir" "$subvol" \
+        | as_root tee -a "$fstab" &>> "$LOG_FILE"
+}
+
+
+_snapshots_is_holder_mounted() {
+    #
+    # Match the actual mount, not the filesystem containing an unmounted path.
+    # Reject other filesystems, subvolumes and stacked mounts with extra rows.
+    #
+    # Parameters:
+    #   $1 - snapdir - exact mountpoint.
+    #   $2 - subvol - expected sibling name.
+    #   $3 - uuid - expected filesystem UUID.
+    #
+    # Example:
+    #   _snapshots_is_holder_mounted /.snapshots @snapshots "$CRYPT_UUID"
+    #
+    local snapdir="$1" subvol="$2" uuid="$3"
+    local mounted
+
+    mounted=$(as_root findmnt --raw --noheadings --mountpoint "$snapdir"  \
+                  --output UUID,FSTYPE,FSROOT 2>>"$LOG_FILE") || return 1
+    [[ $mounted = "$uuid btrfs /$subvol" ]] || return 1
+    return 0
+}
+
+
+_snapshots_is_empty_snapdir() {
+    #
+    # Accept only an absent path or empty, unmounted directory/subvolume.
+    # Refuse symlinks and fail closed when directory inspection fails.
+    #
+    # Parameters:
+    #   $1 - snapdir - path to inspect, including hidden entries.
+    #
+    # Example:
+    #   _snapshots_is_empty_snapdir /home/.snapshots
+    #
+    local snapdir="$1"
+    local entries
+
+    as_root test -x "${snapdir%/*}/" || return 1
+    as_root test -L "$snapdir" && return 1
+    if ! as_root test -e "$snapdir"; then
+        return 0
+    fi
+    as_root test -d "$snapdir" || return 1
+    if as_root mountpoint -q "$snapdir"; then
+        return 1
+    else
+        [[ $? -eq 32 ]] || return 1 # inspection failure is not an unmounted path
+    fi
+    entries=$(as_root find "$snapdir" -mindepth 1 -maxdepth 1 -print -quit  \
+                  2>>"$LOG_FILE") || return 1
+    [[ -z $entries ]] || return 1
+    return 0
+}
+
+
+_snapshots_remove_empty_snapdir() {
+    #
+    # Remove only an empty, unmounted directory or throwaway nested subvolume.
+    # Never recursively delete user snapshots or hide them below a new mount.
+    #
+    # Parameters:
+    #   $1 - snapdir - path to clear before creation or mounting.
+    #
+    # Example:
+    #   _snapshots_remove_empty_snapdir /.snapshots
+    #
+    local snapdir="$1"
+
+    _snapshots_is_empty_snapdir "$snapdir" || return 1
+    as_root test -e "$snapdir" || return 0
+    if as_root btrfs subvolume show "$snapdir" &>> "$LOG_FILE"; then
+        as_root btrfs subvolume delete "$snapdir"
+    else
+        as_root rmdir "$snapdir"
+    fi
+}
+
+
+_snapshots_disable_hook_copies() {
+    #
+    # Remove execution permission from legacy backups and optionally the hook.
+    # Only this managed hook's .bakN copies are touched, not other boot hooks.
+    #
+    # Parameters:
+    #   $1 - hook - canonical hook path.
+    #   $2 - disable_current - whether to disable the canonical hook too.
+    #
+    # Example:
+    #   _snapshots_disable_hook_copies "$flat_dst" true
+    #
+    local hook="$1" disable_current="$2"
+
+    as_root find "${hook%/*}" -maxdepth 1 -type f -name "${hook##*/}.bak[0-9]*" \
+        -exec chmod a-x '{}' + || return 1
+    if [[ $disable_current = true ]] && as_root test -e "$hook"; then
+        as_root chmod a-x "$hook" || return 1
+    fi
+    return 0
+}
+
+
+_snapshots_backup_hook() {
+    #
+    # Preserve the live hook under a unique name excluded by upstream's runner.
+    # Repair executable backups left by action_install_file on previous runs.
+    #
+    # Parameters:
+    #   $1 - hook - canonical hook path; an absent hook needs no backup.
+    #
+    # Example:
+    #   _snapshots_backup_hook "$strip_dst"
+    #
+    local hook="$1"
+    local idx=1
+
+    _snapshots_disable_hook_copies "$hook" false || return 1
+    as_root test -e "$hook" || return 0
+    while as_root test -e "${hook}.bak${idx}.disabled"; do
+        ((idx++))
+    done
+    as_root cp "$hook" "${hook}.bak${idx}.disabled"
+}
+
+
+_snapshots_cleanup() {
+    #
+    # Release owned temporary resources without changing the original exit code.
+    # Never prompt during cleanup or remove a still-mounted top-level directory.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   trap '_snapshots_cleanup' EXIT
+    #
+    local status=$?
+    local -a root_command=()
+    [[ $EUID -eq 0 ]] || root_command=(sudo -n)
+
+    if [[ -n $_SNAPSHOTS_TEMP_FILE ]]; then
+        rm -f "$_SNAPSHOTS_TEMP_FILE" 2>>"$LOG_FILE"
+    fi
+    if [[ -n $_SNAPSHOTS_TOP ]]; then
+        if "${root_command[@]}" mountpoint -q "$_SNAPSHOTS_TOP"; then
+            if ! "${root_command[@]}" umount "$_SNAPSHOTS_TOP" &>> "$LOG_FILE"; then
+                printf_warning 'cleanup could not unmount %s - unmount it manually\n' "$_SNAPSHOTS_TOP"
+                return "$status"
+            fi
+        else
+            if [[ $? -ne 32 ]]; then
+                printf_warning 'cleanup could not inspect %s - check the mount manually\n' "$_SNAPSHOTS_TOP"
+                return "$status"
+            fi
+        fi
+        rmdir "$_SNAPSHOTS_TOP" 2>>"$LOG_FILE"
+    fi
+    return "$status"
+}
+
+
+## Export Functions
+
+
+# Holder validation and preparation
+export -f _snapshots_ensure_fstab _snapshots_is_holder_mounted
+export -f _snapshots_is_empty_snapdir _snapshots_remove_empty_snapdir
+
+# Boot hook backups
+export -f _snapshots_disable_hook_copies _snapshots_backup_hook
+
+
+## Source-Time Initialization
+
+
+# common owns SIGINT; SIGTERM also needs to pass through the active EXIT cleanup
+trap 'exit 143' TERM
 
 main "$@"

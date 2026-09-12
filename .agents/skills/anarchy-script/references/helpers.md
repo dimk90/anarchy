@@ -171,6 +171,7 @@ action_run title [command] [success_status] [fail_status]
 - `success_status` — green text after `-` separator. Often `'done'`, `'enabled'`, `'installed'`.
 - `fail_status` — red text on non-zero exit. Defaults to `'failed'`. Use richer text for diagnosis (`'package missing'`, `'unit not found'`).
 - Multi-step `command`: define a function, `export -f`, pass the function name as `command`. Don't build `cmd1 && cmd2` strings.
+- The `bash -c` child inherits **exported state only** and starts without `nounset`. Export every global the function reads and `export -f` every script-local function it calls; otherwise missing variables expand to `''` — see SKILL.md "Export the State Too, Not Just the Function".
 - **Never embed secrets** (passphrases, passwords, tokens) in the `command` string — they leak via `/proc/<pid>/cmdline` of the spawned `bash -c`, and a stray `'` in the secret breaks quoting and lets the shell execute injected code. Pipe the secret in via the bash `printf` builtin outside `action_run`, then use empty-`command` `action_run` for the UI step. Use `assert $?` directly when nothing intervenes; only capture `local rc=$?` when an intervening statement (e.g. `unset secret`) would otherwise clobber `$?` to 0 — habitual capture everywhere is noise.
 
 ### `action_request_permission`
