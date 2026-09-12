@@ -4,13 +4,16 @@ Guidance for AI coding agents working in this repository.
 
 ## Project Overview
 
-Anarchy is a personal Arch Linux configuration and automation repository. It contains shell scripts that install and configure CLI tools, fonts, and system settings. Scripts are deployed via GitHub Pages and invoked remotely with `curl -fsSL https://dimk90.github.io/anarchy/<script-name> | bash`.
+Anarchy is a personal Arch Linux configuration and automation repository.
+It contains shell scripts that install and configure CLI tools, fonts, and system settings.
+Scripts are deployed via GitHub Pages and invoked remotely with `curl -fsSL https://dimk90.github.io/anarchy/<script-name> | bash`.
 
 ## Architecture
 
 ### `common` Library
 
-The central shared library (~1200 lines, versioned via `COMMON_VERSION`) sourced by all scripts. Provides:
+The central shared library (~1200 lines, versioned via `COMMON_VERSION`) sourced by all scripts.
+Provides:
 - ANSI color definitions and styled output (gum integration)
 - Logging, error handling, and assertions
 - File operations (backup, line replacement, config parameter setting)
@@ -26,11 +29,23 @@ source <(echo "$COMMON")
 
 When reading `common` yourself, use the local file at the repo root — the published URL lags local edits.
 
-Bump `COMMON_VERSION` only for new features or behavior-affecting changes (new helper, changed contract). It's shown to users at script start as a "what changed" signal — routine refactors, tweaks, and doc edits ship without a bump.
+Bump `COMMON_VERSION` only for new features or behavior-affecting changes (new helper, changed contract).
+It's shown to users at script start as a "what changed" signal — routine refactors, tweaks,
+and doc edits ship without a bump.
+
+`CHANGELOG.md` tracks `common` and nothing else. Write an entry only when you bump
+`COMMON_VERSION`, in the same commit: a new dated version heading on top in the file's
+existing format, items grouped under `### New` / `### Changed` / `### Fixed`.
+`common` changes that don't bump the version, and changes to scripts, config assets
+or docs, get no entry.
 
 ### Script Pattern
 
-All install/configure scripts share one skeleton: strict mode, source `common` via curl, helper functions, gum-based interactive `main` with assert-based error handling. The full pattern — skeleton, output flow, helpers, privilege handling — lives in the `anarchy-script` skill (`.agents/skills/anarchy-script/SKILL.md`); use it for any script authoring or editing.
+All install/configure scripts share one skeleton: strict mode, source `common` via curl,
+helper functions, gum-based interactive `main` with assert-based error handling.
+The full pattern — skeleton, output flow, helpers, privilege handling —
+lives in the `anarchy-script` skill (`.agents/skills/anarchy-script/SKILL.md`);
+use it for any script authoring or editing.
 
 ### Directory Layout
 
@@ -52,11 +67,17 @@ All install/configure scripts share one skeleton: strict mode, source `common` v
 
 ## Testing
 
-**Never run `install-*`, `configure-*`, `create-user`, or `wipe-disk` to try out a change.** They act on the real machine — replacing or removing existing configs, installing packages, rewriting bootloader/fstab/disk state — and most of it isn't reversible.
+**Never run `install-*`, `configure-*`, `create-user`, or `wipe-disk` to try out a change.**
+They act on the real machine — replacing or removing existing configs, installing packages,
+rewriting bootloader/fstab/disk state — and most of it isn't reversible.
 
 Verify by reading the code, plus `bash -n <script>` and `shellcheck <script>`.
 
-If something genuinely has to execute, test a **small isolated piece** — one `common` helper or one `action_*` call — not a whole script, and point it at **decoy files** in a temp dir instead of real targets like `/etc/...` or `~/.config/...`. Put such scratch harnesses in `test.*` at the repo root; `.gitignore` already covers that pattern, so they stay unpublished.
+If something genuinely has to execute, test a **small isolated piece** —
+one `common` helper or one `action_*` call — not a whole script, and point it
+at **decoy files** in a temp dir instead of real targets like `/etc/...` or `~/.config/...`.
+Put such scratch harnesses in `test.*` at the repo root; `.gitignore` already
+covers that pattern, so they stay unpublished.
 
 Only the color test scripts are safe to run as-is:
 ```bash
@@ -68,23 +89,34 @@ Only the color test scripts are safe to run as-is:
 
 ## Writing Conventions
 
-- **Title Case headers**: `printf_section` titles and markdown headers (in `doc/`, skills, README) use English Title Case — capitalize major words, lowercase articles/prepositions (e.g. "Install Packages", "Files and Env", "Set Up the User"). Doesn't apply to commit messages, comments, or log lines.
-- **Concise markdown, no duplication**: in guides (`doc/`), state each fact or explanation exactly once — cross-link the canonical spot instead of re-explaining; keep a single source of truth for values.
-- **Verify against official docs**: before suggesting a CLI flag, command sequence, or multi-component design (boot, encryption, filesystems, snapshots), check the official docs/man pages — flag existence, step compatibility, and each component's support for its assigned role. Don't rely on recall.
+- **Title Case headers**: `printf_section` titles and markdown headers (in `doc/`, skills, README)
+  use English Title Case — capitalize major words, lowercase articles/prepositions
+  (e.g. "Install Packages", "Files and Env", "Set Up the User"). Doesn't apply to
+  commit messages, comments, or log lines.
+- **Concise markdown, no duplication**: in guides (`doc/`), state each fact or
+  explanation exactly once — cross-link the canonical spot instead of re-explaining;
+  keep a single source of truth for values.
+- **Verify against official docs**: before suggesting a CLI flag, command sequence,
+  or multi-component design (boot, encryption, filesystems, snapshots), check
+  the official docs/man pages — flag existence, step compatibility, and each
+  component's support for its assigned role. Don't rely on recall.
 
 ## Commit Convention
 
-Commits use the format: `[scope] Description` where scope matches the affected area. Reuse an existing scope — list them by frequency with:
+Commits use the format: `[scope] Description` where scope matches the affected area.
+Reuse an existing scope — list them by frequency with:
 ```bash
 git log --format='%s' | grep -oP '^\[[^]]+\]' | sort | uniq -c | sort -rn
 ```
 Most used: `[common]`, `[modern-cli]`, `[font]`, `[agents]`, `[prompt]`, `[micro]`, `[configure-disk]`, `[vconsole]`, `[boot]`, `[doc]`.
 
-Some areas have both a bare and a `configure-`-prefixed scope (`[vconsole]` / `[configure-vconsole]`, `[boot]` / `[configure-boot]`) — match whatever that area's most recent commits used, don't invent a third variant.
+Some areas have both a bare and a `configure-`-prefixed scope (`[vconsole]` / `[configure-vconsole]`, `[boot]` / `[configure-boot]`) —
+match whatever that area's most recent commits used, don't invent a third variant.
 
 ## Deployment
 
-The repository is served as a static GitHub Pages site — `.nojekyll` at the root disables Jekyll, so every tracked file is published byte-for-byte at its own path. Scripts are fetched raw from the pages URL, so:
+The repository is served as a static GitHub Pages site — `.nojekyll` at the root disables Jekyll,
+so every tracked file is published byte-for-byte at its own path. Scripts are fetched raw from the pages URL, so:
 - Every file in root must be valid for direct shell execution, `index.html` aside
 - Don't drop scratch files at the repo root — they get published (except gitignored `test.*`, see [Testing](#testing))
 - New asset directories are reachable at `https://dimk90.github.io/anarchy/<dir>/<file>` automatically, no build step
