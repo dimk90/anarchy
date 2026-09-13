@@ -746,9 +746,10 @@ install_sync_defaults() {
 install_boot_hooks() {
     #
     # Install the post.d hooks limine-snapper-sync runs after it rewrites
-    # limine.conf: 81-limine-strip-resume (always - idempotent, a no-op without
-    # hibernation) and, when selected, 80-limine-flatten-snapshots. Must land
-    # before the initial sync so the first written config is already scrubbed.
+    # limine.conf: 81-limine-strip-resume (always - enforces noresume on both
+    # new and existing snapshot cmdlines) and, when selected,
+    # 80-limine-flatten-snapshots. Must land before the initial sync so the
+    # first written config is already protected.
     # Backups must be non-executable or end in .disabled: upstream executes
     # every other executable file in post.d. Step of "Installing Limine".
     #
@@ -759,7 +760,7 @@ install_boot_hooks() {
         'done'
     assert $? "can't create ${BOOT_HOOKS_DIR}"
 
-    # strip-resume: always (hibernation safety; harmless when no resume= present)
+    # strip-resume: always (old manifest entries need the noresume guard too)
     local strip_dst="${BOOT_HOOKS_DIR}/81-limine-strip-resume"
     install_boot_hook "$strip_dst" "$LIMINE_STRIP_HOOK_URL"
 
@@ -1179,7 +1180,7 @@ main() {
 
     if [ "$WANT_ROOT" = true ]; then
         printf_info "%b\n" 'reboot to confirm the Limine menu, then run pacman -Syu to trigger the first snapshot pair'
-        printf_info "%b\n" 'after the first sync: grep -i resume /boot/limine.conf - resume= must show only on //Current'
+        printf_info "%b\n" 'after the first sync: grep -i resume /boot/limine.conf - every snapshot cmdline needs noresume, resume= only on //Current'
     else
         printf_info "%b\n" 'home snapshots are timeline-driven - list them with snapper -c home list'
     fi

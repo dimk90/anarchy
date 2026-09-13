@@ -1,9 +1,15 @@
 #!/bin/sh
 
-# Strip resume=/resume_offset= from limine-snapper-sync's auto-generated snapshot
-# entries. Booting a snapshot (a different subvolume) while a hibernation image
-# written against @ exists corrupts state — snapshot recovery must boot fresh.
-# The native SNAPSHOT_KERNEL_PARAMETERS-=resume removal is exact-token only and
-# never matches resume=UUID=…, so post-process the written config instead. The
-# /…Snapshots/,$ range leaves //Current (above the marker) and the UKI untouched.
-sed -i -E '/^[[:space:]]*\/\/[+]?Snapshots/,$ s/[[:space:]]+resume(_offset)?=[^[:space:]]*//g' /boot/limine.conf
+# Guard every snapshot cmdline against resume, including the HibernateLocation EFI
+# fallback. SNAPSHOT_KERNEL_PARAMETERS+=noresume only affects new manifest entries;
+# this hook also protects old cmdlines replayed from snapshots.json on every sync.
+# Stop at the next depth-1/2 entry so //Current and UKI entries stay untouched.
+# Run before config-checksum enrollment; do not duplicate an existing noresume token.
+sed -i -E '
+    /^[[:space:]]*\/\/[+]?Snapshots[[:space:]]*$/,/^[[:space:]]*\/{1,2}([^/]|$)/ {
+        /^[[:space:]]*(kernel_)?cmdline:/I {
+            s/[[:space:]]+resume(_offset)?=[^[:space:]]*//g
+            /[[:space:]]noresume([[:space:]]|$)/! s/$/ noresume/
+        }
+    }
+' /boot/limine.conf

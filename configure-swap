@@ -319,7 +319,7 @@ main() {
         printf_action 'Configure hibernation? '
         if ask_yn; then
             if configure_hibernation "$CRYPT_UUID"; then
-                printf_info "%b\n" 'verify /etc/limine-snapper-sync.conf — snapshot cmdline must NOT contain resume= / resume_offset='
+                printf_info "%b\n" 'running snapshots? verify every snapshot cmdline in /boot/limine.conf has noresume - snapshot boots must never resume'
             fi
         fi
     fi
