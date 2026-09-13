@@ -78,7 +78,7 @@ All printers emit a leading bullet + faint title. Mirror this structure — don'
 |---|---|
 | `get_package_manager` | Echoes `pacman` / `apt` / `unknown`. |
 | `is_package_installed pkg [pkg_apt]` | 0 if installed under whichever PM is detected. |
-| `request_gum` | If gum missing, prompt "Let's get some?" and install it: `pacman -Sy gum` on Arch, `install_gum_deb` on Debian/Ubuntu. Returns the installer's exit code. Called by `action_start_tui`. |
+| `request_gum` | If gum missing, prompt "Let's get some?" and install it: `action_require_pacman_ready` then `pacman -S --needed gum` on Arch, `install_gum_deb` on Debian/Ubuntu. Returns the installer's exit code; preflight failures exit. Called by `action_start_tui`. |
 | `install_gum_deb` | Debian/Ubuntu only: fetches the latest `gum_*.deb` from GitHub releases and `dpkg --install`s it (gum isn't in the apt archives). Called by `request_gum`. |
 
 ## Files
@@ -139,6 +139,20 @@ action_start_tui
 
 Requests Gum, opens the "Starting" section, prints `COMMON_VERSION`, starts the logger, and prints `LOG_FILE`. Call once near the top of every entry-point `main`, after any guard that must run before Gum initialization.
 
+### `action_require_pacman_ready`
+
+```bash
+action_require_pacman_ready
+```
+
+- Read-only Arch preflight; no-op for other package managers. Works without Gum or an initialized log.
+- Uses `pacman-conf` to reject nonempty `IgnorePkg`/`IgnoreGroup`, including values from `Include` files; never edits configuration.
+- Reads repository databases with `pacman -Slq`, then previews upgrades/replacements with `pacman -Sup --print-format '%n'`. No refresh, download, or upgrade.
+- Exits on command failures or any diagnostic on stderr, even with status 0: pacman can otherwise silently accept missing/corrupt databases in print mode. Reports the diagnostic, not an "up-to-date" status.
+- Pending targets abort with an external `sudo pacman -Syu` instruction and a reminder to read Arch News first.
+- Called before missing Gum/repo-package installs. Call it explicitly before direct `yay`, `makepkg -s`, or `pacman -U` operations; checks are not cached, including across long builds.
+- Checks existing databases, not mirror freshness. Does not certify custom/AUR compatibility or lock out concurrent package-manager changes.
+
 ### `action_require_package`
 
 ```
@@ -146,7 +160,8 @@ action_require_package package [title_prefix] [package_apt]
 ```
 
 - Spins "checking", short-circuits with `exists` if installed.
-- Otherwise: spins "privilege" → asks for password if needed → (apt only, once per run) spins "refreshing lists" for `apt-get update` → spins "installing" → prints `installed`.
+- Otherwise: runs [`action_require_pacman_ready`](#action_require_pacman_ready) → spins "privilege" → asks for password if needed → (apt only, once per run) spins "refreshing lists" for `apt-get update` → spins "installing" → prints `installed`.
+- Installs with `pacman -S --needed` — never `-Sy pkg`, which is an unsupported partial upgrade. Install failures point to `LOG_FILE`; Arch's upgrade hint is conditional on mirror errors indicating stale databases. Apt failures do not prescribe a system upgrade.
 - On failure, exits via `assert` (don't wrap with your own `assert $?`).
 - For `fd` ↔ `fd-find` style cross-distro names: `action_require_package 'fd' '' 'fd-find'`.
 

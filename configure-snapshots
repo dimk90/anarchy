@@ -285,20 +285,35 @@ select_limine_options() {
 }
 
 
+install_required_packages() {
+    #
+    # Every repo package the run needs, installed before the first
+    # configuration step: a package failure then aborts the run before the
+    # Limine deployment, not between it and its config.
+    # snap-pac is the deliberate exception - it
+    # turns every transaction into a snapshot pair, so it stays last
+    # (install_snap_pac). The AUR companion needs yay and builds as the user -
+    # install_sync_tool keeps it.
+    #
+    local packages=('snapper')
+    [ "$WANT_ROOT" = true ] && packages=('limine' 'efibootmgr' "${packages[@]}")
+
+    action_require_packages --title 'Installing Required Packages' "${packages[@]}"
+}
+
+
 install_limine() {
     #
-    # Everything Limine under one section: the official package, the AUR
-    # companion, the bootloader binary + its pacman hook, limine.conf, the stale
-    # deep-config eviction, the menu font, the NVRAM entry, /etc/default/limine,
-    # and the post.d boot hooks. Root target only - Limine boots snapshots of @,
-    # and /home snapshots have no boot entries. Each step keeps its own
+    # Everything Limine under one section: the AUR companion, the bootloader
+    # binary + its pacman hook, limine.conf, the stale deep-config eviction,
+    # the menu font, the NVRAM entry, /etc/default/limine, and the post.d boot
+    # hooks. Root target only - Limine boots snapshots of @, and /home
+    # snapshots have no boot entries. Each step keeps its own
     # action_request_permission - a silent no-op while sudo is cached, but it
     # re-asserts privilege right before its work (the AUR build can outlast the
     # sudo timestamp) and documents that step's intent.
     #
     printf_section "Installing Limine\n"
-
-    action_require_package 'limine'
 
     install_sync_tool
     install_limine_bootloader
@@ -464,6 +479,7 @@ install_sync_tool() {
     # normal user; yay shells out to sudo pacman internally, so cache the
     # password first). Step of the "Installing Limine" section.
     #
+    action_require_pacman_ready
     action_request_permission 'to install AUR packages with yay'
     action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$AUR_SYNC_TOOL")"  \
         "yay -S --needed --noconfirm ${AUR_SYNC_TOOL}"                             \
@@ -690,7 +706,6 @@ register_limine_nvram() {
     # first and Limine second. Idempotent: skip create if the entry exists. Step
     # of the "Installing Limine" section.
     #
-    action_require_package 'efibootmgr'
     action_request_permission 'to manage NVRAM boot entries'
 
     if as_root efibootmgr 2>>"$LOG_FILE" | grep -qF "$LIMINE_LABEL"; then
@@ -966,12 +981,6 @@ configure_snapper_config() {
 
     action_request_permission "to configure snapper for ${target}"
 
-    # snapper is installed once, by whichever target section runs first (root
-    # when selected). create-config needs it; ensure_holder doesn't.
-    if [ "$cfg" = 'root' ] || [ "$WANT_ROOT" = false ]; then
-        action_require_package 'snapper'
-    fi
-
     # Refuse wrong mounts and data that a sibling mount would otherwise hide
     validate_holder_path "$snapdir" "$subvol"
     ensure_holder "$subvol" "$snapdir"
@@ -1136,6 +1145,10 @@ main() {
     ## Pre-flight
 
     verify_prerequisites
+
+    ## Packages - everything but snap-pac, which must land last
+
+    install_required_packages
 
     ## Snapper - per-target configs, sync service, snap-pac trigger, timers
 

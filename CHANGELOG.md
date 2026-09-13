@@ -2,7 +2,16 @@
 
 Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lands on `main`.
 
-## Unreleased
+## `[v2.17]` - 13.09.2026
+
+### New
+* Add `action_require_pacman_ready` to reject pending upgrades, exclusions, and unreadable databases.
+
+### Changed
+* Keep upgrades external; package errors point to diagnostics, with conditional stale-database advice.
+
+### Fixed
+* Install packages with `pacman -S --needed` instead of the unsupported partial upgrade `-Sy pkg`.
 
 
 ## `[v2.16]` - 03.09.2026

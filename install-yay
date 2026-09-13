@@ -56,13 +56,15 @@ main() {
             'done'
         assert $? "failed to clone yay's PKGBUILD"
 
-        # Build package
+        # makepkg -s may install dependencies even when the build tools exist
+        action_require_pacman_ready
         action_run 'Building' \
             "makepkg -s --noconfirm -D $tmpdir" \
             'done'
         assert $? 'failed to build and install yay'
 
-        # Install
+        # Recheck after the build; another process may have refreshed databases
+        action_require_pacman_ready
         action_request_permission 'for installing yay'
         action_run 'Installing yay' \
             "sudo pacman -U --noconfirm $tmpdir/yay-*.pkg.tar.zst" \

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export COMMON_VERSION='2.16'
+export COMMON_VERSION='2.17'
 
 
 ## Colors
@@ -170,7 +170,7 @@ assert() {
     # message and exit with code 1.
     #
     # Example:
-    #   as_root pacman -Sy gum
+    #   as_root pacman -S gum
     #   assert $? "failed to install gum"
     #
     local exit_code="$1"
@@ -429,7 +429,7 @@ ask_yn() {
     #
     # Example:
     #   printf "Install gum? "
-    #   if ask_yn; then as_root pacman -Sy gum; fi
+    #   if ask_yn; then as_root pacman -S gum; fi
     #
     printf '(y/n): '
 
@@ -454,7 +454,7 @@ as_root() {
     # Returns the exit code of the command.
     #
     # Example:
-    #   as_root pacman -Sy gum
+    #   as_root pacman -S gum
     #
     if [ "$EUID" -eq 0 ]; then
         "$@"
@@ -471,7 +471,7 @@ check_sudo() {
     #
     # Example:
     #   SUDO_PREFIX=$(check_sudo)
-    #   $SUDO_PREFIX pacman -Sy gum
+    #   $SUDO_PREFIX pacman -S gum
     #
     if [ "$EUID" -eq 0 ]; then
         # root already -> no need sudo
@@ -490,7 +490,7 @@ have_privilege() {
     #
     # Example:
     #   if have_privilege; then
-    #       as_root pacman -Sy gum
+    #       as_root pacman -S gum
     #   else
     #       info "Need password to perform privileged actions"
     #   fi
@@ -615,9 +615,14 @@ request_gum() {
     local status
     case "$(get_package_manager)" in
         pacman)
-            printf_action "pacman -Sy gum\n"
-            as_root pacman -Sy gum </dev/tty
+            action_require_pacman_ready
+            printf_action "pacman -S --needed gum\n"
+            as_root pacman -S --needed gum </dev/tty
             status=$?
+
+            if [ "$status" -ne 0 ]; then
+                printf_action "if mirror errors indicate a stale database, run ${STYLE_CLR}sudo pacman -Syu${STYLE_DIM} and try again\n"
+            fi
             ;;
         apt)
             printf_action "gum is not in the apt archives - installing the .deb release\n"
@@ -1122,6 +1127,47 @@ action_start_tui() {
 }
 
 
+action_require_pacman_ready() {
+    #
+    # Refuse package installs when the existing pacman databases require an
+    # upgrade or cannot be checked. Never refresh databases or upgrade packages.
+    # Reject IgnorePkg/IgnoreGroup because they can hide pending upgrades.
+    # Works before gum and logging start; a no-op for other package managers.
+    # Exits through assert on failure; successful checks are not cached.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   action_require_pacman_ready
+    #   action_run 'Install AUR companion' 'yay -S --needed companion' 'done'
+    #
+    [ "$(get_package_manager)" = 'pacman' ] || return 0
+
+    printf_action 'Check pacman upgrade state\n'
+
+    local exclusions databases upgrades
+    exclusions=$(_common_pacman_query pacman-conf IgnorePkg IgnoreGroup)
+    assert $? "can't read pacman configuration:\n${exclusions}"
+    if [ -n "$exclusions" ]; then
+        assert 1 "pacman upgrade exclusions are unsupported by this installer:\n${exclusions}\nresolve IgnorePkg/IgnoreGroup manually before rerunning; pacman.conf was not changed"
+    fi
+
+    # --print can silently accept missing databases. Listing forces pacman to
+    # read them; the query wrapper rejects diagnostics even with exit status 0.
+    databases=$(_common_pacman_query pacman -Slq)
+    assert $? "can't read pacman repository databases:\n${databases}\nresolve the diagnostic before rerunning; refresh databases only with a full sudo pacman -Syu"
+
+    upgrades=$(_common_pacman_query pacman -Sup --print-format '%n')
+    assert $? "can't preview pacman upgrades:\n${upgrades}"
+    if [ -n "$upgrades" ]; then
+        assert 1 "pending pacman upgrades or replacements:\n${upgrades}\nread Arch News, complete sudo pacman -Syu outside this script, then rerun"
+    fi
+
+    return 0
+}
+
+
 action_require_package() {
     #
     # Install a package with interactive UI and privilege handling.
@@ -1160,6 +1206,8 @@ action_require_package() {
         return 0
     fi
 
+    action_require_pacman_ready
+
     # request privilege
     gum spin --align='right'                                              \
              --title "${action_title}$(gum style --faint ' - privilege')" \
@@ -1178,8 +1226,9 @@ action_require_package() {
     fi
 
     # Refresh apt package lists once per run - without it the install fails on
-    # a system whose lists are empty or stale. The pacman branch gets this for
-    # free from -Sy, so no refresh phase is needed there.
+    # a system whose lists are empty or stale. pacman gets no refresh phase on
+    # purpose: `-Sy` before a single install leaves an unsupported partial
+    # upgrade, and a full upgrade is the user's call, not this helper's.
     if [ "$(get_package_manager)" = 'apt' ] && [ -z "$APT_LISTS_REFRESHED" ]; then
         gum spin --align='right'                                                     \
                  --title "${action_title}$(gum style --faint ' - refreshing lists')" \
@@ -1188,18 +1237,23 @@ action_require_package() {
         APT_LISTS_REFRESHED='yes'
     fi
 
-    # install package
-    local install_cmd
+    # Database consistency does not guarantee mirror availability. Keep the
+    # actual diagnostic in the log rather than diagnosing every failure as age.
+    local install_cmd install_error
     case "$(get_package_manager)" in
-        pacman) install_cmd="$(check_sudo) pacman --noconfirm -Sy ${package}" ;;
-        apt)    install_cmd="$(check_sudo) apt-get install -y ${package_apt}" ;;
+        pacman) install_cmd="$(check_sudo) pacman --noconfirm -S --needed ${package}"
+                install_error="can't install ${package} - see ${LOG_FILE}; if mirror errors indicate a stale database, run sudo pacman -Syu and rerun"
+                ;;
+        apt)    install_cmd="$(check_sudo) apt-get install -y ${package_apt}"
+                install_error="can't install ${package_apt} - see ${LOG_FILE}"
+                ;;
         *)      assert 1 'unsupported package manager' ;;
     esac
 
     gum spin --align='right'                                               \
              --title "${action_title}$(gum style --faint ' - installing')" \
              -- bash -c "${install_cmd} &>> ${LOG_FILE}"
-    assert $? "can't install package"
+    assert $? "$install_error"
 
     printf "%b %b %b\n" "${action_title}"          \
                         "$(gum style --faint '-')" \
@@ -1506,6 +1560,41 @@ action_choose_items() {
 ## Internal
 
 
+_common_pacman_query() {
+    #
+    # Capture a read-only pacman/pacman-conf query. Stdout carries its output
+    # on success or its diagnostic on failure. Treat any stderr as failure:
+    # pacman can report unreadable databases while returning zero.
+    # The subshell scopes cleanup without replacing the caller's EXIT trap.
+    #
+    # Parameters:
+    #   $@ - command and arguments for a read-only query.
+    #
+    # Example:
+    #   upgrades=$(_common_pacman_query pacman -Sup --print-format '%n')
+    #
+    (
+        local diagnostics='' output status=0
+        trap '[ -z "$diagnostics" ] || rm -f "$diagnostics"' EXIT
+        trap 'exit 130' INT
+        trap 'exit 143' TERM
+        diagnostics=$(mktemp) || return 1
+
+        output=$("$@" </dev/null 2> "$diagnostics") || status=$?
+        if [ "$status" -ne 0 ] || [ -s "$diagnostics" ]; then
+            if [ -s "$diagnostics" ]; then
+                output=$(< "$diagnostics")
+            fi
+            printf '%s\n' "$output"
+            [ "$status" -ne 0 ] || status=1
+            return "$status"
+        fi
+
+        printf '%s' "$output"
+    )
+}
+
+
 _common_handle_interrupt() {
     #
     # Print a terminal message and exit with the conventional SIGINT status.
@@ -1575,6 +1664,7 @@ export -f alias_set_permanent
 
 # Actions
 export -f action_start_tui
+export -f action_require_pacman_ready
 export -f action_require_package
 export -f action_require_packages
 export -f action_install_file
@@ -1582,6 +1672,9 @@ export -f action_run
 export -f action_request_permission
 export -f action_set_password
 export -f action_choose_items
+
+# Internal
+export -f _common_pacman_query
 
 
 ## Source-Time Initialization
