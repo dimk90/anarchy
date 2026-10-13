@@ -1,7 +1,7 @@
 ---
 name: pi-extension
-description: Create, extend, and modify extensions for the pi coding agent (pi-coding-agent). Use when the user asks to build a pi extension, add a custom tool/command/shortcut/flag/provider, hook agent lifecycle events (tool_call, session_start, before_agent_start, etc.), render custom TUI components, add widgets/status/footer, or change an existing extension. Covers extension structure, event contracts, custom tools and providers, and pi TUI usage. Load together with code-style and typescript-code skills.
-compatibility: Requires pi coding agent. Extensions are TypeScript (ESM), loaded via jiti without compilation.
+description: Create, extend, and modify extensions for the pi coding agent (pi-coding-agent). Use when the user asks to build or change a pi extension, add tools/commands/shortcuts/flags/providers, register MCP servers or virtual models, hook lifecycle events, transform model context, or render TUI components, widgets, and status. Covers Pi 1.1 event contracts, tool exposure, nested calls, providers, and TUI usage. Load together with code-style and typescript-code skills.
+compatibility: Verified against Pi 1.1.0. Requires Node.js 22.19+ for npm installs. Extensions are TypeScript (ESM), loaded via jiti without compilation.
 ---
 
 # Pi Extension Development
@@ -16,28 +16,43 @@ pi-specific rules on top of the prerequisites above.
 
 Detailed references (read on demand):
 
-- [references/api.md](references/api.md) — events, return contracts, `ctx`/`pi` API, providers, state, session replacement footguns
-- [references/tools.md](references/tools.md) — custom tools: schemas, execute, usage, truncation, file mutation queue, dynamic loading, overriding built-ins
+- [references/api.md](references/api.md) — events, boundaries, prompt/context edits, `ctx`/`pi`, providers, virtual models, MCP, state
+- [references/tools.md](references/tools.md) — schemas, results, exposure, codemode/nested calls, usage, truncation, file mutation queue, overrides
 - [references/tui.md](references/tui.md) — TUI components, `ctx.ui`, dialogs, widgets, custom components, theming, key handling
 - [references/packaging.md](references/packaging.md) — published package layout: `package.json`/`tsconfig` rules, documentation set, release checklist, TUI-capture harness
 
 Authoritative sources (when references are not enough): the installed pi package
 ships `CHANGELOG.md`, `docs/extensions.md`, `docs/tui.md`,
-`docs/custom-provider.md`, and ~80 working examples in `examples/extensions/`.
+`docs/custom-provider.md`, `docs/virtual-models.md`, `docs/mcp.md`,
+`docs/codemode.md`, and working examples in `examples/extensions/`.
 Locate them:
 
 ```bash
-pi_pkg=$(dirname "$(dirname "$(readlink -f "$(which pi)")")")  # .../pi-coding-agent
+pi_entry=$(readlink -f "$(command -v pi)")
+# pnpm's executable is a shim; its target is the actual entry point
+shim_target=$(rg --no-line-number '^# cmd-shim-target=' "$pi_entry" 2>/dev/null || true)
+[[ -z $shim_target ]] || pi_entry=${shim_target#\# cmd-shim-target=}
+pi_pkg=${PI_PACKAGE_DIR:-$(dirname "$pi_entry")}
+while [[ ! -d $pi_pkg/docs && $pi_pkg != / ]]; do
+    pi_pkg=$(dirname "$pi_pkg")
+done
 ls "$pi_pkg/docs" "$pi_pkg/examples/extensions"
 ```
 
-`readlink` on a shim script resolves to the shim itself; when `$pi_pkg` has no
-`docs/`, read the `cmd-shim-target=` comment at the end of the shim instead.
-After a pi upgrade, read the `Breaking Changes` section of `$pi_pkg/CHANGELOG.md`
-for the new version before touching extension code.
+Walk upward rather than assuming a fixed number of parents: npm's CLI entry
+point is now `dist/bundle/cli.js`. For a standalone/managed installation, use
+its adjacent docs or an explicit `PI_PACKAGE_DIR`.
+Run `pi --version`; for a latest-version update, compare it with
+`npm view @earendil-works/pi-coding-agent version`. If they differ, do not label
+installed docs as the latest release. After an upgrade, review all intervening
+release notes, not just the target version's breaking changes. Read the relevant
+installed docs completely and follow their related API references. Exact contracts live
+in `dist/core/extensions/types.d.ts` and the companion package declarations.
+If an example disagrees with the installed types or runtime, verify before
+copying it — examples can lag an API change.
 
-Prefer copying a close example over writing from scratch — check the table in
-`examples/extensions/README.md` first.
+Prefer adapting a close example over writing from scratch — check the table
+in `examples/extensions/README.md` first.
 
 ## Anatomy
 
@@ -57,8 +72,10 @@ export default function (pi: ExtensionAPI) {
 
 Available imports: `@earendil-works/pi-coding-agent` (types, helpers),
 `@earendil-works/pi-ai` (`StringEnum`, provider/API helpers),
-`@earendil-works/pi-tui` (components), `typebox` (schemas; 1.3.x on pi ≥ 0.83,
-see [references/tools.md](references/tools.md#schema-rules)), Node built-ins. npm
+`@earendil-works/pi-tui` (components), `@earendil-works/pi-agent-core`
+(agent types), `typebox` (schemas; 1.3.27 in Pi 1.1.0), Node built-ins.
+The extension factory's default export is required by Pi and is an exception
+to the TypeScript skill's named-export rule. npm
 deps work if a `package.json` sits next to the extension and `npm install` was
 run.
 
@@ -87,7 +104,7 @@ rg '\{\{' .   # replace every placeholder before the first commit
 The template ships `package.json` (peer `"*"` + exact pins, `pi` manifest,
 gallery image), `tsconfig.json`, `pnpm-workspace.yaml`, `AGENTS.md`,
 `README.md`, `CHANGELOG.md`, `doc/PLAN.md`, `doc/RELEASE.md`, a factory plus
-pure-command-grammar source pair, a `node:test` unit test, the load-order
+pure-command-grammar source pair, `node:test` grammar and state tests, the load-order
 `test/fixtures/marker.ts`, and a tmux view-capture harness.
 
 Extra load paths: `settings.json` `"extensions": ["/path/to/ext.ts"]` and
@@ -101,8 +118,11 @@ auto-discovered locations, `/reload` hot-reloads the extension.
 1. **Clarify behavior** — which lifecycle points, tools/commands, providers,
    and UI. Map each requirement to an API: LLM-callable → `registerTool`;
    user-invoked → `registerCommand`/`registerShortcut`; model integration →
-   `registerProvider`; intercept/observe → `pi.on(event)`; startup config →
-   `registerFlag` or project config file.
+   `registerProvider`; request routing → `registerVirtualModel`; MCP →
+   `registerMcpServer`; rendering-only tool changes → `registerToolRenderer`;
+  intercept/observe → `pi.on(event)`; startup config →
+   `registerFlag` or project config file. Choose tool exposure explicitly for
+   interactive or orchestrating tools (usually `model-only`).
 2. **Find the closest example** in `examples/extensions/README.md` and read it.
 3. **Skeleton first**: factory + event subscriptions with `ctx.ui.notify()`
    stubs. Run `pi -e ./ext.ts` and verify hooks fire.
@@ -123,23 +143,34 @@ auto-discovered locations, `/reload` hot-reloads the extension.
 - **Async factory only for startup-critical awaits** (e.g. fetching a model
   list before `pi --list-models`). pi awaits it before startup continues.
 - **Guard UI calls.** `ctx.hasUI` before dialogs/notify (TUI+RPC);
-  `ctx.mode === "tui"` before `ctx.ui.custom()`, editor/footer/widget factories.
+  `ctx.mode === "tui"` before `ctx.ui.custom()`, editor/header/footer/widget
+  factories. RPC supports string-array widgets, not component factories.
   In non-interactive modes decide a safe default (e.g. block dangerous action).
 - **Keep closure state minimal and reconstructable.** State lives in the
   factory closure; persist via tool result `details` or `pi.appendEntry()` and
-  rebuild in `session_start` by scanning `ctx.sessionManager` entries. This is
-  what makes forking/branching/resume work.
+  rebuild from `ctx.sessionManager.getBranch()` on `session_start` and
+  `session_tree` when state follows the active branch. Do not replay abandoned
+  branches from `getEntries()`.
 - **Pass `ctx.signal` / tool `signal` to everything abortable** (`fetch`,
   `pi.exec`, model calls) so Esc cancels extension work.
 - **Custom messages vs entries**: `pi.sendMessage()` participates in LLM
-  context; `pi.appendEntry()` is TUI-only persistence. Pick deliberately.
+  context; `pi.appendEntry()` persists non-context state in every mode, with
+  optional TUI rendering. Neither is private storage; `display: false` is not
+  a privacy boundary.
 - **Use `CONFIG_DIR_NAME`** instead of hardcoding `.pi` for project-local paths.
 - **Namespace custom types and status keys** with your extension name
   (`customType: "plan-mode-context"`, `setStatus("my-ext", ...)`).
-- Return contracts matter: `tool_call` → `{ block, reason, terminate? }`; `input` →
-  `{ action: "continue" | "transform" | "handled" }`; `session_before_*` →
-  `{ cancel: true }`; `message_end` → `{ message }`. Returning `undefined`
-  always means "no change". See [references/api.md](references/api.md).
+- **Preserve prompt state.** Mutate `before_agent_start.systemPromptOptions`
+  for structured additions; returning `systemPrompt` forces the full prompt.
+  `context` excludes system messages; `context_with_system` owns the whole
+  request transcript, including the leading system message and tool state.
+- **Return contracts matter.** `tool_call` can block; `message_end` can replace
+  a same-role message; `turn_end` and `agent_before_settle` can return chained
+  entries and request continuation. `agent_settled` is notification-only;
+  its `aborted` flag distinguishes cancellation, not success from failure.
+  Most handlers may return `undefined`; `project_trust` requires a decision
+  and receives `ProjectTrustContext`, not a session-capable `ExtensionContext`.
+  See [references/api.md](references/api.md).
 
 ## Pi-Native TUI Style
 
@@ -183,9 +214,11 @@ full examples, see [references/tui.md#pi-native-selector-style](references/tui.m
    reconstruction.
 3. **Match the existing structure** — single-file stays single-file unless it
    grows past a few hundred lines; then split as in step 4 above.
-4. **Check for handler chaining**: `tool_result` patches and `input` transforms
-   chain across extensions; `before_agent_start` chains `systemPrompt`. Don't
-   clobber — extend (`event.systemPrompt + "\n..."`).
+4. **Check for handler chaining**: `tool_result` patches, `input` transforms,
+   prompt options, and boundary drafts chain across extensions. Preserve prior
+   values; prefer adding a namespaced `systemPromptOptions.sections` entry
+   over forcing a concatenated prompt. Redact both `content` and
+   `structuredContent` when changing tool output.
 5. When adding UI to a previously headless extension, add `ctx.hasUI` guards.
 6. Retest: `pi -e ./ext.ts` in a real PTY, exercise old and new paths, then
    `/reload` in a real session.
@@ -205,7 +238,7 @@ Test in the cheapest layer that proves the behavior:
    cheapest/simple default and avoid session persistence:
 
 ```bash
-pi --model anthropic/claude-haiku-4-5 -e ./my-ext.ts --no-session \
+pi --model anthropic/claude-haiku-5-5 -e ./my-ext.ts --no-session \
   -p "Say one word: ok"
 ```
 
@@ -225,13 +258,18 @@ tmux kill-session -t ext-test
 ```
 
 If tmux is unavailable, use `script` or a Python `pty` harness; do not treat
-plain piped stdin/stdout as a TUI test. Test narrow and normal terminal widths
-for custom components. Use `PI_TUI_WRITE_LOG=/tmp/tui.log` to inspect raw TUI
-output when rendered frames are ambiguous.
+plain piped stdin/stdout as a TUI test. Pi 1.1 defaults to fullscreen; test
+both `--tui-mode fullscreen` and `--tui-mode regular`, narrow and normal
+widths, resize, theme changes (including `system`), and focus/close behavior.
+Tool renderers must also respect `outputPad: 0` and `outputPad: 1`, including
+`renderShell: "self"`; display recorded `context.durationMs`, not wall time.
+Keep a keyboard path for mouse interactions. Use `PI_TUI_WRITE_LOG` only for
+controlled test data — raw terminal logs can contain private content.
 
 For repeatable frame captures, adapt `assets/package-template/test/capture-view.sh`:
 it gates startup on the pane's foreground process, gates input on pi's
-completion popup, and copies session files before opening them. When an
+completion popup, and copies session files before opening them. Run it with
+`TUI_MODE=fullscreen` and `TUI_MODE=regular`. When an
 installed copy of the same extension is present, `pi -e .` produces duplicate
 commands suffixed in load order (`/cmd:1` working copy, `/cmd:2` installed) —
 use that to diff working copy against the release.
@@ -241,5 +279,15 @@ Also verify relevant boundaries:
 - extension loaded before and after other chained handlers;
 - print/headless behavior for extensions with UI code;
 - `/reload`, new/resumed/forked sessions when closure or persisted state exists;
-- extension errors: most are logged and execution continues, while `tool_call`
-  handler errors block the tool fail-safe.
+- nested tool calls and permission gates when tools are callable from codemode;
+- extension errors: most are reported and execution continues, while
+  `tool_call` and `user_bash` handler errors fail closed.
+
+For isolated CLI tests, `--no-extensions` also disables built-in extensions
+(MCP, codemode, tool search, llama.cpp). Add the required ones explicitly with
+`-e builtin:mcp`, `-e builtin:codemode`, `-e builtin:tool-search`, or
+`-e builtin:llama.cpp`; otherwise a test can accidentally skip the integration.
+`--no-mcp` disables only built-in MCP. `--tools +codemode,-write` adjusts the defaults; a plain
+allowlist replaces them. Tool patterns are supported, but an allowlist keeps
+MCP tools callable unless it contains an `mcp__` entry. Do not mistake the
+model's declared tool selection for an access-control boundary.

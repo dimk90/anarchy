@@ -1,10 +1,15 @@
 # Custom Tools Reference
 
+Verified against Pi 1.1.0. Exact types: coding-agent's
+`dist/core/extensions/types.d.ts` and agent-core's `dist/types.d.ts`.
+
 ## Contents
 
 - [Tool definition](#tool-definition)
 - [Schema rules](#schema-rules)
 - [Execute contract](#execute-contract)
+- [Tool exposure and codemode](#tool-exposure-and-codemode)
+- [Nested tool calls](#nested-tool-calls)
 - [Prompt integration](#prompt-integration)
 - [Output truncation](#output-truncation)
 - [File mutation queue](#file-mutation-queue)
@@ -37,7 +42,7 @@ const todoTool = defineTool({
 	promptGuidelines: ["Use todo for task planning instead of file edits."],
 	parameters: todoSchema,
 	async execute(toolCallId, params, signal, onUpdate, ctx) {
-		onUpdate?.({ content: [{ type: "text", text: "Working..." }] });  // streaming progress
+		onUpdate?.({ content: [{ type: "text", text: "Working..." }], details: { todos, nextId } });
 		return {
 			content: [{ type: "text", text: "Done" }],  // sent to LLM
 			details: { todos, nextId },                  // rendering + state reconstruction
@@ -57,14 +62,17 @@ too.
 
 Optional definition fields: `executionMode: "sequential"` (this tool never runs
 concurrently with other tool calls — use for tools with shared mutable
-resources), `renderShell: "self"`, `prepareArguments`.
+resources), `renderShell: "self"`, `prepareArguments`, `outputSchema`,
+`exposure`, `namespace`, `annotations`, `defaultActive`, `prepareLoadout`, and
+`constrainedSampling`. Use only provider-supported constrained sampling;
+`false` disables a built-in tool's default strict-prefer request.
 
 ## Schema rules
 
 - Schemas are TypeBox (`typebox`); derive the TS type via `Static<typeof schema>`.
-- **pi 0.83 bundles typebox 1.3.x, which removed `Type.Base`, `Type.Awaited`,
+- **Pi 1.1.0 ships typebox 1.3.27.** The 1.3 migration removed `Type.Base`, `Type.Awaited`,
   `Type.Promise`, `Type.AsyncIterator`, `Type.Iterator`, `Type.Options`, and
-  `Value.Mutate`.** Replace `Type.Base` subclasses with
+  `Value.Mutate`. Replace `Type.Base` subclasses with
   `Type.Refine(Type.Unsafe<T>({...}), check, message)`, model promises and
   iterators structurally (a promise is an object with `then`), use the `with`
   keyword instead of `Options` in `Type.Script`, and keep mutation helpers in
@@ -79,22 +87,96 @@ resources), `renderShell: "self"`, `prepareArguments`.
 
 Signature: `execute(toolCallId, params, signal, onUpdate, ctx)`.
 
-- **Errors: throw.** A thrown error sets `isError: true` and is reported to the
-  LLM; returning any value never marks an error.
+- Return `content` and `details` (`details: undefined` when unused). Keep
+  persisted args/details JSON-compatible — not classes, maps, or live objects.
+- **Errors:** throw for an ordinary failure, or return `isError: true` when a
+  failure must retain data. Returning an object alone does not mark failure.
+- With `outputSchema`, return matching `structuredContent`. The model receives
+  `content`; codemode callers receive the structured value. Without an output
+  schema, scripts receive text. Structured error results remain available to
+  scripts instead of becoming thrown failures.
 - Check `signal?.aborted` at the top and between long steps; pass `signal` to
   `pi.exec`, `fetch`, etc.
 - `onUpdate?.({ content, details? })` streams partial results to the TUI
   (`isPartial` in the renderer).
-- Return combined nested LLM `usage` when the tool calls models. Pi persists it
-  and includes it in footer, `/session`, and RPC totals; `tool_result` handlers
-  can inspect or replace it.
+- Return `usage` for model work performed by this tool. Pi persists it and
+  includes it in footer, `/session`, and RPC totals. Usage from tools called
+  through `ctx.executeTool()` is aggregated automatically; do not count it
+  again in the parent.
 - `terminate: true` on the result hints skipping the follow-up LLM call; takes
   effect only when every tool result in the batch sets it (structured-output
   pattern). A `tool_call` handler can set the same hint while blocking
-  (`{ block: true, terminate: true }`, pi ≥ 0.84.1) so an all-blocked batch
+  (`{ block: true, terminate: true }`) so an all-blocked batch
   also stops without another model call.
-- Tools run with `ExtensionContext` (no session-control methods). To trigger a
-  command from a tool, queue it: `pi.sendUserMessage("/cmd", { deliverAs: "followUp" })`.
+- Tools run with `ExtensionToolContext` (no command-only session controls).
+  Dispatch commands explicitly:
+  `pi.sendUserMessage("/cmd", { deliverAs: "followUp", expandPromptTemplates: true })`.
+  Without expansion, `/cmd` is ordinary model input.
+
+## Tool exposure and codemode
+
+The active set controls model declarations, not every programmatic call:
+
+| `exposure` | Declared to model | Callable through `ctx.executeTool()` |
+|---|---|---|
+| `direct` (default) | While active | While active |
+| `model-only` | While active | Never |
+| `codemode` | Only if explicitly activated | Whenever registered; eligible for inline codemode listing |
+| `deferred` | Only if explicitly activated | Whenever registered; discoverable, not inline-listed |
+| `hidden` | Never | Never |
+
+Use `model-only` for interactive or orchestrating tools that should not run
+inside scripts. Direct/model-only registrations activate by default;
+`defaultActive: false` opts out. Other exposures never auto-activate.
+Re-register with `hidden` to withdraw a tool; there is no unregister API.
+Deactivating `codemode`/`deferred` tools is **not** access control.
+
+`namespace: { name, description?, instructions? }` groups tools. Scripts can
+read long instructions on demand with `describeNamespace()`.
+`annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`,
+`openWorldHint`) are unverified hints, not enforcement. Missing hints have
+conservative MCP defaults; permission checks belong in `tool_call`.
+
+An active orchestrator can implement `prepareLoadout(loadout)`, receiving
+`declared`, `callable`, `registered`, `getExposure()`, `getNamespace()`, and
+`getPromptGuidelines()`. Return `descriptions` keyed by name and/or
+`hiddenDeclarations`; hidden **declarations** remain active/callable, unlike
+`exposure: "hidden"`. Pi omits hidden tools from system-prompt tool lists and
+rules; present their guidelines in the orchestrator's tool descriptions instead.
+
+The built-in codemode uses these APIs. Scripts run in QuickJS without Node,
+filesystem, network, or timers; tools are their capability boundary. For script
+globals and `models.classify()`/`models.generateImages()`, read
+`docs/codemode.md`. Probe tools with `"name" in tools`, not
+`typeof tools.name` (unknown property access throws).
+`searchTools()`, `describeTool()`, and `describeNamespace()` are async; await
+them before using their values. `tools.read()` returns an image block for
+image files, which `image()` can show. `image()` also saves output to a temp
+file; only forward images with the user's intended privacy behavior. Text,
+image, and console output share hard limits (16 Mi characters / 100000 items),
+and sandbox built-ins are frozen; do not patch prototypes.
+
+## Nested tool calls
+
+Inside `execute()`, use `ctx.executeTool(name, args, { signal, onUpdate })`
+rather than directly calling another definition's `execute`. `ctx.tools`
+lists callable tools. Nested calls pass validation and permission/result
+hooks. `executeTool()` returns `AgentToolCallOutcome`; tool failures return
+`isError: true` rather than rejecting. Inspect it before using the result.
+This differs from the codemode JavaScript wrapper, which rejects ordinary
+failed calls (but preserves structured error results).
+
+All nested tool events carry `parentToolCallId`; Pi assigns IDs of the form
+`<parent id>/<n>`. Do not assume every event has a corresponding assistant
+call or transcript result. Nested results reach the caller only; report them
+through the parent's content/details/updates when needed.
+
+Pi stores bounded `nestedCalls` metadata on the parent's result: name, args,
+status, duration, error, but never result bodies. Limits: 8 KiB of args per
+call, 32 KiB per parent result, 256 calls; `complete: false` marks loss.
+Nested usage aggregates at every depth. Redacting `tool_result.content` alone
+drops `structuredContent`; return a sanitized structured value too when
+programmatic consumers still need it.
 
 ## Prompt integration
 
@@ -106,7 +188,8 @@ Signature: `execute(toolCallId, params, signal, onUpdate, ctx)`.
 
 ## Output truncation
 
-Tools MUST truncate output (limit: 50KB / 2000 lines, whichever hits first):
+Bound model-facing text; the standard helpers default to 50KB / 2000 lines,
+whichever hits first (not an automatic limit for every custom tool):
 
 ```typescript
 import {
@@ -123,7 +206,12 @@ if (t.truncated) {
 ```
 
 Always tell the LLM output was truncated and where to find the rest (temp file,
-offset parameter). Document limits in the tool description.
+offset parameter). Document limits in the tool description. Keep larger
+structured results only when needed by programmatic callers and bound them
+separately: Pi 1.1's bash/PowerShell structured output allows up to 1 MiB,
+while model-facing output still uses the smaller limit. Output temp files
+must be user-readable only, as Pi's built-in output files are. Do not persist
+full sensitive output merely to implement truncation.
 
 ## File mutation queue
 
@@ -146,15 +234,26 @@ async execute(_id, params, _signal, _onUpdate, ctx) {
 ## Schema evolution (prepareArguments)
 
 `prepareArguments(args)` runs before validation. Use it to map legacy stored
-arguments (from resumed old sessions) onto the current schema. Keep the public
-schema strict — never add deprecated fields to `parameters`:
+arguments onto the current schema. Keep the public schema strict — never add
+deprecated fields to `parameters`. The declared return type is
+`Static<TParams>`; validate/narrow the normalized object rather than returning
+arbitrary `unknown`. For an edit-like tool whose `editSchema` is defined above:
 
 ```typescript
+import * as Value from "typebox/value";
+
+// Inside the tool definition
 prepareArguments(args) {
-	if (!args || typeof args !== "object") return args;
-	const input = args as { edits?: Edit[]; oldText?: unknown; newText?: unknown };
-	if (typeof input.oldText !== "string" || typeof input.newText !== "string") return args;
-	return { ...input, edits: [...(input.edits ?? []), { oldText: input.oldText, newText: input.newText }] };
+	let normalized = args;
+	if (args && typeof args === "object" && "oldText" in args && "newText" in args) {
+		const { oldText, newText, ...rest } = args;
+		if (typeof oldText === "string" && typeof newText === "string") {
+			const edits = "edits" in rest && Array.isArray(rest.edits) ? rest.edits : [];
+			normalized = { ...rest, edits: [...edits, { oldText, newText }] };
+		}
+	}
+	if (!Value.Check(editSchema, normalized)) throw new Error("Invalid edit arguments");
+	return normalized;
 }
 ```
 
@@ -169,24 +268,28 @@ const added = matches.filter((name) => !active.includes(name));
 pi.setActiveTools([...new Set([...active, ...added])]);
 ```
 
-The names must already be registered; unknown names are ignored. Keep the
-change purely additive during loader execution. Pi records added definitions
-on the loader result and exposes them on the next model request. This works for
-every model: supported Anthropic/OpenAI models use native deferred schemas;
-others receive the full active tool list as a safe fallback. Enable
-`compat.supportsToolReferences` or `compat.supportsToolSearch` for a custom
-model only after verifying its endpoint accepts that native protocol.
+The names must already be registered; unknown/hidden names are ignored.
+Prefer `defaultActive: false` or `deferred` exposure for optional tools, and
+keep activation additive during loader execution. Pi persists tool changes as
+transcript system deltas before the next model request. Providers without
+support receive a collapsed checkpoint, which can invalidate the cache prefix.
+Anthropic defines added or redefined tools inline mid-conversation, preserving
+the earlier prompt-cache prefix even when a tool keeps its name.
 
-Keep the loader active for the session and prefer additions over replacements
-to preserve prompt-cache prefixes. Lazily loaded tools should usually omit
-`promptSnippet` and `promptGuidelines`, because activating either changes the
-system prompt even when deferred schemas are supported. See the dynamic-tool
-section in `docs/extensions.md` and the `kimi-deferred-tools.ts` example.
+Keep the loader active. Optional tools should usually omit `promptSnippet`
+and `promptGuidelines` to avoid additional prompt changes on activation.
+Use built-in `tool_search` when it fits, and inspect `dynamic-tools.ts` for
+runtime registration. Do not copy old examples that assume tool definitions
+are stored only on loader result messages.
 
 ## Overriding built-in tools
 
-Register a tool with a built-in name (`read`, `bash`, `edit`, `write`, `grep`,
-`find`, `ls`) to replace it.
+For rendering-only changes, prefer `pi.registerToolRenderer()` (below): it
+does not replace execution, schemas, exposure, or prompt metadata.
+Register a tool with a built-in name (`read`, `bash`, `powershell`, `edit`,
+`write`, `grep`, `find`, `ls`) to replace it. Registering `codemode`,
+`tool_search`, or `/mcp` can replace an entire built-in extension; Pi warns
+about this. Do not accidentally disable its integration.
 
 - **Result shape must match exactly**, including `details` types
   (`ReadToolDetails`, `BashToolDetails`, ...) — UI and session logic depend on
@@ -194,7 +297,9 @@ Register a tool with a built-in name (`read`, `bash`, `edit`, `write`, `grep`,
   (`src/core/tools/*.ts` or dist types) before overriding.
 - Rendering inherits per slot: omit `renderCall`/`renderResult` to keep the
   built-in rendering (diffs, syntax highlighting) while wrapping execution.
-- `promptSnippet`/`promptGuidelines` are NOT inherited; redefine if needed.
+- `promptSnippet`/`promptGuidelines` are NOT inherited; retain the original
+  values when wrapping. Preserve `outputSchema`/`structuredContent` too so
+  codemode callers keep the original result contract.
 - Wrapping pattern: `createReadTool(cwd, { operations })`,
   `createBashTool(cwd, { spawnHook, operations })` etc. accept pluggable
   operations (`ReadOperations`, `BashOperations`, ...) for remote/SSH/sandbox
@@ -208,13 +313,38 @@ Optional `renderCall(args, theme, context)` and
 `renderResult(result, { expanded, isPartial }, theme, context)` return a TUI
 `Component`. Default fallback: tool name / raw content text.
 
+`pi.registerToolRenderer((toolName, next) => renderers)` selects renderers
+without registering or replacing a tool, including MCP calls restored before
+their server connects. Resolvers run in extension load order. `next()` asks
+the remaining resolvers, then the registered definition; return it for tools
+you do not own. `next() ?? mine` fills in only when no later renderer exists;
+spread `next()` when intentionally overriding just one slot. The returned
+`ToolRenderers` has optional `renderShell`, `renderCall`, and `renderResult`.
+
+```typescript
+pi.registerToolRenderer((toolName, next) => {
+	if (!toolName.startsWith("mcp__docs__")) return next();
+	return next() ?? {
+		renderCall(_args, theme) {
+			return new Text(theme.fg("toolTitle", toolName), 0, 0);
+		},
+	};
+});
+```
+
 `context` fields: `args`, `state` (shared across both slots), `lastComponent`,
 `invalidate()`, `toolCallId`, `cwd`, `executionStarted`, `argsComplete`,
-`isPartial`, `expanded`, `showImages`, `isError`.
+`isPartial`, `expanded`, `showImages`, `isError`, `durationMs`, `outputPad`.
+`durationMs` is recorded monotonic execution time, not live elapsed time;
+it is `undefined` while running, for calls that did not execute, and for old
+stored results. Pi supplies it from the final result on resume too. Read
+`context.durationMs` rather than expecting timing in the renderer's result
+argument. `tool_execution_end.durationMs` exposes the same execution timing.
 
 Best practices:
 
-- Use `new Text(str, 0, 0)` (zero padding) — the default Box shell pads.
+- Use `new Text(str, 0, 0)` (zero padding) — the default Box shell applies
+  `context.outputPad` (0 or 1). Self-rendered shells must apply it themselves.
 - Reuse `context.lastComponent` and update in place:
   `const text = (context.lastComponent as Text | undefined) ?? new Text("", 0, 0); text.setText(...); return text;`
 - Handle `isPartial` (streaming) and `expanded` (detail on demand); keep the
@@ -224,6 +354,7 @@ Best practices:
 - Keybinding hints: `keyHint("app.tools.expand", "to expand")` /
   `keyText(id)` from `@earendil-works/pi-coding-agent` — never hardcode keys.
 - `renderShell: "self"` only when the default boxed shell gets in the way; you
-  then own framing, padding, and background.
+  then own framing, padding, and background. Test both `outputPad` values so
+  tool output aligns with messages, `!` output, and summary blocks.
 
 See [tui.md](tui.md) for components and theming.

@@ -7,11 +7,11 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
+/** Add independent structured prompt and message markers for lifecycle tests. */
 export default function (pi: ExtensionAPI) {
-	pi.on("before_agent_start", async (event) => {
-		return {
-			systemPrompt: `${event.systemPrompt}\n\nXYZZY_MARKER_INJECTION: verification prompt addition.`,
-		};
+	pi.on("before_agent_start", (event) => {
+		event.systemPromptOptions.sections.verification_marker =
+			"XYZZY_MARKER_INJECTION: verification prompt addition.";
 	});
 
 	pi.on("session_start", async () => {

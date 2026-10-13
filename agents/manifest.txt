@@ -6,6 +6,7 @@ pi/extensions/pi-permission-system/config.json
 pi/extensions/search.json
 pi/keybindings.json
 pi/settings.json
+pi/themes/dark-legacy.json
 skills/agents-md/SKILL.md
 skills/code-style/SKILL.md
 skills/commit/SKILL.md
@@ -24,6 +25,7 @@ skills/pi-extension/assets/package-template/src/index.ts
 skills/pi-extension/assets/package-template/test/capture-view.sh
 skills/pi-extension/assets/package-template/test/command.test.ts
 skills/pi-extension/assets/package-template/test/fixtures/marker.ts
+skills/pi-extension/assets/package-template/test/index.test.ts
 skills/pi-extension/assets/package-template/tsconfig.json
 skills/pi-extension/references/api.md
 skills/pi-extension/references/packaging.md

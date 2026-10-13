@@ -10,9 +10,11 @@
 # disambiguates the duplicate commands by index in load order: 1 is the working
 # copy, 2 the installed package. Pass the index to compare them:
 #
-#   test/capture-view.sh            # working copy, fresh session
-#   test/capture-view.sh 2          # installed package
+#   test/capture-view.sh            # unsuffixed command, only one copy loaded
+#   test/capture-view.sh 1          # working copy when both copies are loaded
+#   test/capture-view.sh 2          # installed package when both copies are loaded
 #   test/capture-view.sh 1 path/to/session.jsonl
+#   TUI_MODE=regular test/capture-view.sh  # also test terminal scrollback mode
 #
 # A session file is copied to a temp dir before pi opens it: opening a session
 # lets pi and extensions append entries, which would mutate the recording.
@@ -29,11 +31,12 @@ set -euo pipefail
 : "${SESSION:={{package}}-capture}"
 : "${COLS:=120}"
 : "${ROWS:=45}"
+: "${TUI_MODE:=fullscreen}"
 : "${OUT_DIR:=test/captures}"
 : "${COMMAND:=/{{command}}}"
 
-# Which duplicate command to run: 1 = working copy (`pi -e .`), 2 = installed.
-: "${COMMAND_INDEX:=1}"
+# 0 = unsuffixed command; with duplicates, 1 = working copy, 2 = installed
+: "${COMMAND_INDEX:=0}"
 
 # Text pi draws in the slash-command completion popup: proof that pi, not the
 # shell, received the typed command.
@@ -70,8 +73,12 @@ start_pi() {
     #
     local session_file="${1-}"
 
-    local command_line="pi -e ."
-    [[ -n $session_file ]] && command_line="$command_line --session $session_file"
+    local command_line
+    if [[ -n $session_file ]]; then
+        printf -v command_line 'pi -e . --tui-mode %q --session %q' "$TUI_MODE" "$session_file"
+    else
+        printf -v command_line 'pi -e . --tui-mode %q --no-session' "$TUI_MODE"
+    fi
 
     tmux kill-session -t "$SESSION" 2> /dev/null || true # leftover from an aborted run
     tmux new-session -d -s "$SESSION" -x "$COLS" -y "$ROWS" -c "$PWD"
@@ -116,7 +123,8 @@ open_view() {
     # Example:
     #   open_view
     #
-    local command_line="$COMMAND:$COMMAND_INDEX"
+    local command_line="$COMMAND"
+    [[ $COMMAND_INDEX != 0 ]] && command_line="$command_line:$COMMAND_INDEX"
 
     # Keys sent before pi takes over the terminal are echoed by the shell, so
     # the command can appear on screen while pi never saw it. Only pi draws the
@@ -194,17 +202,22 @@ main() {
     # Capture one view, optionally against a copy of an existing session.
     #
     # Parameters:
-    #   $1 - command_index - (optional) - digits only; duplicate command index.
+    #   $1 - command_index - (optional) - 0 for unsuffixed, otherwise duplicate index.
     #   $2 - session_file - (optional) - .jsonl session to open.
     #
     # A bare number can only be the index: session paths end in .jsonl.
-    if [[ ${1-} =~ ^[1-9][0-9]*$ ]]; then
+    if [[ ${1-} =~ ^(0|[1-9][0-9]*)$ ]]; then
         COMMAND_INDEX="$1"
         shift
     fi
 
     local session_file="${1-}"
     local opened="$session_file"
+
+    if [[ $TUI_MODE != fullscreen && $TUI_MODE != regular ]]; then
+        printf 'TUI_MODE must be fullscreen or regular\n' >&2
+        return 1
+    fi
 
     if [[ -n $session_file ]]; then
         WORK_DIR="$(mktemp -d)"
@@ -221,9 +234,11 @@ main() {
 
     mkdir -p "$OUT_DIR"
     local out_file
-    out_file="$OUT_DIR/$(basename "${session_file:-new-session}" .jsonl)-$COMMAND_INDEX.log"
+    out_file="$OUT_DIR/$(basename "${session_file:-new-session}" .jsonl)-$COMMAND_INDEX-$TUI_MODE.log"
     {
-        printf 'command:  %s:%s\n' "$COMMAND" "$COMMAND_INDEX"
+        printf 'command:  %s\n' "$COMMAND"
+        printf 'index:    %s (0 = unsuffixed)\n' "$COMMAND_INDEX"
+        printf 'mode:     %s\n' "$TUI_MODE"
         printf 'session:  %s\n' "${session_file:-new session}"
         printf 'captured: %s\n\n' "$(date -Iseconds)"
         tmux capture-pane -p -t "$SESSION"

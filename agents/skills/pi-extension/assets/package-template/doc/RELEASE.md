@@ -14,8 +14,9 @@ the resulting `master` merge commit.
 
 1. Check the local pi version and update the exact
    `@earendil-works/pi-coding-agent` and `@earendil-works/pi-tui` development
-   pins in `package.json` to match it. Keep both peer dependencies as `"*"`,
-   then refresh `pnpm-lock.yaml`:
+   pins in `package.json` and the `overrides` in `pnpm-workspace.yaml` to
+   match it. Keep both peer dependencies as `"*"`, then refresh
+   `pnpm-lock.yaml`:
 
    ```bash
    pi --version

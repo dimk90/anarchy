@@ -1,7 +1,7 @@
 ---
 name: s-vhs-recording
-description: Write, run and verify s-vhs recording scripts (`*.rec.sh`) that record a terminal session and render it as an animated GIF, an animated SVG, an asciinema cast or a text log. Use when asked to record a terminal demo, produce a demo GIF or animation for a README, script an asciinema cast, automate typing into a terminal for a screencast, or port a VHS `.tape` file. Covers scaffolding, the `Set*` → `Start` → `Show` → `Render` lifecycle, typing and key presses, hiding setup steps, painting typed text with color, and verifying the result without watching the GIF.
-compatibility: Requires bash, tmux and asciinema on PATH; agg is additionally required for GIF output, asg for SVG output, gifsicle for GIF optimization. Linux or macOS.
+description: Write, run and verify s-vhs recording scripts (`*.rec.sh`) that record a terminal session and render it as an animated GIF, WebP or SVG, an MP4 video, an asciinema cast or a text log. Use when asked to record a terminal demo, produce a demo GIF or animation for a README, script an asciinema cast, automate typing into a terminal for a screencast, or port a VHS `.tape` file. Covers scaffolding, the `Set*` → `Start` → `Show` → `Render` lifecycle, typing and key presses, hiding setup steps, painting typed text with color, and verifying the result without watching the GIF.
+compatibility: Requires bash, tmux and asciinema on PATH; agg for GIF, WebP and MP4 output, ffmpeg with libwebp_anim for WebP, ffmpeg 6.1+ with libx264 for MP4, asg for SVG, gifsicle for GIF optimization. Linux or macOS.
 allowed-tools: Read Write Edit Bash(command -v:*) Bash(curl:*) Bash(chmod:*) Bash(asciinema convert:*) Bash(tmux -L s-vhs:*) Bash(ls:*)
 ---
 
@@ -23,9 +23,10 @@ Read it before using any command not shown below; the API is pre-1.0 and moves.
 | ------------ | ------------------------------------------------------ |
 | `tmux`       | always                                                 |
 | `asciinema`  | always; also writes `.cast` and `.txt` outputs         |
-| `agg`        | `.gif` output                                          |
+| `agg`        | `.gif`, `.webp` and `.mp4` output                      |
+| `ffmpeg`     | `.webp` output (`libwebp_anim`); `.mp4` output (`libx264`, 6.1+) |
 | `asg`        | `.svg` output                                          |
-| `gifsicle`   | `SetOptimize 'on'`; optional, a missing one only warns |
+| `gifsicle`   | `SetOptimize 'on'` for GIF; optional, a missing one only warns |
 
 ```bash
 command -v tmux asciinema agg
@@ -57,7 +58,7 @@ Name recordings `<topic>.rec.sh` and make them executable.
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 
 # shellcheck disable=SC1090
-source <(curl -fsSL https://dimk90.github.io/s-vhs/v0.4.2) && wait "$!" || exit 1
+source <(curl -fsSL https://dimk90.github.io/s-vhs/v0.6.0) && wait "$!" || exit 1
 
 # Every command the recorded shell drives, checked before anything starts
 Require 'git'
@@ -89,15 +90,26 @@ Every `Set*` call goes **before `Start`** and fails afterwards. `Start` needs at
 least one `SetOutput`.
 
 - `SetOutput` is repeatable and the extension picks the format: `.gif` (agg),
-  `.svg` (asg), `.cast` (replayable, re-renderable later) and `.txt` (plain
-  text log). A cast-only recording needs no renderer at all.
+  `.webp` and `.mp4` (agg + FFmpeg), `.svg` (asg), `.cast` (replayable,
+  re-renderable later) and `.txt` (plain text log). A cast-only recording needs
+  no renderer. WebP preserves the rendered GIF's pixels and timing losslessly,
+  usually in fewer bytes, and shares GIF's settings.
+- **`.mp4` only when a video file is what the target needs** — a player, a
+  slide, a page that will not take an animation. It is the one lossy format
+  (H.264, 4:2:0 chroma), it is not much smaller than the GIF it comes from,
+  and it loops only if the player is told to; prefer `.gif` or `.webp`
+  everywhere else. It inherits every GIF setting except `SetLoop`, which
+  `Render` reports as skipped.
 - **`Require 'cmd'…` lists what the recorded shell will run.** It fails before
   the session starts instead of leaving a `command not found` frame in the
   middle of the GIF. Skip it only for shell builtins and coreutils.
-- **`SetOptimize 'on'` for any GIF committed to a repository** — a lossless
-  `gifsicle -O3` pass, 12-25 % smaller, roughly doubling render time. Without
-  `gifsicle` installed `Render` warns and keeps the unoptimized GIF, so it is
-  safe to leave on.
+- **`SetOptimize 'on'` for anything committed to a repository** — a lossless
+  `gifsicle -O3` pass for GIF, 12-25 % smaller, roughly doubling render time;
+  for WebP the encoder's slowest lossless effort, a few per cent smaller for
+  several times the encoding time; for MP4 its slowest preset, 10-20 % smaller
+  for roughly twice the encoding time, at the same quality but not the same
+  pixels. Without `gifsicle` installed `Render` warns and keeps the
+  unoptimized GIF, so it is safe to leave on.
 - `SetCols`/`SetRows` size the grid in **cells, not pixels**. Fit them to the
   content: a two-line demo in a 40-row terminal is mostly empty frame.
 - `SetFontSize` is the only pixel setting; it scales the render without
@@ -105,7 +117,7 @@ least one `SetOutput`.
   per renderer (`::: GIF: 60 cols x 8 rows x 40px font -> 1488 x 432 px`) —
   read it back and adjust the grid or the font size before a render that is
   far off the size the user asked for.
-- `SetFontFamily 'A, B'` takes a preferred list. For GIF output, agg's
+- `SetFontFamily 'A, B'` takes a preferred list. For GIF and WebP, agg's
   default text-font chain follows it before the Nerd Font and emoji fallbacks;
   the first installed text family wins.
 - The recorded shell is isolated by default: no personal rc files, no history,
@@ -115,12 +127,12 @@ least one `SetOutput`.
   command still takes a per-call delay.
 - `Env NAME value` exports into the recorded shell; repeatable.
 - Playback is fixed at render time, not by re-recording: `SetPlaybackSpeed`,
-  `SetFramerate`, `SetIdleTimeLimit` (caps long pauses), `SetLoop` and
-  `SetLastFrameDuration` (GIF only).
+  `SetFramerate`, `SetIdleTimeLimit` (caps long pauses), `SetLoop` (GIF, WebP
+  and SVG) and `SetLastFrameDuration` (GIF, WebP and MP4).
 - A setting only one renderer supports is applied where it works, and `Render`
   reports the skipped output in yellow. Nothing fails, so a recording that
   writes both a GIF and an SVG may still use `SetWindowBar 'on'` (SVG) or
-  `SetBoldIsBright 'on'` (GIF).
+  `SetBoldIsBright 'on'` (GIF and WebP).
 
 ## 4. Body
 
@@ -159,9 +171,19 @@ least one `SetOutput`.
 - `Copy 'text'` then `Paste` puts a whole line on screen in one frame — a
   recording-local tmux buffer sent as a bracketed paste, never the system
   clipboard.
+- `Highlight 'text' [hold]` sweeps a selection across text **already on the
+  visible pane**, the way a mouse drag would, then releases it; nothing is
+  copied. Matching is literal and confined to a single row, and of several
+  occurrences the one closest to the cursor wins — the output line, not the
+  command echoed above it. Text that has not arrived yet is only warned about,
+  so `Wait` for it first instead of trusting a `Sleep`.
+  `SetHighlightColors 'colour214' 'black' 'bold'` picks the colors it is
+  painted with, and `SetHighlightSpeed` how fast it sweeps - per call,
+  `Highlight 'text' 1.5 0.01`.
 - **Prefer `Wait` over `Sleep` for anything whose duration is not yours to
-  decide.** Anchor the pattern so it does not match the command echoed above
-  the output:
+  decide.** Both `Wait` and `WaitLine` use extended regular expressions
+  (`grep -E`); escape regex metacharacters when matching literal text. Anchor
+  the pattern so it does not match the command echoed above the output:
 
   ```bash
   Type 'make build'
@@ -262,11 +284,15 @@ local copy — which waits for the session, follows it, and needs no tmux client
 after the script's PID (`s-vhs-$$`), so parallel runs never collide and need no
 `SetSession`; call it only to pin a fixed, predictable attach target. Any exit,
 including a mid-recording failure, tears the session down through the `EXIT`
-trap installed at `source` time.
+trap installed at `source` time. Anything else the recording creates - a
+`mktemp -d` fixture, a started server - is removed by registering a
+`Finally 'rm -rf "$WORK_DIR"'` at creation time, single-quoted so it expands at
+exit; a last line of cleanup only covers the take that succeeds, and a `Wait`
+timeout is the most common way one does not.
 
 ## 8. Verify
 
-A GIF or SVG cannot be reviewed by an agent — verify through the text log
+A GIF, WebP, MP4 or SVG cannot be reviewed by an agent — verify through the text log
 instead. Add a `.txt` output (keep it if the project wants one, otherwise drop
 the line after checking):
 
@@ -287,7 +313,7 @@ Then confirm each requested file exists and is non-empty — `Render` prints
 `::: Wrote <path>` per output, and any yellow `::: ` line is a warning worth
 reading back to the user.
 
-State plainly that the GIF or SVG itself was not viewed; ask the user to eyeball
+State plainly that the animation itself was not viewed; ask the user to eyeball
 it for timing and framing.
 
 ## Troubleshooting
@@ -297,12 +323,14 @@ it for timing and framing.
 | `Set…: settings cannot change after the session starts` | A setting moved below `Start`; all `Set*` belong to the configuration phase |
 | `Start: configure at least one output with SetOutput` | No `SetOutput` call |
 | `Start: session already exists` | A pinned `SetSession` name is taken, or a `SIGKILL`ed run left its session behind; `tmux -L s-vhs kill-server` |
+| `Start: ffmpeg <version> is too old, MP4 output needs 6.1 or newer` | `.mp4` output needs ffmpeg 6.1+; older builds encode but truncate the final frame |
 | `Require: <cmd> is not installed, required for the recording` | The recording drives a command the machine lacks — install it or drop that step |
 | `Wait: timeout waiting for: <pattern>` | The pattern never appeared — check the anchor and raise the timeout |
 | `no faces matching font family options` | No `SetFontFamilyExact` family is installed, or no preferred or default agg text font is available |
 | `SetFontFamily: cannot be combined with SetFontFamilyExact` | agg rejects both flags; pick one |
 | Renderer rejects the theme name | Named themes differ between agg and asg; use a custom hex palette for both |
-| `::: SetOptimize: gifsicle is not installed` | Warning only — the GIF was written unoptimized |
+| `::: SetOptimize: gifsicle is not installed` | Warning only — the GIF was written unoptimized; WebP and MP4 are unaffected |
+| `::: Highlight: not on screen, nothing selected` | Warning only — the text had not arrived, or it wraps across two rows; `Wait` for it, or highlight a shorter part of it |
 | `::: Set…: skipped for <output>` | Warning only — that renderer has no such option |
 | Variable is empty in the recording | It was expanded by the recording script — use single quotes in `Type` |
 | Setup commands are in the GIF | Move them above `Show`, or into `RunOffRecord` |

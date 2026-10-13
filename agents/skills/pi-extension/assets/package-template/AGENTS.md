@@ -15,11 +15,13 @@ event where each fact becomes observable and why an earlier event is not
 enough — that is the knowledge that is expensive to rediscover.}}
 
 ```text
-session_start      → {{rehydrate persisted state}}
-before_agent_start → {{own the prompt options / extend the prompt}}
-context            → {{read the final prompt and active tools}}
-message_end        → {{patch only the messages this extension owns}}
-agent_settled      → {{restore UI, resolve pending work}}
+session_start/session_tree → {{rehydrate active-branch state}}
+before_agent_start         → {{add structured prompt sections}}
+context                    → {{transform conversation without system messages}}
+context_with_system        → {{inspect/transform full request including system state}}
+message_end                → {{patch only the messages this extension owns}}
+turn_end/agent_before_settle → {{append context edits or request bounded continuation}}
+agent_settled              → {{restore UI, resolve pending work}}
 ```
 
 {{Document per subsystem: what is captured or computed, what is owned versus
@@ -30,7 +32,8 @@ fields; never recover meaning from display labels.}}
 
 {{Which state lives in the factory closure, how it is persisted
 (`pi.appendEntry("{{package}}:...", ...)` or tool result `details`), and how it
-is rebuilt in `session_start` so resume, reload, and fork behave identically.
+is rebuilt from `getBranch()` in `session_start` and `session_tree` so resume,
+reload, fork, and tree navigation follow the active branch.
 Namespace every custom type and status key with the package name.}}
 
 ## Privacy
@@ -58,7 +61,8 @@ Required invariants:
 - normal turns are unchanged when the extension is not invoked;
 - {{extension-specific invariant}};
 - {{extension-specific invariant}};
-- every rendered line respects width, and views reflow with width and height.
+- every rendered line respects width, and views reflow with width and height;
+- TUI views work in both `--tui-mode fullscreen` and `--tui-mode regular`.
 
 ## Dependencies
 

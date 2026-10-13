@@ -1,6 +1,6 @@
 {
-  "lastChangelogVersion": "0.84.4",
-  "theme": "dark",
+  "lastChangelogVersion": "1.2.0",
+  "theme": "dark-legacy",
   "defaultProvider": "anthropic",
   "defaultModel": "claude-opus-5",
   "defaultThinkingLevel": "xhigh",
@@ -30,13 +30,22 @@
       ]
     },
     "npm:pi-context-view",
-    "npm:@firstpick/pi-themes-bundle",
     "npm:@oresk/tidy-bash",
     "npm:@gotgenes/pi-anthropic-auth",
-    "npm:pi-ayu-themes",
+    {
+      "source": "npm:pi-ayu-themes",
+      "themes": [
+        "-themes/ayu-light.json"
+      ]
+    },
     "npm:pi-delete",
     "npm:@eko24ive/pi-ask",
-    "npm:@mblarsen/pi-update-changelog"
+    {
+      "source": "npm:@mblarsen/pi-update-changelog",
+      "extensions": [
+        "-index.ts"
+      ]
+    }
   ],
   "autocompleteMaxVisible": 10,
   "collapseChangelog": true,
@@ -44,12 +53,12 @@
     "anthropicExtraUsage": false
   },
   "enabledModels": [
-    "openai-codex/gpt-5.6-sol",
-    "anthropic/claude-opus-5",
-    "anthropic/claude-fable-5"
+    "anthropic/claude-opus-5-5",
+    "openai-codex/gpt-6-astra",
+    "openai-codex/gpt-6.1-sol"
   ],
   "showHardwareCursor": false,
-  "quietStartup": false,
+  "quietStartup": "header",
   "doubleEscapeAction": "none",
   "treeFilterMode": "no-tools",
   "hideThinkingBlock": false,
@@ -59,5 +68,6 @@
   },
   "tuiMode": "fullscreen",
   "fullscreenExitOutput": "resume-hint",
-  "fullscreenScrollbar": "auto"
+  "fullscreenScrollbar": "auto",
+  "fullscreenWheelScrollLines": 5
 }

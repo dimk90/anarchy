@@ -33,7 +33,7 @@ publishing an existing one; a single-file extension needs none of it.
 ```text
 package.json          peer "*" + exact dev pins, pi manifest, gallery image
 tsconfig.json         NodeNext + type-stripping-safe strict config
-pnpm-workspace.yaml   build approvals + release-age exclusion for pi packages
+pnpm-workspace.yaml   release-age exclusion + exact overrides for the Pi package family
 gitignore             → rename to .gitignore
 gitattributes         → rename to .gitattributes (git-lfs for doc/images)
 AGENTS.md             architecture / state / privacy / verification skeleton
@@ -44,6 +44,7 @@ doc/RELEASE.md        develop → master → tag → publish checklist
 src/index.ts          factory: registration, closure state, guards
 src/command.ts        pure command grammar (parse + completions)
 test/command.test.ts  node:test unit test for the pure helpers
+test/index.test.ts    active-branch state restoration test
 test/fixtures/marker.ts   another-extension fixture for load-order tests
 test/capture-view.sh  tmux harness that renders a view and captures the frame
 ```
@@ -71,7 +72,7 @@ Then replace every placeholder:
 | `{{command}}` | primary slash command without the leading `/` |
 | `{{arg-a}}`, `{{arg-b}}` | command arguments/views |
 | `{{scope}}` | changelog/commit scope tags |
-| `{{pi --version}}` | exact installed pi version |
+| `{{pi --version}}` | exact installed pi version (1.1.0 for this audited baseline) |
 | `{{commit-sha}}` | commit SHA pinning README/gallery media |
 | `{{demo}}` | base name of the demo image/GIF under `doc/images/` |
 
@@ -87,10 +88,14 @@ Verify with `rg '\{\{' .` before the first commit.
 - Bundled pi packages (`@earendil-works/pi-ai`, `@earendil-works/pi-agent-core`,
   `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`, `typebox`) go in
   `peerDependencies` with `"*"` and are never bundled. Pin the same versions
-  exactly in `devDependencies`, matching `pi --version`, so typecheck runs
-  against the pi the user actually runs. `"*"` resolves to whatever the running
-  pi ships, so schemas must stay inside the current typebox surface (1.3.x
-  since pi 0.83 — see [tools.md](tools.md#schema-rules) for the removed APIs).
+  exactly in `devDependencies`: the four Pi packages match `pi --version`;
+  `typebox` matches the host's own dependency version (1.3.27 in Pi 1.1.0),
+  **not** the Pi version. Declare the packages actually imported, plus any
+  required by the project's dependency policy. The template imports only
+  coding-agent and tui; add ai, agent-core, or typebox as needed.
+  Pi suppresses peer installation for managed packages, not arbitrary local
+  installs. Keep host packages out of runtime `dependencies` to avoid duplicate
+  classes/registries; Pi 1.1 warns about this manifest mistake.
 - Third-party runtime deps go in `dependencies` (pi runs `npm install` on
   install); other pi packages additionally need `bundledDependencies`.
 - `files` should ship `src` and `README.md` only — demo images and GIFs must
@@ -100,17 +105,25 @@ Verify with `rg '\{\{' .` before the first commit.
 
 ## TypeScript config
 
-`noEmit` with `allowImportingTsExtensions` (relative imports keep the `.ts`
+Use Node.js 22.19+ and an ES2024 target, matching Pi 1.1. `noEmit` with `allowImportingTsExtensions` (relative imports keep the `.ts`
 suffix, which is what pi's loader resolves), `verbatimModuleSyntax`, and
 `erasableSyntaxOnly` — type stripping rejects `enum`, `namespace`, and
 constructor parameter properties. `pnpm check` = `tsc --noEmit && pnpm test`.
 
 ## pnpm workspace
 
-`minimumReleaseAgeExclude: ["@earendil-works/pi-*"]` is required if the user's
+`minimumReleaseAgeExclude: ["@earendil-works/pi-*", "@earendil-works/chord"]`
+is required if the user's
 pnpm config delays fresh releases; without it, pinning the dev deps to a
-just-released pi fails. `allowBuilds` approves build scripts of pi's transitive
-dependencies under pnpm 10.
+just-released pi fails. `overrides` pins every `@earendil-works` package
+(including transitive `pi-codemode`, `pi-mcp`, `pi-telemetry`, `chord`) to
+`pi --version`: coding-agent depends on its siblings with caret ranges, so
+without overrides a newer transitive `pi-ai` installs beside the pinned one
+and `createProvider()` results fail to typecheck against `registerProvider()`.
+Check the installed coding-agent `dependencies` for new family members after
+each upgrade. Pi 1.1 needs no dependency lifecycle scripts for a
+normal installation; do not pre-approve transitive scripts. Add `allowBuilds`
+only for reviewed runtime dependencies that actually require them.
 
 ## Documentation set
 
@@ -146,14 +159,19 @@ Each file has one job; duplicated content rots.
   TypeScript natively; no test framework dependency). Render tests instantiate
   a `Theme` with recognizable per-color values and assert on the emitted
   sequences and `visibleWidth`.
-- `test/fixtures/marker.ts` simulates another extension that appends to the
-  system prompt and sends a hidden startup message. Load it before and after
-  the extension under test to prove load-order independence.
+- `test/fixtures/marker.ts` adds a structured prompt section and a hidden
+  startup message. Load it before and after the extension under test to prove
+  load-order independence. If inspecting prompts, also test a separate forced
+  `systemPrompt` override: structured deltas and forced text are not equivalent.
+- Rebuild branch-sensitive closure state from `getBranch()` on `session_start`
+  and `session_tree`; verify abandoned branch entries never win.
 
 ## TUI capture harness
 
 `test/capture-view.sh` renders a view in a detached tmux pane and writes the
-captured frame. The non-obvious parts, all of which cost real debugging time:
+captured frame. It defaults to `TUI_MODE=fullscreen` for Pi 1.1; also run
+with `TUI_MODE=regular`. Filenames include the mode so captures do not overwrite
+each other. Fresh captures use `--no-session`. The non-obvious parts:
 
 - Gate startup on `tmux display-message -p '#{pane_current_command}' == pi`;
   pane text matches the shell prompt that was drawn before pi started.
@@ -162,11 +180,15 @@ captured frame. The non-obvious parts, all of which cost real debugging time:
   on screen although pi never saw it. Retype with `C-u` first.
 - Copy a session file to a temp dir before opening it — pi and extensions
   append entries and would mutate the recording.
-- `pi -e .` alongside an installed copy produces duplicate commands; pi suffixes
-  them in load order (`/cmd:1` = working copy, `/cmd:2` = installed), which is
-  the way to diff working copy against release.
-- Write no capture when the view never rendered, so stale logs cannot be
-  mistaken for a fresh run.
+- The harness defaults to index `0` (unsuffixed command) for a single loaded
+  copy. `pi -e .` alongside an installed copy produces suffixed commands in
+  load order: pass `1` for `/cmd:1` (working copy), `2` for `/cmd:2` (installed).
+  Check completion labels when other copies are loaded; a lone command has no
+  `:1` alias.
+- Capture the live pane before closing a fullscreen interaction; terminal
+  scrollback is not the live viewport.
+- Fail without writing a capture when the view never rendered; check the exit
+  status and capture timestamp before reusing any older log.
 
 ## README media
 
@@ -180,8 +202,8 @@ so published media is immutable and independent of later branch changes.
 
 1. Release from `develop`; merge into `master` with `--no-ff`; tag the `master`
    merge commit; publish only from that tagged tree.
-2. Re-pin the pi dev dependencies to the locally installed `pi --version` and
-   refresh the lockfile before validating.
+2. Re-pin the Pi dev dependencies to the locally installed `pi --version`
+   (and typebox to the host's version if imported); refresh the lockfile.
 3. Datestamp the changelog, remove the shipped section from `doc/PLAN.md`, and
    confirm README/gallery media URLs point at the intended immutable revisions.
 4. Validate with `pnpm check` and `pnpm pack --dry-run` before committing, and
