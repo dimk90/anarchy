@@ -34,7 +34,7 @@ All helpers are sourced from the `common` file at the repo root. The local file 
 | Helper | Signature | Returns |
 |---|---|---|
 | `is_command_available` | `name` | 0 if `type -P name` finds an executable |
-| `gum` | `args...` | wrapper around the Gum executable; translates its raw-terminal Ctrl+C status (130) into script-wide SIGINT. Call normally—never bypass it with `command gum`. |
+| `gum` | `args...` | wrapper around the Gum executable; translates its raw-terminal Ctrl+C status (130) into script-wide SIGINT and keeps `gum style` colors inside `$(...)` under gum 2. Call normally—never bypass it with `command gum`. |
 | `assert` | `exit_code [message]` | exits 130 on interrupt status 130; otherwise exits 1 with styled `[ERROR]` if `exit_code != 0`. Message defaults to `¯\_(ツ)_/¯`. |
 | `regex_sanitize` | `regex_str` | echoes the literal string (strips metacharacters and unescapes). Inverse of the regex-quoting that `config_set_param`/etc. expect. |
 

@@ -2,6 +2,12 @@
 
 Versions track `COMMON_VERSION` in `common`; every entry ships as soon as it lands on `main`.
 
+## `[v2.18]` - 13.10.2026
+
+### Fixed
+* Keep `gum style` colors under gum 2, which strips them from output captured by `$(...)`.
+
+
 ## `[v2.17]` - 13.09.2026
 
 ### New
