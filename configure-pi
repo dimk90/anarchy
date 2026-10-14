@@ -250,7 +250,7 @@ install_config() {
     download_manifest
 
     # anchored patterns: a bare 'settings' also matches 'extension settings'
-    has_choice "$choices" '^settings$'           && install_group '^pi/settings\.json$'
+    has_choice "$choices" '^settings$'           && install_group '^pi/(settings\.json$|themes/)'
     has_choice "$choices" '^keybindings$'        && install_group '^pi/keybindings\.json$'
     has_choice "$choices" '^extension settings$' && install_group '^pi/extensions/'
     has_choice "$choices" '^global agents'       && install_group '^AGENTS\.md$'
