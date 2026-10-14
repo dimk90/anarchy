@@ -444,6 +444,14 @@ main() {
 
     ## Init
 
+    # Check inherited values before ensure_pnpm changes this process's environment
+    local shell_restart_needed=0
+    if [[ ${PNPM_HOME-} != "$PNPM_DIR" ||
+          ":${PATH}:" != *":${PNPM_DIR}:"* ||
+          ":${PATH}:" != *":${PNPM_DIR}/bin:"* ]]; then
+        shell_restart_needed=1
+    fi
+
     action_start_tui
 
     ## Discover files before offering configuration options
@@ -471,7 +479,9 @@ main() {
         has_choice "$choices" '^skills$' && install_skills
     fi
 
-    printf_info "Restart your shell to pick up PNPM_HOME and the updated PATH\n"
+    if [ "$shell_restart_needed" -eq 1 ]; then
+        printf_info "Restart your shell to pick up PNPM_HOME and the updated PATH\n"
+    fi
 
     return 0
 }
