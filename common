@@ -1611,7 +1611,7 @@ _common_handle_interrupt() {
     # Example:
     #   kill -INT "$$"
     #
-    printf_error '%b\n' 'interrupted'
+    printf_info '%b\n' 'interrupted'
     exit 130
 }
 
