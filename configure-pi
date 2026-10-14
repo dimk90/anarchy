@@ -458,7 +458,7 @@ main() {
 
     ## Required tools
 
-    action_require_packages --title 'Required Tools' 'nodejs' 'npm'
+    action_require_packages --title 'Required Tools' 'npm'
 
     ## Install pi itself - always, so a re-run doubles as an upgrade
 
