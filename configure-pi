@@ -64,6 +64,35 @@ export PNPM_PATH_FISH='fish_add_path "\$PNPM_HOME"'
 # shellcheck disable=SC2016
 export PNPM_PATH_FISH_BIN='fish_add_path "\$PNPM_HOME/bin"'
 
+# Validate current settings (argv[1]); when argv[2] is supplied, update that
+# downloaded file with the four current model settings, including absent keys.
+# Fails on unreadable files or JSON that is not an object. Produces no stdout.
+readonly PI_MERGE_SETTINGS_SCRIPT='
+    const fs = require("node:fs");
+
+    /** Read a settings object, throwing on unreadable or invalid JSON. */
+    function readSettings(file) {
+        const settings = JSON.parse(fs.readFileSync(file, "utf8"));
+        if (settings === null || typeof settings !== "object" || Array.isArray(settings)) {
+            throw new Error("Settings must be a JSON object");
+        }
+        return settings;
+    }
+
+    const current = readSettings(process.argv[1]);
+    if (process.argv[2]) {
+        const settings = readSettings(process.argv[2]);
+        for (const key of ["defaultProvider", "defaultModel", "defaultThinkingLevel", "enabledModels"]) {
+            if (Object.hasOwn(current, key)) {
+                settings[key] = current[key];
+            } else {
+                delete settings[key];
+            }
+        }
+        fs.writeFileSync(process.argv[2], JSON.stringify(settings, null, 2) + "\n");
+    }
+'
+
 # Per-user completion targets - no root required
 BASH_COMPLETION_FILE="${HOME}/.local/share/bash-completion/completions/pi"
 FISH_COMPLETION_FILE="${HOME}/.config/fish/completions/pi.fish"
@@ -279,6 +308,69 @@ manifest_dest() {
 }
 
 
+install_settings() {
+    #
+    # Offer to keep the four current model settings before replacing settings.json.
+    # Missing keys stay absent. If keeping unreadable or invalid settings, warn
+    # and skip this file. Otherwise back up the original before replacement.
+    # Exits with 1 on download, merge, backup or installation failure.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   install_settings
+    #
+    local dest="${PI_DIR}/settings.json"
+    local url="${AGENTS_URL}/pi/settings.json"
+
+    if [ ! -f "$dest" ]; then
+        action_install_file "$dest" "$url"
+        return 0
+    fi
+
+    printf_action 'Keep defaultProvider, defaultModel, defaultThinkingLevel and enabledModels from current settings.json? '
+    if ! ask_yn; then
+        action_install_file "$dest" "$url"
+        return 0
+    fi
+
+    if ! node -e "$PI_MERGE_SETTINGS_SCRIPT" -- "$dest" &>> "$LOG_FILE"; then
+        printf_action '%b Skipping settings.json: current file is unreadable or is not a valid JSON object; see %s\n' \
+            "$(bullet_warning)" "$LOG_FILE"
+        return 0
+    fi
+
+    # Scope temporary-file cleanup without replacing the caller's EXIT trap
+    (
+        local tmpfile='' command backup
+        trap '[ -z "$tmpfile" ] || rm -f "$tmpfile"' EXIT
+        tmpfile=$(mktemp)
+        assert $? "can't create temporary settings file"
+
+        printf -v command 'curl -fsSL %q -o %q' "$url" "$tmpfile"
+        action_run 'Download file: settings.json' "$command" 'done'
+        assert $? "can't download settings.json"
+
+        printf -v command 'node -e %q -- %q %q' "$PI_MERGE_SETTINGS_SCRIPT" "$dest" "$tmpfile"
+        action_run 'Keep current model settings' "$command" 'done'
+        assert $? "can't merge settings.json"
+
+        backup=$(backup_file "$dest")
+        assert $? "can't backup settings.json"
+        action_run "Backup settings.json -> ${backup##*/}" '' 'done'
+
+        chmod 0644 "$tmpfile" &>> "$LOG_FILE"
+        assert $? "can't set mode on temporary settings file"
+
+        printf -v command 'umask 022; cp --remove-destination -- %q %q' "$tmpfile" "$dest"
+        action_run "Install settings.json to $(pretty_path "$dest")" "$command" 'done'
+        assert $? "can't install settings.json"
+    )
+    assert $? "can't install settings.json"
+}
+
+
 install_files() {
     #
     # Install the given manifest paths with the usual per-file backups.
@@ -300,7 +392,11 @@ install_files() {
         mkdir -p "${dest%/*}"
         assert $? "can't create ${dest%/*}"
 
-        action_install_file "$dest" "${AGENTS_URL}/${rel}"
+        if [ "$rel" = 'pi/settings.json' ]; then
+            install_settings
+        else
+            action_install_file "$dest" "${AGENTS_URL}/${rel}"
+        fi
     done <<< "$files"
 }
 
