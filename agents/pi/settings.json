@@ -1,9 +1,6 @@
 {
-  "lastChangelogVersion": "1.2.0",
+  "lastChangelogVersion": "1.3.0",
   "theme": "dark-legacy",
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-opus-5",
-  "defaultThinkingLevel": "xhigh",
   "packages": [
     {
       "source": "npm:@javargasm/pi-usage-bars",
@@ -52,6 +49,9 @@
   "warnings": {
     "anthropicExtraUsage": false
   },
+  "defaultProvider": "anthropic",
+  "defaultModel": "claude-opus-5",
+  "defaultThinkingLevel": "xhigh",
   "enabledModels": [
     "anthropic/claude-opus-5-5",
     "openai-codex/gpt-6-astra",

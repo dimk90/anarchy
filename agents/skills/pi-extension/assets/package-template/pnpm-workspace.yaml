@@ -1,21 +1,10 @@
-# Pi 1.1 needs no dependency lifecycle scripts for normal installation.
-# Add allowBuilds entries only for reviewed dependencies that require them.
-
-# pi releases often, and the dev pins must match the locally installed pi, so
-# they must not be delayed by a minimum release age policy.
+# Pi releases often and the dev pins must match the local `pi --version`, so a
+# minimum release age policy must not delay Pi packages.
 minimumReleaseAgeExclude:
   - "@earendil-works/pi-*"
-  - "@earendil-works/chord"
 
-# Pi packages depend on each other with caret ranges, so a newer transitive
-# pi-ai can be installed next to the pinned one and break type identity
-# (e.g. createProvider() results). Pin the whole Pi family to `pi --version`.
-overrides:
-  "@earendil-works/pi-coding-agent": "{{pi --version}}"
-  "@earendil-works/pi-ai": "{{pi --version}}"
-  "@earendil-works/pi-agent-core": "{{pi --version}}"
-  "@earendil-works/pi-tui": "{{pi --version}}"
-  "@earendil-works/pi-codemode": "{{pi --version}}"
-  "@earendil-works/pi-mcp": "{{pi --version}}"
-  "@earendil-works/pi-telemetry": "{{pi --version}}"
-  "@earendil-works/chord": "{{pi --version}}"
+# Transitive install scripts that Pi does not need; deny them so pnpm does not
+# ask. Add `true` entries only for reviewed runtime dependencies that need one.
+allowBuilds:
+  "@google/genai": false
+  protobufjs: false

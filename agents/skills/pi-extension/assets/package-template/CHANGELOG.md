@@ -18,4 +18,7 @@ Conventions:
 - Every entry starts with a `[scope]` tag matching the commit-message scopes
   used in the repository (e.g. `[usage]`, `[ui]`, `[doc]`, `[package]`).
 - Entries describe user-visible effects, not internal refactors.
+- Keep each entry's text after the `[scope]` tag to about 80 characters.
+- Raising MIN_PI_VERSION gets a `[package] Require Pi X.Y.Z ...` entry; a
+  dev-pin-only Pi bump needs none.
 -->
