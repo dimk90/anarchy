@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# Mirror the live pi configuration into agents/ and regenerate manifest.txt.
+# Gather the live pi configuration into agents/ and regenerate manifest.txt.
+# Keep newer repository files when system copies differ.
 # Run this maintenance script from a repository checkout; it sources the local
 # common library for the same gum UI as configure-pi.
 #
@@ -133,6 +134,7 @@ stage_file() {
     #
     # Copy one file into the staging tree under its agents/ relative path.
     # Symlinks are dereferenced so GitHub Pages always publishes real files.
+    # Preserve modification times for freshness comparisons.
     #
     # Parameters:
     #   $1 - source - file to copy.
@@ -146,7 +148,7 @@ stage_file() {
     local destination="${STAGE_DIR}/${rel}"
 
     mkdir -p "$(dirname "$destination")" || return 1
-    cp -L "$source" "$destination"
+    cp -L --preserve=timestamps "$source" "$destination"
 }
 
 
@@ -212,7 +214,7 @@ gather_skills() {
     #   gather_skills || exit 1
     #
     mkdir -p "${STAGE_DIR}/skills" || return 1
-    cp -rL "${SKILLS_DIR}/." "${STAGE_DIR}/skills/"
+    cp -rL --preserve=timestamps "${SKILLS_DIR}/." "${STAGE_DIR}/skills/"
 }
 
 
@@ -237,7 +239,8 @@ gather_fixed_files() {
 plan_changes() {
     #
     # Compare staging with agents/ and write '+', '~' and '-' records to
-    # CHANGES_FILE. manifest.txt and this script remain unmanaged.
+    # CHANGES_FILE. Keep newer repository files and warn when system copies
+    # differ but are older. manifest.txt and this script remain unmanaged.
     #
     # Parameters:
     #   None.
@@ -254,6 +257,11 @@ plan_changes() {
         if [ ! -f "$destination" ]; then
             printf '+ %s\n' "$rel" >> "$CHANGES_FILE"
         elif ! cmp -s "${STAGE_DIR}/${rel}" "$destination"; then
+            if [[ "$destination" -nt "${STAGE_DIR}/${rel}" ]]; then
+                printf '%s differs: skipped older system copy; kept newer file in agents/\n' \
+                    "$rel" >> "$WARNINGS_FILE" || return 1
+                continue
+            fi
             printf '~ %s\n' "$rel" >> "$CHANGES_FILE"
         fi
     done < <(list_files "$STAGE_DIR")
@@ -288,7 +296,7 @@ apply_changes() {
         case $mark in
             '+'|'~')
                 mkdir -p "$(dirname "$destination")" || return 1
-                cp "${STAGE_DIR}/${rel}" "$destination" || return 1
+                cp --preserve=timestamps "${STAGE_DIR}/${rel}" "$destination" || return 1
                 ;;
             '-')
                 rm -f "$destination" || return 1
@@ -348,7 +356,7 @@ print_changes() {
 
 print_warnings() {
     #
-    # Print missing optional-source warnings at the end of the run.
+    # Print missing-source and freshness notices as indented list bullets.
     #
     # Parameters:
     #   None.
@@ -358,7 +366,9 @@ print_warnings() {
     #
     local message
     while IFS= read -r message; do
-        printf_warning "%s\n" "$message"
+        gum style --margin='0 0 0 8' -- \
+            "$(gum style --bold --foreground "$GUM_YELLOW" '•') $(gum style --faint "$message")" \
+            || return 1
     done < "$WARNINGS_FILE"
 }
 
@@ -431,7 +441,7 @@ main() {
                "$(count_label "$fixed_count" 'file')"
     assert $? "can't gather AGENTS.md and completions"
 
-    ## Mirror the staged tree and update its manifest
+    ## Sync newer staged files and update the manifest
 
     printf_section "Updating agents/\n"
 
