@@ -1140,6 +1140,8 @@ action_require_pacman_ready() {
     # Reject IgnorePkg/IgnoreGroup because they can hide pending upgrades.
     # Works before gum and logging start; a no-op for other package managers.
     # Exits through assert on failure; successful checks are not cached.
+    # Pending upgrades show a count and five-name preview; the full list goes
+    # to LOG_FILE.
     #
     # Parameters:
     #   None.
@@ -1167,7 +1169,21 @@ action_require_pacman_ready() {
     upgrades=$(_common_pacman_query pacman -Sup --print-format '%n')
     assert $? "can't preview pacman upgrades:\n${upgrades}"
     if [ -n "$upgrades" ]; then
-        assert 1 "pending pacman upgrades or replacements:\n${upgrades}\nread Arch News, complete sudo pacman -Syu outside this script, then rerun"
+        local upgrade_packages=() preview
+        mapfile -t upgrade_packages <<< "$upgrades"
+        printf -v preview '%s, ' "${upgrade_packages[@]:0:5}"
+        preview=${preview%, }
+        if [ "${#upgrade_packages[@]}" -gt 5 ]; then
+            preview+=" …and $((${#upgrade_packages[@]} - 5)) more"
+        fi
+
+        printf 'Pending pacman upgrades or replacements:\n%s\n' "$upgrades" >> "$LOG_FILE"
+        assert $? "can't write pending pacman upgrades to ${LOG_FILE}"
+
+        # A disabled logger points at /dev/null, which holds no list to show
+        local full_list=''
+        [ "$LOG_FILE" = '/dev/null' ] || full_list="\nfull list: ${LOG_FILE}"
+        assert 1 "${#upgrade_packages[@]} pending pacman upgrades or replacements:\n${preview}${full_list}\nread Arch News, complete sudo pacman -Syu outside this script, then rerun"
     fi
 
     return 0
