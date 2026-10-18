@@ -36,6 +36,8 @@ skills/pi-extension/assets/package-template/test/runtime.test.ts
 skills/pi-extension/assets/package-template/tsconfig.json
 skills/pi-extension/references/tui-style.md
 skills/python-code/SKILL.md
+skills/recipe-to-obsidian/SKILL.md
+skills/recipe-to-obsidian/references/example-pasta-salmon.md
 skills/s-vhs-recording/SKILL.md
 skills/shell-code/SKILL.md
 skills/skill-creator/SKILL.md
