@@ -124,7 +124,7 @@ build_config_list() {
             #   usage-extension-cache.json  usage cache
             #   trust.json                  trusted local directories
             auth.json|web-providers.json|models-store.json|usage-extension-cache.json|trust.json) ;;
-            AGENTS.md|*.jsonl|*.log) ;;
+            AGENTS.md|*.jsonl|*.log|package-lock.json|*/package-lock.json) ;;
             *) printf '%s\n' "$rel" ;;
         esac
     done < "$discovered" | LC_ALL=C sort > "$CONFIG_FILES"
@@ -207,7 +207,8 @@ gather_skills() {
     #
     # Stage all skills while dereferencing symlinks, including links inside a
     # skill such as SKILL.md pointing back to the project that owns it.
-    # Installed node_modules are skipped; package.json restores them.
+    # node_modules and package-lock.json are skipped; npm install recreates
+    # them from package.json.
     #
     # Parameters:
     #   None.
@@ -219,7 +220,7 @@ gather_skills() {
     while IFS= read -r rel; do
         stage_file "${SKILLS_DIR}/${rel}" "skills/${rel}" || return 1
     done < <(find -L "$SKILLS_DIR" -type d -name 'node_modules' -prune \
-                  -o -type f -printf '%P\n')
+                  -o -type f ! -name 'package-lock.json' -printf '%P\n')
 }
 
 
