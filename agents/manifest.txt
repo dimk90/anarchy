@@ -40,6 +40,8 @@ skills/recipe-to-obsidian/SKILL.md
 skills/recipe-to-obsidian/references/example-pasta-salmon.md
 skills/s-vhs-recording/SKILL.md
 skills/shell-code/SKILL.md
+skills/show-me/LICENSE
+skills/show-me/SKILL.md
 skills/skill-creator/SKILL.md
 skills/typescript-code/SKILL.md
 skills/youtube-transcript/SKILL.md
