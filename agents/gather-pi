@@ -110,7 +110,8 @@ build_config_list() {
     local discovered="${WORK_DIR}/discovered-config"
     find "$PI_DIR"                                                              \
          -type d \( -name 'sessions' -o -name 'npm' -o -name 'opt-extensions' \
-                     -o -name 'git' -o -name 'logs' -o -name 'skills' \) -prune \
+                     -o -name 'git' -o -name 'logs' -o -name 'skills'     \
+                     -o -name 'node_modules' \) -prune                     \
          -o -type f -printf '%P\n' > "$discovered" || return 1
 
     local rel
@@ -206,6 +207,7 @@ gather_skills() {
     #
     # Stage all skills while dereferencing symlinks, including links inside a
     # skill such as SKILL.md pointing back to the project that owns it.
+    # Installed node_modules are skipped; package.json restores them.
     #
     # Parameters:
     #   None.
@@ -213,8 +215,11 @@ gather_skills() {
     # Example:
     #   gather_skills || exit 1
     #
-    mkdir -p "${STAGE_DIR}/skills" || return 1
-    cp -rL --preserve=timestamps "${SKILLS_DIR}/." "${STAGE_DIR}/skills/"
+    local rel
+    while IFS= read -r rel; do
+        stage_file "${SKILLS_DIR}/${rel}" "skills/${rel}" || return 1
+    done < <(find -L "$SKILLS_DIR" -type d -name 'node_modules' -prune \
+                  -o -type f -printf '%P\n')
 }
 
 
