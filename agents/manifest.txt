@@ -42,3 +42,6 @@ skills/s-vhs-recording/SKILL.md
 skills/shell-code/SKILL.md
 skills/skill-creator/SKILL.md
 skills/typescript-code/SKILL.md
+skills/youtube-transcript/SKILL.md
+skills/youtube-transcript/package.json
+skills/youtube-transcript/transcript.js
