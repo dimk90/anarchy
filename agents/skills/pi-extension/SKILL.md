@@ -1,5 +1,6 @@
 ---
 name: pi-extension
+disable-model-invocation: true
 description: Create, extend, maintain, and release extensions for the pi coding agent (pi-coding-agent). Use when the user asks to build or change a pi extension, add tools/commands/shortcuts/flags/providers, hook lifecycle events, render TUI views, bootstrap a new pi extension package, test an extension, bump its Pi version, or release it. Provides the package template, project conventions, testing approach, and TUI style. Load together with code-style and typescript-code skills.
 compatibility: Node.js 22.19+ and pnpm. The template's release script also needs git, gum, curl, and npm access; demo media uses git-lfs.
 ---
