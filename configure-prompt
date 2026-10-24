@@ -58,7 +58,7 @@ select_components() {
 
     local items=('Iosevka Term font' 'Nerd Symbols font')
     if is_command_available 'fish'; then
-        items+=('Fish colors' 'Fish greeting' 'Fish key bindings')
+        items+=('Fish colors' 'Fish greeting' 'Fish text selection')
         fish_detect_leftovers
     fi
     is_command_available 'bash' && items+=('Bash key bindings')
@@ -365,7 +365,7 @@ fish_install_key_bindings() {
 
     local major="${version%%.*}"
     if ! [[ "$major" =~ ^[0-9]+$ ]] || [ "$major" -lt 4 ]; then
-        printf_action "%b ${STYLE_DIM}Key bindings need fish 4.0+, found ${STYLE_CLR}%s\n" \
+        printf_action "%b ${STYLE_DIM}Text selection needs fish 4.0+, found ${STYLE_CLR}%s\n" \
             "$(bullet_warning)" "${version:-unknown}"
         return 0
     fi
@@ -502,7 +502,7 @@ main() {
         export -f fish_enable_starship
         action_run 'Enable starship' 'fish_enable_starship' 'done'
 
-        has_choice "$COMPONENTS" 'fish key bindings' && fish_install_key_bindings
+        has_choice "$COMPONENTS" 'fish text selection' && fish_install_key_bindings
     fi
 
     ## Bash
