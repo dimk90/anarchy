@@ -38,6 +38,23 @@ function __anarchy_selection_kill --description 'Delete the selected text to the
     commandline -f kill-selection end-selection
 end
 
+# Replacing the selection by typing or pasting is one kill plus one insert. These
+# two wrap them in a single undo step. The group opens only when a selection is
+# active: an undo group stops consecutive typed characters from being undone
+# together, so grouping every keypress would make each character its own step.
+function __anarchy_selection_replace_begin --description 'Kill the selection as the first half of one undo step, if there is one'
+    set -q __anarchy_selection_active; or return 0
+    commandline -f begin-undo-group
+    set -g __anarchy_selection_undo_open
+    __anarchy_selection_kill
+end
+
+function __anarchy_selection_replace_end --description 'Close the undo step opened by __anarchy_selection_replace_begin'
+    set -q __anarchy_selection_undo_open; or return 0
+    set -e __anarchy_selection_undo_open
+    commandline -f end-undo-group
+end
+
 function __anarchy_selection_move --description 'Clear the selection, then run the given motion'
     __anarchy_selection_clear
     # Some default motions are plain fish functions rather than special input
@@ -111,10 +128,10 @@ function fish_user_key_bindings
     # punctuation below needs its own binding because it also expands
     # abbreviations. ctrl-v and shift-insert paste from the system clipboard;
     # ctrl-x copies the selection on its own already.
-    bind '' __anarchy_selection_kill self-insert
+    bind '' __anarchy_selection_replace_begin self-insert __anarchy_selection_replace_end
     for key in space ';' '|' '&' '>' '<' ')'
-        bind $key __anarchy_selection_kill self-insert expand-abbr
+        bind $key __anarchy_selection_replace_begin self-insert expand-abbr __anarchy_selection_replace_end
     end
-    bind ctrl-v      '__anarchy_selection_kill; fish_clipboard_paste'
-    bind shift-insert '__anarchy_selection_kill; fish_clipboard_paste'
+    bind ctrl-v       '__anarchy_selection_replace_begin; fish_clipboard_paste; __anarchy_selection_replace_end'
+    bind shift-insert '__anarchy_selection_replace_begin; fish_clipboard_paste; __anarchy_selection_replace_end'
 end
