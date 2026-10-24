@@ -47,6 +47,10 @@ The full pattern — skeleton, output flow, helpers, privilege handling —
 lives in the `anarchy-script` skill (`.agents/skills/anarchy-script/SKILL.md`);
 use it for any script authoring or editing.
 
+Esc in any `gum` menu or input means "stop": the script must exit without making
+further changes, never fall back to a default and continue. Details in the skill's
+Selection Menus section.
+
 ### Directory Layout
 
 - Root scripts: `install-*`, `configure-*`, `create-user`, and `wipe-disk` are the executable entry points

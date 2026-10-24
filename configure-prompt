@@ -46,12 +46,13 @@ select_components() {
     # COMPONENTS. Starship itself is not listed - it is the point of the script.
     # Shell entries are offered only when that shell is installed. Cleanup is
     # offered only when legacy fish state exists, and is not selected by default.
+    # Returns 1 on cancel; an empty selection is not a cancel.
     #
     # Parameters:
     #   None.
     #
     # Example:
-    #   select_components
+    #   select_components || return 0
     #
     printf_section "Components\n"
 
@@ -81,12 +82,11 @@ select_components() {
     header=$(prefix_printf "$(bullet_action)" 'Select optional components:\n')
 
     local choices
-    if choices=$(gum choose --no-limit --selected="$selected_items" \
-                            --cursor="      > "                 \
-                            --header="${header}"                \
-                            "${items[@]}"); then
-        COMPONENTS=${choices,,} # lowercase for matching
-    fi
+    choices=$(gum choose --no-limit --selected="$selected_items" \
+                         --cursor="      > "                 \
+                         --header="${header}"                \
+                         "${items[@]}") || return 1
+    COMPONENTS=${choices,,} # lowercase for matching
 
     local num_choice
     num_choice=$([ -n "$COMPONENTS" ] && wc -l <<< "$COMPONENTS" || echo 0)
@@ -97,13 +97,13 @@ select_components() {
 select_theme() {
     #
     # Ask which starship theme to install and store the answer in THEME.
-    # Keeps its default on an aborted menu, so the caller always has a theme.
+    # Returns 1 on cancel.
     #
     # Parameters:
     #   None.
     #
     # Example:
-    #   select_theme
+    #   select_theme || return 0
     #
     local header
     header=$(prefix_printf "$(bullet_action)" 'Select starship theme (default: pure):\n')
@@ -111,7 +111,7 @@ select_theme() {
     THEME=$(gum choose --cursor="      > "  \
                        --header="${header}" \
                        --limit=1            \
-                       'pure' 'capsule' 'pure-text') || THEME='pure'
+                       'pure' 'capsule' 'pure-text') || return 1
     printf_action "Starship theme: ${STYLE_CLR}${THEME}\n"
 }
 
@@ -464,8 +464,8 @@ main() {
 
     ## Components
 
-    select_components
-    select_theme
+    select_components || return 0
+    select_theme || return 0
 
     ## Starship
 

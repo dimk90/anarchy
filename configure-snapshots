@@ -258,7 +258,7 @@ select_limine_options() {
     # Ask which optional Limine components to set up. Only the root target
     # boots snapshots, so this is skipped entirely for a home-only run. Sets
     # WANT_THEME / WANT_FLATTEN, and LIMINE_FONT when the theme is selected.
-    # Returns 1 on cancel.
+    # Returns 1 on cancel of either menu.
     #
     local choices
     choices=$(action_choose_items 'Select Limine Options'                            \
@@ -277,7 +277,7 @@ select_limine_options() {
         LIMINE_FONT=$(gum choose --cursor='      > '  \
                                  --header="${header}" \
                                  --limit=1            \
-                                 'spleen' 'terminus' 'profont' 'default') || LIMINE_FONT='spleen'
+                                 'spleen' 'terminus' 'profont' 'default') || return 1
         printf_action "Limine menu font: ${STYLE_CLR}${LIMINE_FONT}\n"
     fi
 

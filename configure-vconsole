@@ -17,34 +17,49 @@ source <(echo "$COMMON")
 set +o errexit # disable exit on non-zero exit code
 
 
+## Globals
+
+
+# Console font picked in the up-front menu
+FONT='terminus'
+
+
 ## Routines
+
+
+select_font() {
+    #
+    # Ask which console font to install and store the answer in FONT.
+    # Returns 1 on cancel, so the caller can stop before any change is made.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   select_font || return 0
+    #
+    local header
+    header=$(prefix_printf "$(bullet_action)" 'Select console font (default: terminus):\n')
+
+    FONT=$(gum choose --cursor="      > " \
+                      --header="${header}" \
+                      --limit=1            \
+                      'terminus' 'spleen' 'profont') || return 1
+    printf_action "Console font: ${STYLE_CLR}${FONT}\n"
+}
 
 
 install_font() {
     #
-    # Install and set console font: terminus (default), spleen, or profont
+    # Install and set the console font picked by select_font
     #
     printf_section "Installing font\n"
 
-    ## Select font
-
-    local header
-    header=$(prefix_printf "$(bullet_action)" 'Select console font (default: terminus):\n')
-
-    local choice
-    choice=$(gum choose --cursor="      > " \
-                        --header="${header}" \
-                        --limit=1            \
-                        'terminus' 'spleen' 'profont') || choice='terminus'
-    printf_action "Console font: ${STYLE_CLR}${choice}\n"
-
-    ## Install selected font
-
     local font_name
-    if [ "$choice" = 'terminus' ]; then
+    if [ "$FONT" = 'terminus' ]; then
         action_require_package 'terminus-font'
         font_name='ter-128b'
-    elif [ "$choice" = 'profont' ]; then
+    elif [ "$FONT" = 'profont' ]; then
         # profont ships as a bundled PSF; kbd provides the consolefonts dir + setfont
         action_require_package 'kbd'
         action_request_permission 'to install profont-16x32.psfu'
@@ -221,6 +236,10 @@ main() {
     if [ -z "$choices" ]; then
         echo
         return 0
+    fi
+
+    if has_choice "$choices" 'font'; then
+        select_font || return 0
     fi
 
     ## Create backup of /etc/vconsole.conf if needed

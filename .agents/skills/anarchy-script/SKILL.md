@@ -386,7 +386,17 @@ has_choice "$choices" 'keybindings' && do_keybindings
 
 Pass `--label 'tools'` before the title to render `Selected tools: N` instead of `Selected items: N`.
 
-Use `gum choose` directly when the menu needs a different header level, cursor indent, or selected-default set. For single-select, use `--limit=1` and a default fallback via `|| choice='pure'`. The fallback applies to Esc and other ordinary cancellation only; Ctrl+C is intercepted by `common` and aborts the whole script with status 130.
+Use `gum choose` directly when the menu needs a different header level, cursor indent, or selected-default set. For single-select, use `--limit=1`.
+
+**Esc cancels the script.** Every menu's cancel must propagate up to `main` and end it with `return 0` before any further step runs. Never swallow it with a default (`|| choice='pure'`) or an `if choices=$(gum choose ...)` that falls through — the user pressed Esc to stop, not to accept the default. A `select_*` helper returns 1 on cancel and `main` calls it as `select_x || return 0`:
+
+```bash
+THEME=$(gum choose --limit=1 'pure' 'capsule') || return 1  # inside select_theme
+
+select_theme || return 0                                     # inside main
+```
+
+Ask every question before the first change, so a cancel never leaves a half-applied run — move a menu up front instead of showing it mid-way (`configure-vconsole:select_font`). Ctrl+C needs no handling: `common` intercepts it and aborts the whole script with status 130.
 
 ## Filename convention
 
