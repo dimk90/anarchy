@@ -43,6 +43,16 @@ PI_PACKAGE='@earendil-works/pi-coding-agent'
 PI_DIR="${HOME}/.pi/agent"
 SKILLS_DIR="${PI_DIR}/skills"
 
+# npm global prefix that lets 'npm install -g pnpm' run without sudo
+NPM_PREFIX_DIR="${HOME}/.local"
+
+# Startup lines that put the npm prefix bin directory on PATH, written as ERE
+# for config_set_param like the pnpm lines below. Exported for the same reason.
+# shellcheck disable=SC2016
+export LOCAL_BIN_PATH_BASH='export PATH="\$HOME/\.local/bin:\$PATH"'
+# shellcheck disable=SC2016
+export LOCAL_BIN_PATH_FISH='fish_add_path "\$HOME/\.local/bin"'
+
 # pnpm home: 'pnpm add -g' refuses to link binaries until PNPM_HOME is set and
 # its bin directory is on PATH. pnpm <= 10 links into PNPM_HOME itself,
 # pnpm >= 11 into PNPM_HOME/bin - both end up on PATH.
@@ -110,15 +120,97 @@ MANIFEST=''
 # as a duplicate skill.
 SKILLS_BACKUP_DIR=''
 
+# 1 when npm's global prefix must be moved to NPM_PREFIX_DIR before pnpm
+# is installed. Set by select_npm_prefix, consumed by ensure_pnpm.
+NPM_SET_PREFIX=0
+
 
 ## Routines
 
 
+select_npm_prefix() {
+    #
+    # Decide whether npm's global prefix must move to NPM_PREFIX_DIR so pnpm
+    # installs without sudo. Needed only when pnpm is missing: always when npm
+    # is missing too, after user confirmation when the current prefix is not
+    # writable. Returns 1 when the user declines.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   select_npm_prefix || return 0
+    #
+    is_command_available 'pnpm' && return 0
+
+    if ! is_command_available 'npm'; then
+        NPM_SET_PREFIX=1
+        return 0
+    fi
+
+    local prefix
+    prefix=$(npm config get prefix 2>> "$LOG_FILE")
+    [[ -n $prefix && -w $prefix ]] && return 0
+
+    printf_action 'npm global prefix %s needs root. Set it to %s to install pnpm without sudo? ' \
+        "${prefix:-unknown}" "$(pretty_path "$NPM_PREFIX_DIR")"
+    ask_yn || return 1
+
+    NPM_SET_PREFIX=1
+}
+
+
+set_npm_prefix() {
+    #
+    # Point npm's global prefix at NPM_PREFIX_DIR and put its bin directory
+    # on PATH for future bash and fish sessions.
+    # Exits with 1 on failure.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   set_npm_prefix
+    #
+    action_run "Set npm prefix to ${STYLE_CLR}$(pretty_path "$NPM_PREFIX_DIR")" \
+        "npm config set prefix '${NPM_PREFIX_DIR}'" 'done'
+    assert $? "can't set npm prefix"
+
+    export -f local_bin_add_to_path
+    action_run "Add ${STYLE_CLR}$(pretty_path "${NPM_PREFIX_DIR}/bin")${STYLE_DIM} to PATH" \
+        'local_bin_add_to_path' 'done'
+    assert $? "can't add ${NPM_PREFIX_DIR}/bin to PATH"
+}
+
+
+# Runs inside action_run, so common's exported helpers do the work
+# shellcheck disable=SC2329
+local_bin_add_to_path() {
+    #
+    # Add ~/.local/bin to the PATH of bash and, when installed, fish.
+    # Idempotent - config_set_param skips lines that are already there.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   local_bin_add_to_path
+    #
+    config_set_param ~/.bashrc "$LOCAL_BIN_PATH_BASH" || return 1
+
+    is_command_available 'fish' || return 0
+
+    mkdir -p ~/.config/fish || return 1
+    config_set_param ~/.config/fish/config.fish "$LOCAL_BIN_PATH_FISH"
+}
+
+
 ensure_pnpm() {
     #
-    # Install pnpm globally with npm when missing and put its global bin
-    # directories on PATH, both for this run and for future shell sessions.
-    # Exits with 1 when the install fails.
+    # Install pnpm globally with npm when missing - without sudo, moving npm's
+    # global prefix first when select_npm_prefix asked for it - and put pnpm's
+    # global bin directories on PATH, both for this run and for future shell
+    # sessions. Exits with 1 when the install fails.
     #
     # Parameters:
     #   None.
@@ -130,10 +222,16 @@ ensure_pnpm() {
         action_run "Check ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'pnpm')" \
             '' 'exists'
     else
-        action_request_permission 'to install pnpm globally'
+        [ "$NPM_SET_PREFIX" -eq 1 ] && set_npm_prefix
+
         action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" 'pnpm')$(gum style --faint ' with npm')" \
-            "$(check_sudo) npm install -g pnpm" 'installed'
+            'npm install -g pnpm' 'installed'
         assert $? 'npm failed to install pnpm'
+
+        # Shell rc files only reach new sessions; this run needs pnpm right away
+        local npm_prefix
+        npm_prefix=$(npm config get prefix 2>> "$LOG_FILE")
+        export PATH="${npm_prefix}/bin:${PATH}"
     fi
 
     # pnpm resolves its global bin directory from PNPM_HOME and refuses to link
@@ -547,6 +645,8 @@ main() {
           ":${PATH}:" != *":${PNPM_DIR}/bin:"* ]]; then
         shell_restart_needed=1
     fi
+    local local_bin_on_path=0
+    [[ ":${PATH}:" == *":${NPM_PREFIX_DIR}/bin:"* ]] && local_bin_on_path=1
 
     action_start_tui
 
@@ -559,6 +659,7 @@ main() {
 
     local choices
     choices=$(choose_config) || return 0
+    select_npm_prefix || return 0
 
     ## Required tools
 
@@ -573,6 +674,10 @@ main() {
     if [ -n "$choices" ]; then
         install_config "$choices"
         has_choice "$choices" '^skills$' && install_skills
+    fi
+
+    if [ "$NPM_SET_PREFIX" -eq 1 ] && [ "$local_bin_on_path" -eq 0 ]; then
+        shell_restart_needed=1
     fi
 
     if [ "$shell_restart_needed" -eq 1 ]; then
