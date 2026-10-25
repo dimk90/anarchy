@@ -491,8 +491,10 @@ install_sync_tool() {
 install_limine_bootloader() {
     #
     # Seed the ESP with the Limine binary and install the pacman hook that
-    # redeploys it on every limine upgrade. Step of the "Installing Limine"
-    # section.
+    # redeploys it on every limine upgrade. An existing binary is kept: after
+    # the Secure Boot step it carries the sbctl signature and the enrolled
+    # config checksum, and a fresh copy would drop both. Step of the
+    # "Installing Limine" section.
     #
     action_request_permission 'to deploy Limine to the ESP'
     action_run "Create ${STYLE_CLR}/boot/EFI/limine"  \
@@ -501,6 +503,12 @@ install_limine_bootloader() {
     assert $? "can't create /boot/EFI/limine"
 
     action_install_file '/etc/pacman.d/hooks/99-limine.hook' "$LIMINE_HOOK_URL" "$(check_sudo)"
+
+    # /boot is root-only (umask 0077), so the existence test needs root.
+    if as_root test -f "$LIMINE_EFI_DST"; then
+        action_run "Limine binary ${STYLE_CLR}${LIMINE_EFI_DST##*/}" '' 'present'
+        return 0
+    fi
 
     action_run "Deploy ${STYLE_CLR}${LIMINE_EFI_DST##*/}${STYLE_DIM} to the ESP"  \
         "as_root cp '$LIMINE_EFI_SRC' '$LIMINE_EFI_DST' && as_root sync"          \
