@@ -234,6 +234,10 @@ ensure_pnpm() {
         export PATH="${npm_prefix}/bin:${PATH}"
     fi
 
+    # Inherited from a shell whose rc files already set it - no need to report
+    local pnpm_home_set=0
+    [ "${PNPM_HOME-}" = "$PNPM_DIR" ] && pnpm_home_set=1
+
     # pnpm resolves its global bin directory from PNPM_HOME and refuses to link
     # binaries that aren't reachable, so both must apply to the current process
     export PNPM_HOME="$PNPM_DIR"
@@ -241,7 +245,7 @@ ensure_pnpm() {
 
     local shells
     shells=$(env_set_permanent 'PNPM_HOME' "$PNPM_DIR")
-    [ -n "$shells" ] && action_run "Set PNPM_HOME for ${STYLE_CLR}${STYLE_BOLD}${shells}"
+    [ -n "$shells" ] && [ "$pnpm_home_set" -eq 0 ] && action_run "Set PNPM_HOME for ${STYLE_CLR}${STYLE_BOLD}${shells}"
 
     export -f pnpm_add_to_path
     action_run 'Add pnpm bin directories to PATH' 'pnpm_add_to_path' 'done'
@@ -639,11 +643,12 @@ main() {
     ## Init
 
     # Check inherited values before ensure_pnpm changes this process's environment
-    local shell_restart_needed=0
-    if [[ ${PNPM_HOME-} != "$PNPM_DIR" ||
-          ":${PATH}:" != *":${PNPM_DIR}:"* ||
+    local pnpm_home_set=0
+    [ "${PNPM_HOME-}" = "$PNPM_DIR" ] && pnpm_home_set=1
+    local path_update_needed=0
+    if [[ ":${PATH}:" != *":${PNPM_DIR}:"* ||
           ":${PATH}:" != *":${PNPM_DIR}/bin:"* ]]; then
-        shell_restart_needed=1
+        path_update_needed=1
     fi
     local local_bin_on_path=0
     [[ ":${PATH}:" == *":${NPM_PREFIX_DIR}/bin:"* ]] && local_bin_on_path=1
@@ -677,11 +682,13 @@ main() {
     fi
 
     if [ "$NPM_SET_PREFIX" -eq 1 ] && [ "$local_bin_on_path" -eq 0 ]; then
-        shell_restart_needed=1
+        path_update_needed=1
     fi
 
-    if [ "$shell_restart_needed" -eq 1 ]; then
+    if [ "$pnpm_home_set" -eq 0 ]; then
         printf_info "Restart your shell to pick up PNPM_HOME and the updated PATH\n"
+    elif [ "$path_update_needed" -eq 1 ]; then
+        printf_info "Restart your shell to pick up the updated PATH\n"
     fi
 
     return 0
