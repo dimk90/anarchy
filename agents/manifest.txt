@@ -11,13 +11,13 @@ skills/agents-md/SKILL.md
 skills/code-style/SKILL.md
 skills/commit/SKILL.md
 skills/pi-extension/SKILL.md
-skills/pi-extension/assets/package-template/.github/workflows/release.yml
 skills/pi-extension/assets/package-template/AGENTS.md
 skills/pi-extension/assets/package-template/CHANGELOG.md
 skills/pi-extension/assets/package-template/README.md
 skills/pi-extension/assets/package-template/doc/ARCHITECTURE.md
 skills/pi-extension/assets/package-template/doc/RELEASE.md
 skills/pi-extension/assets/package-template/gitattributes
+skills/pi-extension/assets/package-template/github/workflows/release.yml
 skills/pi-extension/assets/package-template/gitignore
 skills/pi-extension/assets/package-template/package.json
 skills/pi-extension/assets/package-template/pnpm-workspace.yaml

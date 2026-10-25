@@ -29,7 +29,7 @@ Pick the smallest shape that fits:
 ```bash
 skill=~/.pi/agent/skills/pi-extension/assets/package-template
 cp -r "$skill/." ./my-ext/ && cd my-ext
-mv gitignore .gitignore && mv gitattributes .gitattributes
+mv gitignore .gitignore && mv gitattributes .gitattributes && mv github .github
 rg '\{\{' .   # replace every placeholder before the first commit
 ```
 
