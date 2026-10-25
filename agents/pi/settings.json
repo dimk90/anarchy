@@ -1,42 +1,43 @@
 {
-  "lastChangelogVersion": "1.3.0",
+  "lastChangelogVersion": "1.4.0",
 
   "theme": "dark-legacy",
   "tuiMode": "fullscreen",
   "fullscreenExitOutput": "resume-hint",
   "fullscreenScrollbar": "auto",
   "fullscreenWheelScrollLines": 5,
+  "autocompleteMaxVisible": 10,
+  "quietStartup": "header",
+  "hideThinkingBlock": false,
+  "doubleEscapeAction": "none",
+  "treeFilterMode": "no-tools",
 
-  "defaultProvider": "anthropic",
+  "defaultTools": ["+codemode"],
+  "codemode": {
+    "mode": "on"
+  },
   
+  "defaultProvider": "anthropic",
   "defaultModel": "claude-opus-5",
   "defaultThinkingLevel": "medium",
-  
   "enabledModels": [
     "anthropic/claude-opus-5-5",
     "openai-codex/gpt-6-astra",
     "openai-codex/gpt-6.1-sol"
   ],
-  
-  "autocompleteMaxVisible": 10,
+
   "collapseChangelog": true,
   "warnings": {
     "anthropicExtraUsage": false
   },
-  
-  
-  "quietStartup": "header",
-  "hideThinkingBlock": false,
 
   "showHardwareCursor": false,
   "showCacheMissNotices": false,
-  "doubleEscapeAction": "none",
-  "treeFilterMode": "no-tools",
 
   "compaction": {
     "enabled": true
   },
- 
+
   "packages": [
     {
       "source": "npm:@javargasm/pi-usage-bars",
@@ -80,5 +81,4 @@
       ]
     }
   ]
-
 }
