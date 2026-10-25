@@ -481,8 +481,8 @@ install_sync_tool() {
     #
     action_require_pacman_ready
     action_request_permission 'to install AUR packages with yay'
-    action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$AUR_SYNC_TOOL")"  \
-        "yay -S --needed --noconfirm ${AUR_SYNC_TOOL}"                             \
+    action_run "Install ${STYLE_CLR}$(gum style --bold --foreground "$GUM_YELLOW" "$AUR_SYNC_TOOL")$(gum style --faint ' (may take a few minutes)')"  \
+        "yay -S --needed --noconfirm ${AUR_SYNC_TOOL}"                                                                                                \
         'done'
     assert $? "can't install ${AUR_SYNC_TOOL}"
 }
