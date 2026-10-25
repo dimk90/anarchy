@@ -129,9 +129,19 @@ tasks, or when the user asks not to do it.
   terser form is possible.
 - Comments explain **why**, not **what**: document non-obvious decisions and
   gotchas. No comments restating the code, no commented-out code.
-- No period at the end of short one- or two-line comments, inline or on their
-  own line. Periods stay in prose that reads as sentences: doc comments, file
-  headers, section preambles, and any multi-sentence comment.
+- Line comments (`//`, `#`, `--`) end without a period when they hold one
+  sentence, however long and whether inline, on one line, or wrapped across
+  several. Only a comment with two or more sentences uses periods, after every
+  sentence including the last:
+
+  ```
+  // Pi compares declarations as plain JSON, so schema key order matters
+  // Only unwrapped gaps are additions. Sections after cwd still belong to the
+  // prompt, even when an earlier handler never saw them.
+  ```
+
+- Doc comments (JSDoc, docstrings) and file headers are prose: keep their
+  periods.
 - When a comment enumerates parallel cases — flags, modes, alternatives — list
   them one per line in two aligned columns (case, then meaning) under an
   introductory line ending in `:`, instead of packing them into
