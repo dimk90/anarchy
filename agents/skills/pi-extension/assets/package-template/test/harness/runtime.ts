@@ -21,7 +21,7 @@ import {
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
 
-import { type MockApi, type MockProvider, startMockProvider } from "./mock-provider.ts";
+import { type MockProvider, startMockProvider } from "./mock-provider.ts";
 import { useSettings } from "./settings.ts";
 
 /** Provider name under which the mock model is registered. */
@@ -34,11 +34,12 @@ export const MOCK_MODEL = "mock";
 export interface RuntimeOptions {
 	/** Extension factories in load order, such as the extension and test fixtures. */
 	readonly extensions: readonly ExtensionFactory[];
-	/** API the mock model speaks; defaults to OpenAI Completions. */
-	readonly api?: MockApi;
 	/** Active tools; defaults to none. */
 	readonly tools?: readonly string[];
-	/** Mode the extensions are bound in; defaults to `"rpc"`, where `ctx.hasUI` is true without a terminal. */
+	/**
+	 * Value of `ctx.mode`; defaults to Pi's `"print"`. It attaches no UI in any mode: `ctx.hasUI` stays false
+	 * and `ctx.ui` calls do nothing.
+	 */
 	readonly mode?: ExtensionContext["mode"];
 }
 
@@ -54,7 +55,6 @@ type Model = NonNullable<ExtensionContext["model"]>;
 
 /** Start a runtime that is disposed, with its provider and directory, when the test ends. */
 export async function createRuntime(t: TestContext, options: RuntimeOptions): Promise<Runtime> {
-	const api = options.api ?? "openai-completions";
 	const provider = await startMockProvider();
 	t.after(() => provider.close());
 	// After hooks run in registration order: the session must stop before its directory is removed
@@ -70,12 +70,12 @@ export async function createRuntime(t: TestContext, options: RuntimeOptions): Pr
 	const modelRuntime = await ModelRuntime.create({
 		authPath: join(directory, "auth.json"), modelsPath: null, refreshOnCreate: false, allowModelNetwork: false,
 	});
-	const model = createMockModel(provider, api);
+	const model = createMockModel(provider);
 	const resourceLoader = new DefaultResourceLoader({
 		cwd: directory, agentDir: directory, settingsManager,
 		noExtensions: true, noSkills: true, noPromptTemplates: true, noThemes: true, noContextFiles: true,
 		extensionFactories: [
-			(pi) => pi.registerProvider(MOCK_PROVIDER, { api, baseUrl: model.baseUrl, apiKey: "mock-key", models: [model] }),
+			(pi) => pi.registerProvider(MOCK_PROVIDER, { api: model.api, baseUrl: model.baseUrl, apiKey: "mock-key", models: [model] }),
 			...options.extensions,
 		],
 	});
@@ -89,16 +89,16 @@ export async function createRuntime(t: TestContext, options: RuntimeOptions): Pr
 	assert.deepEqual(extensionsResult.errors, []);
 	const errors: string[] = [];
 	await session.bindExtensions({
-		mode: options.mode ?? "rpc",
+		mode: options.mode,
 		onError: (error) => { errors.push(`${error.event}: ${error.error}`); },
 	});
 	return { session, provider, errors };
 }
 
-/** The text-only mock model for `api`, served by `provider`. */
-function createMockModel(provider: MockProvider, api: MockApi): Model {
+/** The text-only mock model served by `provider`. */
+function createMockModel(provider: MockProvider): Model {
 	return {
-		provider: MOCK_PROVIDER, id: MOCK_MODEL, name: MOCK_MODEL, api, baseUrl: provider.baseUrls[api],
+		provider: MOCK_PROVIDER, id: MOCK_MODEL, name: MOCK_MODEL, api: "openai-completions", baseUrl: provider.baseUrl,
 		reasoning: false, input: ["text"], contextWindow: 100_000, maxTokens: 128,
 		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	};

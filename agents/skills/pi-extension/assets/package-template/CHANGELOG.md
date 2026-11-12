@@ -1,6 +1,6 @@
 # Changelog
 
-## `[v0.1.0]` - Unreleased
+## [0.0.1] - Unreleased
 
 ### New
 * `[{{scope}}]` {{User-visible addition, one line, imperative mood.}}
@@ -13,7 +13,9 @@
 
 <!--
 Conventions:
-- Newest version first; `## `[vX.Y.Z]` - DD.MM.YYYY`, `Unreleased` until release.
+- Newest version first; `## [X.Y.Z] - DD.MM.YYYY`, `Unreleased` until release.
+  No `v` prefix or backticks: Pi parses these headings to show the entries
+  newer than the installed version after a package update.
 - Sections in order: New, Changed, Fixed; omit empty ones.
 - Every entry starts with a `[scope]` tag matching the commit-message scopes
   used in the repository (e.g. `[usage]`, `[ui]`, `[doc]`, `[package]`).

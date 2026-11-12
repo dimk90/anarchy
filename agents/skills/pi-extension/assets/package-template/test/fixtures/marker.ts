@@ -4,6 +4,9 @@
  *
  * Load it before and after the extension under test (`pi -e ./test/fixtures/marker.ts
  * -e .` and the reverse) to prove behavior is load-order independent.
+ *
+ * Optional: only useful for extensions that change the prompt, messages, or
+ * provider requests. Delete it together with `test/load-order.test.ts` otherwise.
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 

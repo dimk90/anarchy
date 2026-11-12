@@ -17,8 +17,13 @@ npm install
 ## Usage
 
 ```bash
-{baseDir}/transcript.js <video-id-or-url>
+{baseDir}/transcript.js <video-id-or-url> [lang]
 ```
+
+Without `lang`, the first caption track is used. It may be a translation
+(for example `en` for a Russian video). Pass the language code of the
+original track (`ru`, `fi`, …) when you need it. With an unknown code, the
+error message lists the available languages.
 
 Accepts video ID or full URL:
 - `EBw7gsDPAYQ`

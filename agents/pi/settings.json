@@ -1,54 +1,44 @@
 {
-  "lastChangelogVersion": "1.4.0",
-
-  "theme": "dark-legacy",
+  "theme": "dark",
   "tuiMode": "fullscreen",
   "fullscreenExitOutput": "resume-hint",
   "fullscreenScrollbar": "auto",
   "fullscreenWheelScrollLines": 5,
-  "autocompleteMaxVisible": 10,
+  "autocompleteMaxVisible": 5,
   "quietStartup": "header",
   "hideThinkingBlock": false,
   "doubleEscapeAction": "none",
   "treeFilterMode": "no-tools",
-
-  "defaultTools": ["+codemode"],
+  "defaultTools": [
+    "+codemode"
+  ],
   "codemode": {
     "mode": "on"
   },
-  
+  "cacheWarming": "idle",
   "defaultProvider": "anthropic",
   "defaultModel": "claude-opus-5",
   "defaultThinkingLevel": "medium",
   "enabledModels": [
     "anthropic/claude-opus-5-5",
-    "openai-codex/gpt-6-astra",
-    "openai-codex/gpt-6.1-sol"
+    "openai/gpt-6.1-sol",
+    "openai/gpt-6-astra",
+    "anthropic/claude-fable-5-2"
   ],
-
   "collapseChangelog": true,
   "warnings": {
     "anthropicExtraUsage": false
   },
-
   "showHardwareCursor": false,
   "showCacheMissNotices": false,
-
   "compaction": {
     "enabled": true
   },
-
   "packages": [
     {
       "source": "npm:@javargasm/pi-usage-bars",
       "extensions": [
         "+extensions/usage-bars/index.ts"
-      ]
-    },
-    {
-      "source": "npm:pi-web-providers",
-      "extensions": [
-        "+dist/index.js"
       ]
     },
     {
@@ -74,10 +64,11 @@
     },
     "npm:pi-delete",
     "npm:@eko24ive/pi-ask",
+    "npm:webfox",
     {
-      "source": "npm:@mblarsen/pi-update-changelog",
+      "source": "npm:pi-tui-prompt-box",
       "extensions": [
-        "-index.ts"
+        "+src/index.ts"
       ]
     }
   ]

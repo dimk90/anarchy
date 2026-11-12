@@ -8,6 +8,56 @@ section as the GitHub release notes.
 > [!Note]
 > Automatic checks and release via `scripts/release.sh`
 
+## First publish
+
+`scripts/release.sh` needs a version already on npm, so the first publish is
+manual. Version `0.0.1` is a minimal proof of concept that holds the package
+name: no merge into `master`, no tag, and no GitHub release.
+
+1. Confirm npm access and that the name is still free (expect a 404):
+
+   ```bash
+   pnpm whoami
+   ```
+   ```bash
+   pnpm view {{package}}
+   ```
+
+1. Check that `package.json` has version `0.0.1` and replace `Unreleased` for
+   `[0.0.1]` in `CHANGELOG.md` with the publish date in `DD.MM.YYYY` format.
+   To keep the proof of concept off the pi.dev package list, leave the
+   `pi-package` keyword out of `package.json` until the package is stable.
+
+1. Validate the package:
+
+   ```bash
+   pnpm check
+   ```
+   ```bash
+   pnpm pack --dry-run
+   ```
+
+1. Commit the reviewed files on `develop` and publish from that clean commit.
+   Do not push a `v0.0.1` tag: it starts the GitHub release workflow.
+
+   ```bash
+   git commit -m "[doc] Release v0.0.1"
+   ```
+   ```bash
+   pnpm publish --no-git-checks --access public
+   ```
+
+1. Confirm that npm reports the published version:
+
+   ```bash
+   pnpm view {{package}} version
+   ```
+
+## Release
+
+Use these steps, or `scripts/release.sh`, for every version after the first
+publish.
+
 1. Confirm npm access and make sure the version has not already been published:
 
    ```bash
@@ -17,11 +67,9 @@ section as the GitHub release notes.
    pnpm view {{package}}
    ```
 
-1. Check the local pi version and update the exact
-   `@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`,
-   `@earendil-works/pi-ai`, and `@earendil-works/pi-agent-core` development
-   pins in `package.json` to match it. Keep all four peer dependencies as
-   `"*"`, then refresh `pnpm-lock.yaml`:
+1. Check the local pi version and update the exact development pin of every
+   `@earendil-works/pi-*` package in `package.json` to match it. Keep their
+   peer dependencies as `"*"`, then refresh `pnpm-lock.yaml`:
 
    ```bash
    pi --version

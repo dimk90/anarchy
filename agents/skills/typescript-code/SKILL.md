@@ -16,6 +16,15 @@ formatter/linter config always wins over the defaults below.
 
 - Tabs for indentation, line width 120, double quotes, semicolons.
 - Numeric separators for large literals: `2_147_483_647`.
+- Put the body of a brace-less `if` on its own indented line, even when it
+  would fit on the condition line:
+
+  ```ts
+  if (innerWidth < 1)
+  	return this.chat.handleMouse?.(event);
+  ```
+
+  Not `if (innerWidth < 1) return this.chat.handleMouse?.(event);`.
 - When a call exceeds the line width, break arguments one per line, or keep
   short leading arguments on the call line and break the rest — pick whichever
   reads better:

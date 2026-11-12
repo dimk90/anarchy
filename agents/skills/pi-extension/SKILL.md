@@ -47,6 +47,8 @@ rg '\{\{' .   # replace every placeholder before the first commit
 Then add `LICENSE` (MIT, author, year), run `pnpm install` and `pnpm check`,
 and create `develop` and `master` branches (the release flow uses both).
 Delete `src/pi-version.ts` and its test only when no Pi version floor matters.
+Delete `test/fixtures/marker.ts` and `test/load-order.test.ts` when the
+extension never changes the prompt, messages, or provider requests.
 
 ## Project Conventions
 
@@ -61,14 +63,17 @@ Delete `src/pi-version.ts` and its test only when no Pi version floor matters.
 - **Persisted shapes.** Session files keep old entry `data` and tool
   `details`. Keep reading old shapes; map old tool arguments with
   `prepareArguments()` instead of loosening the schema.
-- **Pi dependencies.** All four Pi packages (`pi-coding-agent`, `pi-tui`,
-  `pi-ai`, `pi-agent-core`) are `"*"` peer dependencies with exact dev pins
-  matching `pi --version`; never in `dependencies`. Third-party runtime deps
+- **Pi dependencies.** Declare only the Pi packages the code imports
+  (`pi-coding-agent`, `pi-tui`, `pi-ai`, `pi-agent-core`), each as a `"*"`
+  peer dependency with an exact dev pin matching `pi --version`; never in
+  `dependencies`. The template declares `pi-coding-agent` and `pi-tui`; when
+  unsure what the extension will handle (UI, models and providers, agent
+  loop), ask the user before adding or removing one. Third-party runtime deps
   go in `dependencies`.
 - **Version floor.** `MIN_PI_VERSION` in `src/pi-version.ts` refuses older Pi:
   the factory registers only the command, which reports the required version.
-- **Published files.** `files` ships `src` and `README.md` only; verify with
-  `pnpm pack --dry-run`. There is no build step: Pi loads `src/**.ts`.
+- **Published files.** `files` ships `src`, `README.md`, and `CHANGELOG.md`
+  only; verify with `pnpm pack --dry-run`. There is no build step: Pi loads `src/**.ts`.
 - **Media.** Images live in `doc/images/` under git-lfs and are referenced by
   `https://media.githubusercontent.com/media/<owner>/<repo>/<commit-sha>/doc/images/<file>`,
   so README and `pi.image` stay immutable.
@@ -76,6 +81,11 @@ Delete `src/pi-version.ts` and its test only when no Pi version floor matters.
   `doc/ARCHITECTURE.md` (lifecycle, modules, state, invariants; split into
   `doc/architecture/` pages when it grows), `README.md` (users, including an
   honest Context Footprint), `CHANGELOG.md`, `doc/RELEASE.md`.
+- **Changelog.** Since Pi 1.5, Pi reads the package's `CHANGELOG.md` after
+  an update and shows the entries newer than the last seen version. It
+  parses `## [X.Y.Z]` headings only: no `v` prefix or backticks. The
+  template uses `## [X.Y.Z] - DD.MM.YYYY`, which `scripts/release.sh` and
+  the release workflow also check.
 - **TUI style.** Custom views follow [references/tui-style.md](references/tui-style.md).
 
 ## Modifying an Existing Extension
@@ -94,12 +104,15 @@ model unless the user asks:
 
 1. **Unit** — pure modules with `node:test`.
 2. **Runtime** — `test/harness/runtime.ts` runs the pinned Pi in process
-   against the loopback mock provider (`test/harness/mock-provider.ts`):
-   scripted text, tool calls, delays, and HTTP errors for OpenAI Completions,
-   OpenAI Responses, and Anthropic. Provider hooks run and request bodies are
-   recorded. Load `test/fixtures/marker.ts` before and after the extension to
-   prove load-order independence; add an `after_provider_response` sentinel
-   when zero provider requests is an invariant.
+   against the loopback mock provider (`test/harness/mock-provider.ts`),
+   which records request bodies and streams scripted text replies in the
+   OpenAI Completions format. Provider hooks run. Extend the mock when the
+   extension needs more: other APIs, tool calls, delays, or HTTP errors. `test/runtime.test.ts` compares a normal turn's request with and
+   without the extension. Only when the extension changes the prompt,
+   messages, or provider requests, keep `test/load-order.test.ts`: it loads
+   `test/fixtures/marker.ts` before and after the extension to prove
+   load-order independence. Add an `after_provider_response` sentinel when
+   zero provider requests is an invariant.
 3. **Real PTY** — TUI behavior, only when explicitly requested.
 
 `pnpm test` runs `test/run.ts`: all files in one process, concurrently. So no
@@ -132,7 +145,7 @@ tmux kill-session -t ext-test
 
 1. Read the installed Pi `CHANGELOG.md` for every release between the current
    pin and `pi --version`, not only the target release.
-2. Set the four Pi dev pins to the new version and run `pnpm install`.
+2. Set every Pi dev pin to the new version and run `pnpm install`.
 3. Run `pnpm check`; fix breakages and recheck the lifecycle assumptions in
    `doc/ARCHITECTURE.md` against the changelog.
 4. Raise `MIN_PI_VERSION` only when the extension now relies on new Pi
@@ -144,3 +157,8 @@ tmux kill-session -t ext-test
 Follow `doc/RELEASE.md`; `scripts/release.sh` runs every check, asks for one
 approval, then commits, merges `develop` into `master`, tags, pushes, waits
 for the GitHub release workflow, and publishes to npm.
+
+The first publish is manual ("First publish" in `doc/RELEASE.md`): the script
+needs a version already on npm. The template starts at `0.0.1`, a minimal
+proof of concept that holds the npm name; publish it early, without a tag or
+GitHub release, and leave the `pi-package` keyword out until it is stable.

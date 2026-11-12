@@ -21,13 +21,6 @@ readonly _RELEASE_PUBLICATION_ATTEMPTS=90
 readonly _RELEASE_PUBLICATION_INTERVAL=10
 readonly _RELEASE_DEVELOP_BRANCH='develop'
 readonly _RELEASE_MASTER_BRANCH='master'
-# Pi packages that must stay `*` peer dependencies with exact development pins
-readonly _RELEASE_PI_PACKAGES=(
-    pi-coding-agent
-    pi-tui
-    pi-ai
-    pi-agent-core
-)
 readonly _RELEASE_ALLOWED_PATHS=(
     CHANGELOG.md
     doc/PLAN.md
@@ -441,21 +434,26 @@ _release_check_package_metadata() {
     # Example:
     #   _release_check_package_metadata
     #
-    local package_name pi_version package peer pin
+    local package_name pi_version pi_packages package peer pin
     local peers_valid=true pins_valid=true peer_report='' pin_report=''
 
     package_name="$(_release_package_value 'name')"
     pi_version="$(pi --version 2>/dev/null | tr -d '\r\n')"
     pi_version="${pi_version#v}"
     [[ $pi_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || pins_valid=false
-    for package in "${_RELEASE_PI_PACKAGES[@]}"; do
+    # Every Pi package the extension declares must stay a `*` peer dependency
+    # with an exact development pin
+    pi_packages="$(_release_pi_packages)"
+    [[ -n $pi_packages ]] || peers_valid=false
+    while IFS= read -r package; do
+        [[ -n $package ]] || continue
         peer="$(_release_package_value "peerDependencies.@earendil-works/${package}")"
         pin="$(_release_package_value "devDependencies.@earendil-works/${package}")"
         [[ $peer == '*' ]] || peers_valid=false
         [[ $pin == "$pi_version" ]] || pins_valid=false
         peer_report+="$(printf '\n%s: %s' "$package" "${peer:-missing}")"
         pin_report+="$(printf '\n%s: %s' "$package" "${pin:-missing}")"
-    done
+    done <<< "$pi_packages"
 
     if [[ $package_name == "$_RELEASE_PACKAGE_NAME" ]]; then
         _release_pass "package identity is ${_RELEASE_PACKAGE_NAME}"
@@ -492,8 +490,8 @@ _release_check_changelog() {
 
     # Literal regex: $ anchors the heading and must not expand
     # shellcheck disable=SC2016
-    changelog_pattern='^## `\[v([0-9]+\.[0-9]+\.[0-9]+)\]` - (.+)$'
-    changelog_heading="$(grep -m 1 -E '^## `\[v[0-9]' CHANGELOG.md)"
+    changelog_pattern='^## \[([0-9]+\.[0-9]+\.[0-9]+)\] - (.+)$'
+    changelog_heading="$(grep -m 1 -E '^## \[[0-9]' CHANGELOG.md)"
     if [[ ! $changelog_heading =~ $changelog_pattern ]]; then
         _release_block 'unable to parse the latest CHANGELOG.md version heading' \
                        "${changelog_heading:-no version heading found}"
@@ -1538,6 +1536,33 @@ _release_http_status() {
 
     curl -L -sS -H 'Cache-Control: no-cache' \
          -o /dev/null -w '%{http_code}' "$url"
+}
+
+
+_release_pi_packages() {
+    #
+    # Print the Pi package names, without the @earendil-works/ scope, that
+    # package.json declares as peer or development dependencies, one per line.
+    #
+    # Parameters:
+    #   None.
+    #
+    # Example:
+    #   pi_packages="$(_release_pi_packages)"
+    #
+    node -e '
+        const fs = require("node:fs");
+        const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
+        const names = new Set([
+            ...Object.keys(packageJson.peerDependencies ?? {}),
+            ...Object.keys(packageJson.devDependencies ?? {}),
+        ]);
+        const piPackages = [...names]
+            .filter((name) => name.startsWith("@earendil-works/pi-"))
+            .map((name) => name.slice("@earendil-works/".length))
+            .sort();
+        process.stdout.write(piPackages.join("\n"));
+    '
 }
 
 

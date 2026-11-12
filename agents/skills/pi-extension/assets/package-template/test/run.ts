@@ -6,8 +6,7 @@
  * file, and the top-level tests of all files run concurrently, so tests that
  * wait on timers or child processes overlap. In exchange, a test must not
  * change process-wide state in a way other tests can observe, and a file must
- * not register top-level hooks, which would apply to every file. See "Harness"
- * in doc/architecture/validation.md.
+ * not register top-level hooks, which would apply to every file.
  */
 import { globSync } from "node:fs";
 import { resolve } from "node:path";

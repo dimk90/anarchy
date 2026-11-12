@@ -127,6 +127,41 @@ tasks, or when the user asks not to do it.
   `has_children`).
 - Prefer clean, readable code over compactness — favor clarity even when a
   terser form is possible.
+- Separate logical groups inside a function body with a blank line: keep a
+  variable together with the check that uses it or the statements that set it
+  up, start a new group where the code moves on to the next variable, and set
+  the final `return` apart:
+
+  ```
+  const innerWidth = event.width - LEFT_MARGIN - RIGHT_MARGIN;
+  if (innerWidth < 1)
+  	return this.chat.handleMouse?.(event);
+
+  const x = event.x - LEFT_MARGIN;
+  if (x < 0 || x >= innerWidth)
+  	return undefined;
+
+  return this.chat.handleMouse?.({ ...event, x, width: innerWidth });
+  ```
+
+  ```
+  const document = new Container();
+  document.addChild(new Container());
+  document.addChild(chat);
+
+  const root = new Container();
+  root.addChild(document);
+  ```
+
+  A body of only two single-line statements is one group: leave out the blank
+  line, even before the final `return`:
+
+  ```
+  function createProbe(): { filter: ProbeFilter; probe: SilentProbe } {
+  	const filter = new ProbeFilter();
+  	return { filter, probe: new SilentProbe(filter) };
+  }
+  ```
 - Comments explain **why**, not **what**: document non-obvious decisions and
   gotchas. No comments restating the code, no commented-out code.
 - Line comments (`//`, `#`, `--`) end without a period when they hold one

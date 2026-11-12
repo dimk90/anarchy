@@ -30,6 +30,7 @@ skills/pi-extension/assets/package-template/test/fixtures/marker.ts
 skills/pi-extension/assets/package-template/test/harness/mock-provider.ts
 skills/pi-extension/assets/package-template/test/harness/runtime.ts
 skills/pi-extension/assets/package-template/test/harness/settings.ts
+skills/pi-extension/assets/package-template/test/load-order.test.ts
 skills/pi-extension/assets/package-template/test/pi-version.test.ts
 skills/pi-extension/assets/package-template/test/run.ts
 skills/pi-extension/assets/package-template/test/runtime.test.ts
