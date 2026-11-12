@@ -39,6 +39,19 @@ BASH_COMPLETION_FILE="${HOME}/.local/share/bash-completion/completions/pi"
 FISH_COMPLETION_FILE="${HOME}/.config/fish/completions/pi.fish"
 
 
+# Read settings from argv[1] and print portable JSON; fail on invalid JSON or I/O
+# JavaScript source passed as one quoted argument, not a shell command
+# shellcheck disable=SC2089
+readonly PI_GATHER_SETTINGS_SCRIPT='
+    const fs = require("node:fs");
+    const settings = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    delete settings.deviceId;
+    delete settings.lastChangelogVersion;
+    delete settings.extensionChangelogVersions;
+    process.stdout.write(JSON.stringify(settings, null, 2) + "\n");
+'
+
+
 ## Globals
 
 
@@ -187,6 +200,7 @@ stage_fixed_file() {
 gather_config() {
     #
     # Stage every path selected by build_config_list under pi/.
+    # Strip installation identity and changelog state from settings.json only.
     #
     # Parameters:
     #   None.
@@ -197,6 +211,12 @@ gather_config() {
     local rel
     while IFS= read -r rel; do
         stage_file "${PI_DIR}/${rel}" "pi/${rel}" || return 1
+        if [ "$rel" = 'settings.json' ]; then
+            node -e "$PI_GATHER_SETTINGS_SCRIPT" -- "${PI_DIR}/${rel}" \
+                > "${STAGE_DIR}/pi/${rel}" || return 1
+            # Filtering must not make an older system copy appear newer
+            touch --reference="${PI_DIR}/${rel}" "${STAGE_DIR}/pi/${rel}" || return 1
+        fi
     done < "$CONFIG_FILES"
 }
 
@@ -393,6 +413,9 @@ main() {
 
     printf_section "Verifying Prerequisites\n"
 
+    action_run 'Node.js' 'is_command_available node' 'present' 'missing'
+    assert $? 'Node.js is required to filter pi settings'
+
     # Literal command strings: action_run's child shell expands exported paths
     # shellcheck disable=SC2016
     action_run "Pi config directory ${STYLE_CLR}$(pretty_path "$PI_DIR")" \
@@ -487,6 +510,9 @@ main() {
 export AGENTS_DIR MANIFEST_FILE PI_DIR SKILLS_DIR BASH_COMPLETION_FILE FISH_COMPLETION_FILE
 export GATHER_SCRIPT_NAME WORK_DIR STAGE_DIR CONFIG_FILES CHANGES_FILE WARNINGS_FILE
 export STAGED_MANIFEST
+# Export literal JavaScript for gather_config's child shell
+# shellcheck disable=SC2090
+export PI_GATHER_SETTINGS_SCRIPT
 export -f stage_file stage_fixed_file gather_config gather_skills gather_fixed_files
 export -f apply_changes write_manifest
 
