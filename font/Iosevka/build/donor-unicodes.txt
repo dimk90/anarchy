@@ -1,0 +1,75 @@
+# Symbols missing in Iosevka Term, donated from Noto Sans Symbols and Noto Sans Symbols 2.
+# Narrow (non-W East Asian Width) code points only, emoji-wide symbols are excluded.
+
+# Miscellaneous Technical
+U+232C          # ⌬
+U+238C          # ⎌
+U+2398-239A     # ⎘⎙⎚
+U+23E6-23E7     # ⏦⏧
+
+# Miscellaneous Symbols
+U+2601-2604     # ☁☂☃☄
+U+2608          # ☈
+U+260E-260F     # ☎☏
+U+2616-261B     # ☖☗☘☙☚☛
+U+2620          # ☠
+U+2622-2623     # ☢☣
+U+262E-262F     # ☮☯
+U+263D-263E     # ☽☾
+U+2654-265F     # ♔♕♖♗♘♙♚♛♜♝♞♟
+U+2668          # ♨
+U+2672-267D     # ♲♳♴♵♶♷♸♹♺♻♼♽
+U+2692          # ⚒
+U+2694-2697     # ⚔⚕⚖⚗
+U+269E-269F     # ⚞⚟
+U+26A2-26A9     # ⚢⚣⚤⚥⚦⚧⚨⚩
+U+26BF-26C3     # ⚿⛀⛁⛂⛃
+U+26C6-26CA     # ⛆⛇⛈⛉⛊
+U+26CC-26CD     # ⛌⛍
+U+26CF-26D3     # ⛏⛐⛑⛒⛓
+U+26D5-26D9     # ⛕⛖⛗⛘⛙
+U+26DB-26DC     # ⛛⛜
+U+26DF-26E1     # ⛟⛠⛡
+U+26E8-26E9     # ⛨⛩
+U+26EB-26EC     # ⛫⛬
+U+26F0-26F1     # ⛰⛱
+U+26F4          # ⛴
+U+26F7-26F9     # ⛷⛸⛹
+U+26FB-26FC     # ⛻⛼
+U+26FE-26FF     # ⛾⛿
+
+# Dingbats
+U+2700-2704     # ✀✁✂✃✄
+U+2706-2709     # ✆✇✈✉
+U+270C-2712     # ✌✍✎✏✐✑✒
+U+2719          # ✙
+U+2729-2730     # ✩✪✫✬✭✮✯✰
+U+2735          # ✵
+U+274D          # ❍
+U+274F-2752     # ❏❐❑❒
+U+275B-2760     # ❛❜❝❞❟❠
+U+2762-2763     # ❢❣
+U+2765-276B     # ❥❦❧❨❩❪❫
+U+2772-2775     # ❲❳❴❵
+U+2798-279B     # ➘➙➚➛
+U+279F-27A0     # ➟➠
+U+27A8-27AF     # ➨➩➪➫➬➭➮➯
+U+27B1-27BE     # ➱➲➳➴➵➶➷➸➹➺➻➼➽➾
+
+# Miscellaneous Symbols and Arrows
+U+2B4E-2B4F     # ⭎⭏
+U+2B56-2B57     # ⭖⭗
+U+2B5A-2B5F     # ⭚⭛⭜⭝⭞⭟
+U+2B76-2B79     # ⭶⭷⭸⭹
+U+2B88-2B8B     # ⮈⮉⮊⮋
+U+2B97-2B9F     # ⮗⮘⮙⮚⮛⮜⮝⮞⮟
+U+2BA8-2BB7     # ⮨⮩⮪⮫⮬⮭⮮⮯⮰⮱⮲⮳⮴⮵⮶⮷
+U+2BC9          # ⯉
+U+2BD3-2BE7     # ⯓⯔⯕⯖⯗⯘⯙⯚⯛⯜⯝⯞⯟⯠⯡⯢⯣⯤⯥⯦⯧
+U+2BF0-2BF9     # ⯰⯱⯲⯳⯴⯵⯶⯷⯸⯹
+
+# Geometric Shapes Extended
+U+1F7C0-1F7D9   # 🟀🟁🟂🟃🟄🟅🟆🟇🟈🟉🟊🟋🟌🟍🟎🟏🟐🟑🟒🟓🟔🟕🟖🟗🟘🟙
+
+# Supplemental Arrows-C
+U+1F890-1F8AD   # 🢐🢑🢒🢓🢔🢕🢖🢗🢘🢙🢚🢛🢜🢝🢞🢟🢠🢡🢢🢣🢤🢥🢦🢧🢨🢩🢪🢫🢬🢭
